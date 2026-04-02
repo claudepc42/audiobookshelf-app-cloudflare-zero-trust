@@ -296,12 +296,16 @@
   "MessageAudiobookshelfServerRequired": "<strong>Důležité!</strong> Tato aplikace je navržena, aby pracovala se serverem Audiobookshelf, který hostuje buď vy, nebo někdo, koho znáte. Tato aplikace neposkytuje žádný obsah.",
   "MessageBookshelfEmpty": "Knihovna je prázdná",
   "MessageConfirmAppExit": "Opravdu chcete opustit aplikaci?",
+  "MessageConfirmDeleteEpisodeDownloadQueue": "Přejete si skutečně vymazat frontu stahování epizod?",
   "MessageConfirmDeleteLocalEpisode": "Odebrat místní epizodu „{0}“ ze zařízení? Soubor na serveru zůstane nezměněný.",
   "MessageConfirmDeleteLocalFiles": "Odebrat místní soubory této položky ze zařízení? Soubory na serveru a váš pokrok nebudou ovlivněny.",
+  "MessageConfirmDeleteServerConfig": "Odebrat tuto konfiguraci serveru?",
+  "MessageConfirmDeleteServerEpisode": "Přejete si skutečně odstranit epizodu \"{0}\" z serveru?\nUpozornění: Toto odstraní zvukový soubor.",
   "MessageConfirmDisableAutoTimer": "Určitě chcete vypnout automatický časovač pro zbytek dnešního dne? Časovač bude opět aktivován po uběhnutí doby automatického spánku nebo po restartování aplikace.",
   "MessageConfirmDiscardProgress": "Opravdu chcete zahodit svůj pokrok?",
   "MessageConfirmDownloadUsingCellular": "Chystáte se stahovat přes mobilní data. Toto může zahrnovat poplatky za mobilní data. Chcete pokračovat?",
   "MessageConfirmMarkAsFinished": "Opravdu chcete tuto položku označit jako dokončenou?",
+  "MessageConfirmPlaybackTime": "Spustit přehrávání pro \"{0}\" v {1}?",
   "MessageConfirmRemoveBookmark": "Opravdu chcete odebrat záložku?",
   "MessageConfirmStreamingUsingCellular": "Chystáte se přehrávat přes mobilní data. Toto může zahrnovat poplatky za mobilní data. Chcete pokračovat?",
   "MessageDiscardProgress": "Zahodit pokrok",
@@ -366,5 +370,7 @@
   "ToastPodcastCreateSuccess": "Podcast byl úspěšně vytvořen",
   "ToastRSSFeedCloseFailed": "Nepodařilo se zavřít RSS kanál",
   "ToastRSSFeedCloseSuccess": "RSS kanál uzavřen",
-  "ToastStreamingNotAllowedOnCellular": "Přehrávání přes mobilní data není povoleno"
+  "ToastStreamingNotAllowedOnCellular": "Přehrávání přes mobilní data není povoleno",
+  "UnitMinutesShort": "{0}m",
+  "UnitSecondsShort": "{0}s"
 }
