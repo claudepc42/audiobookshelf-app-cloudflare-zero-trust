@@ -318,7 +318,7 @@
   "MessageFetching": "Aan het ophalen...",
   "MessageFollowTheProjectOnGithub": "Volg dit project op Github",
   "MessageItemDownloadCompleteFailedToCreate": "Itemdownload voltooid, maar het aanmaken van een bibliotheekitem is mislukt",
-  "MessageItemMissing": "Item ontbreekt en moet bewerkt worden op de server. Een item is typisch gemarkeerd als ontbrekend wanneer het file pad niet toegankelijk is.",
+  "MessageItemMissing": "Item is niet beschikbaar en moet opgelost worden op de server. Meestal is een item gemarkeerd als missend in verband met niet bereikbare bestandspaden.",
   "MessageLoading": "Aan het laden...",
   "MessageLoadingServerData": "Server data laden...",
   "MessageLocalFolderDescription": "'Interne app-opslag' is alleen toegankelijk voor deze app. Deze app ondersteunt alleen media die rechtstreeks via de app is gedownload. Gedeelde opslagmappen kunnen worden gebruikt om andere apps toegang te geven tot media die door deze app zijn gedownload.",
