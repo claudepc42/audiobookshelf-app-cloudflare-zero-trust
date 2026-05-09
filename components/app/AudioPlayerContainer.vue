@@ -304,48 +304,102 @@ export default {
       this.$refs.audioPlayer?.seek(currentTime)
     },
     /**
-     * When device gains focus then refresh the timestamps in the audio player
+     * Fetch the current user's media progress from the server for a given library item / episode.
+     * Returns the server media progress object, or null if the request fails, times out, or the
+     * response doesn't match the requested library item.
+     *
+     * The audio player's loading state is shown while the request is in flight so the user
+     * doesn't tap play before we have a chance to update the timestamps. The request timeout
+     * is 7 seconds so a slow/unresponsive server doesn't block the user for long.
      */
-    deviceFocused(hasFocus) {
-      if (!this.$store.state.currentPlaybackSession) return
+    async getServerMediaProgress({ libraryItemId, episodeId }) {
+      if (!libraryItemId) return null
+      const url = episodeId ? `/api/me/progress/${libraryItemId}/${episodeId}` : `/api/me/progress/${libraryItemId}`
 
-      if (hasFocus) {
+      this.$refs.audioPlayer?.setIsCheckingServerProgress(true)
+      try {
+        const data = await this.$nativeHttp.get(url, { connectTimeout: 7000, readTimeout: 7000 })
+        if (!data || data.libraryItemId !== libraryItemId) return null
+        return data
+      } catch (error) {
+        console.error('[AudioPlayerContainer] Failed to get server media progress', error)
+        return null
+      } finally {
+        this.$refs.audioPlayer?.setIsCheckingServerProgress(false)
+      }
+    },
+    /**
+     * When device gains focus then refresh the timestamps in the audio player
+     * if local item is open then fetch the server media progress and update if more recent
+     */
+    async deviceFocused(hasFocus) {
+      if (!this.$store.state.currentPlaybackSession) return
+      if (!hasFocus) return
+      // dont refresh timestamps if player is playing
+      if (this.$refs.audioPlayer?.isPlaying) return
+
+      const playbackSession = this.$store.state.currentPlaybackSession
+      if (this.$refs.audioPlayer.isLocalPlayMethod) {
+        const localLibraryItemId = playbackSession.localLibraryItem?.id
+        const localEpisodeId = playbackSession.localEpisodeId
+        if (!localLibraryItemId) {
+          console.error('[AudioPlayerContainer] device visibility: no local library item for session', JSON.stringify(playbackSession))
+          return
+        }
+        const localMediaProgress = this.$store.state.globals.localMediaProgress.find((mp) => {
+          if (localEpisodeId) return mp.localEpisodeId === localEpisodeId
+          return mp.localLibraryItemId === localLibraryItemId
+        })
+        if (!localMediaProgress) {
+          console.error('[AudioPlayerContainer] device visibility: Local media progress not found')
+          return
+        }
+
+        console.log('[AudioPlayerContainer] device visibility: found local media progress', localMediaProgress.currentTime, 'last time in player is', this.currentTime)
+        this.$refs.audioPlayer.currentTime = localMediaProgress.currentTime
+        this.$refs.audioPlayer.timeupdate()
+
+        // If the local item came from a server and we're connected, check whether the
+        // server's progress is more recent (e.g. user kept listening on the server)
+        // and if so, update the player time and sync the server progress to local DB.
+        const serverLibraryItemId = playbackSession.libraryItemId
+        const serverEpisodeId = playbackSession.episodeId
+        if (!serverLibraryItemId || !this.$store.state.user.user || !this.$store.state.networkConnected) return
+
+        console.log('[AudioPlayerContainer] device visibility: checking server media progress for local item', serverLibraryItemId, serverEpisodeId)
+        const data = await this.getServerMediaProgress({ libraryItemId: serverLibraryItemId, episodeId: serverEpisodeId })
+        if (!data || !data.lastUpdate || data.lastUpdate <= localMediaProgress.lastUpdate) return
+
+        console.log('[AudioPlayerContainer] device visibility: server progress is more recent for local item', data.currentTime, 'vs local', localMediaProgress.currentTime, `(server lastUpdate=${data.lastUpdate} > local lastUpdate=${localMediaProgress.lastUpdate})`)
+        if (!this.$refs.audioPlayer?.isPlaying && data.currentTime !== localMediaProgress.currentTime) {
+          // Use seek() so the native audio player's current session is updated
+          this.$refs.audioPlayer.seek(data.currentTime)
+        }
+
+        try {
+          const newLocalMediaProgress = await this.$db.syncServerMediaProgressWithLocalMediaProgress({
+            localMediaProgressId: localMediaProgress.id,
+            mediaProgress: data
+          })
+          if (newLocalMediaProgress?.id) {
+            this.$store.commit('globals/updateLocalMediaProgress', newLocalMediaProgress)
+          }
+        } catch (error) {
+          console.error('[AudioPlayerContainer] device visibility: Failed to sync server progress to local', error)
+        }
+      } else {
+        // server item so fetch server media progress and update player time
+        const libraryItemId = playbackSession.libraryItemId
+        const episodeId = playbackSession.episodeId
+        console.log('[AudioPlayerContainer] device visibility: checking server media progress for server item', libraryItemId, episodeId)
+        const data = await this.getServerMediaProgress({ libraryItemId, episodeId })
+        if (!data) return
         if (!this.$refs.audioPlayer?.isPlaying) {
-          const playbackSession = this.$store.state.currentPlaybackSession
-          if (this.$refs.audioPlayer.isLocalPlayMethod) {
-            const localLibraryItemId = playbackSession.localLibraryItem?.id
-            const localEpisodeId = playbackSession.localEpisodeId
-            if (!localLibraryItemId) {
-              console.error('[AudioPlayerContainer] device visibility: no local library item for session', JSON.stringify(playbackSession))
-              return
-            }
-            const localMediaProgress = this.$store.state.globals.localMediaProgress.find((mp) => {
-              if (localEpisodeId) return mp.localEpisodeId === localEpisodeId
-              return mp.localLibraryItemId === localLibraryItemId
-            })
-            if (localMediaProgress) {
-              console.log('[AudioPlayerContainer] device visibility: found local media progress', localMediaProgress.currentTime, 'last time in player is', this.currentTime)
-              this.$refs.audioPlayer.currentTime = localMediaProgress.currentTime
-              this.$refs.audioPlayer.timeupdate()
-            } else {
-              console.error('[AudioPlayerContainer] device visibility: Local media progress not found')
-            }
-          } else {
-            const libraryItemId = playbackSession.libraryItemId
-            const episodeId = playbackSession.episodeId
-            const url = episodeId ? `/api/me/progress/${libraryItemId}/${episodeId}` : `/api/me/progress/${libraryItemId}`
-            this.$nativeHttp
-              .get(url)
-              .then((data) => {
-                if (!this.$refs.audioPlayer?.isPlaying && data.libraryItemId === libraryItemId) {
-                  console.log('[AudioPlayerContainer] device visibility: got server media progress', data.currentTime, 'last time in player is', this.currentTime)
-                  this.$refs.audioPlayer.currentTime = data.currentTime
-                  this.$refs.audioPlayer.timeupdate()
-                }
-              })
-              .catch((error) => {
-                console.error('[AudioPlayerContainer] device visibility: Failed to get progress', error)
-              })
+          console.log('[AudioPlayerContainer] device visibility: got server media progress', data.currentTime, 'last time in player is', this.currentTime)
+          // Only seek if the difference is greater than 1 second
+          if (Math.abs(data.currentTime - this.currentTime) > 1) {
+            // Use seek() so the native audio player's current session is updated
+            this.$refs.audioPlayer.seek(data.currentTime)
           }
         }
       }
