@@ -114,7 +114,7 @@
 import { Capacitor } from '@capacitor/core'
 import { AbsAudioPlayer } from '@/plugins/capacitor'
 import { Dialog } from '@capacitor/dialog'
-import { FastAverageColor } from 'fast-average-color'
+import { getAverageColorFromCoverUrl } from '@/utils/coverAverageColor'
 import WrappingMarquee from '@/assets/WrappingMarquee.js'
 import jumpLabelMixin from '@/mixins/jumpLabel'
 
@@ -412,17 +412,14 @@ export default {
     },
     async coverImageLoaded(fullCoverUrl) {
       if (!fullCoverUrl) return
-
-      const fac = new FastAverageColor()
-      fac
-        .getColorAsync(fullCoverUrl)
-        .then((color) => {
-          this.coverRgb = color.rgba
-          this.coverBgIsLight = color.isLight
-        })
-        .catch((e) => {
-          console.log(e)
-        })
+      const avg = await getAverageColorFromCoverUrl(this, fullCoverUrl)
+      if (!avg) {
+        this.coverRgb = 'rgb(55, 56, 56)'
+        this.coverBgIsLight = false
+      } else {
+        this.coverRgb = avg.rgba
+        this.coverBgIsLight = avg.isLight
+      }
     },
     clickTitleAndAuthor() {
       if (!this.showFullscreen) return
