@@ -320,6 +320,12 @@ export default {
       const libraryItemId = this.currentPlaybackSession?.libraryItemId
       const episodeId = this.currentPlaybackSession?.episodeId
       if (!libraryItemId) return null
+
+      if (this.$refs.audioPlayer?.isCheckingServerProgress) {
+        console.log('[AudioPlayerContainer] getServerMediaProgressForCurrentSession: already checking server progress')
+        return null
+      }
+
       const url = episodeId ? `/api/me/progress/${libraryItemId}/${episodeId}` : `/api/me/progress/${libraryItemId}`
 
       this.$refs.audioPlayer?.setIsCheckingServerProgress(true)
