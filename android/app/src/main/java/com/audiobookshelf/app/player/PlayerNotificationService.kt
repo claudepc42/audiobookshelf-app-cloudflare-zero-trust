@@ -505,6 +505,9 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         }
 
         dataSourceFactory.setUserAgent(channelId)
+        val directPlayHeaders = hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
+        DeviceManager.serverConnectionConfig?.customHeaders?.let { directPlayHeaders.putAll(it) }
+        dataSourceFactory.setDefaultRequestProperties(directPlayHeaders)
         mediaSource =
                 ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
                         .createMediaSource(mediaItems[0])
@@ -512,9 +515,9 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         AbsLogger.info("PlayerNotificationService", "preparePlayer: Playing HLS stream of item ${currentPlaybackSession?.mediaItemId}.")
         val dataSourceFactory = DefaultHttpDataSource.Factory()
         dataSourceFactory.setUserAgent(channelId)
-        dataSourceFactory.setDefaultRequestProperties(
-                hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
-        )
+        val hlsHeaders = hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
+        DeviceManager.serverConnectionConfig?.customHeaders?.let { hlsHeaders.putAll(it) }
+        dataSourceFactory.setDefaultRequestProperties(hlsHeaders)
         mediaSource = HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItems[0])
       }
       mPlayer.setMediaSource(mediaSource)

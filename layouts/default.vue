@@ -377,6 +377,7 @@ export default {
       await this.syncLocalSessions(true)
 
       this.hasMounted = true
+      if (!this.user) await this.attemptConnection()
 
       AbsLogger.info({ tag: 'default', message: 'mounted: fully initialized' })
       this.$eventBus.$emit('abs-ui-ready')

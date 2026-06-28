@@ -56,11 +56,13 @@ class ApiHandler(var ctx:Context) {
   private fun getRequest(endpoint:String, httpClient:OkHttpClient?, config:ServerConnectionConfig?, cb: (JSObject) -> Unit) {
     val address = config?.address ?: DeviceManager.serverAddress
     val token = config?.token ?: DeviceManager.token
+    val customHeaders = config?.customHeaders ?: DeviceManager.serverConnectionConfig?.customHeaders
 
     try {
-      val request = Request.Builder()
+      val builder = Request.Builder()
         .url("${address}$endpoint").addHeader("Authorization", "Bearer $token")
-        .build()
+      customHeaders?.forEach { (key, value) -> builder.addHeader(key, value) }
+      val request = builder.build()
       makeRequest(request, httpClient, cb)
     } catch(e: Exception) {
       e.printStackTrace()
@@ -73,14 +75,16 @@ class ApiHandler(var ctx:Context) {
   private fun postRequest(endpoint:String, payload: JSObject?, config:ServerConnectionConfig?, cb: (JSObject) -> Unit) {
     val address = config?.address ?: DeviceManager.serverAddress
     val token = config?.token ?: DeviceManager.token
+    val customHeaders = config?.customHeaders ?: DeviceManager.serverConnectionConfig?.customHeaders
     val mediaType = "application/json; charset=utf-8".toMediaType()
     val requestBody = payload?.toString()?.toRequestBody(mediaType) ?: EMPTY_REQUEST
     val requestUrl = "${address}$endpoint"
     Log.d(tag, "postRequest to $requestUrl")
     try {
-      val request = Request.Builder().post(requestBody)
+      val builder = Request.Builder().post(requestBody)
         .url(requestUrl).addHeader("Authorization", "Bearer ${token}")
-        .build()
+      customHeaders?.forEach { (key, value) -> builder.addHeader(key, value) }
+      val request = builder.build()
       makeRequest(request, null, cb)
     } catch(e: Exception) {
       e.printStackTrace()
@@ -93,10 +97,12 @@ class ApiHandler(var ctx:Context) {
   private fun patchRequest(endpoint:String, payload: JSObject, cb: (JSObject) -> Unit) {
     val mediaType = "application/json; charset=utf-8".toMediaType()
     val requestBody = payload.toString().toRequestBody(mediaType)
+    val customHeaders = DeviceManager.serverConnectionConfig?.customHeaders
     try {
-      val request = Request.Builder().patch(requestBody)
+      val builder = Request.Builder().patch(requestBody)
         .url("${DeviceManager.serverAddress}$endpoint").addHeader("Authorization", "Bearer ${DeviceManager.token}")
-        .build()
+      customHeaders?.forEach { (key, value) -> builder.addHeader(key, value) }
+      val request = builder.build()
       makeRequest(request, null, cb)
     } catch(e: Exception) {
       e.printStackTrace()

@@ -42,6 +42,9 @@
           <div class="flex justify-end items-center mt-6">
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
+          <div class="flex justify-center mt-3">
+            <a class="text-fg-muted text-sm cursor-pointer" @click="addCustomHeaders">Custom Headers</a>
+          </div>
         </form>
         <!-- username/password and auth methods -->
         <template v-else>
@@ -298,6 +301,7 @@ export default {
       try {
         const response = await CapacitorHttp.get({
           url: backendEndpoint,
+          headers: this.serverConfig.customHeaders || {},
           disableRedirects: true,
           webFetchExtra: {
             redirect: 'manual'
@@ -454,7 +458,7 @@ export default {
         ...config
       }
       this.showForm = true
-      var success = await this.pingServerAddress(config.address)
+      var success = await this.pingServerAddress(config.address, config.customHeaders)
       this.processing = false
       console.log(`[ServerConnectForm] pingServer result ${success}`)
       if (!success) {
@@ -615,7 +619,7 @@ export default {
      *    HttpResponse.data is {isInit:boolean, language:string, authMethods:string[]}>
      */
     async getServerAddressStatus(address) {
-      return this.getRequest(`${address}/status`)
+      return this.getRequest(`${address}/status`, this.serverConfig.customHeaders)
     },
     pingServerAddress(address, customHeaders) {
       return this.getRequest(`${address}/ping`, customHeaders)

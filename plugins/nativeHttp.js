@@ -27,6 +27,9 @@ export default function ({ store, $db, $socket }, inject) {
         headers = { ...headers, ...options.headers }
         delete options.headers
       }
+      if (serverConnectionConfig?.customHeaders) {
+        headers = { ...headers, ...serverConnectionConfig.customHeaders }
+      }
       console.log(`[nativeHttp] Making ${method} request to ${url}`)
 
       return CapacitorHttp.request({
@@ -77,7 +80,7 @@ export default function ({ store, $db, $socket }, inject) {
         }
 
         // Attempt to refresh the token
-        const newTokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig.address)
+        const newTokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig)
         if (!newTokens?.accessToken) {
           console.error('[nativeHttp] Failed to refresh access token')
           throw new Error('Failed to refresh access token')
@@ -121,8 +124,9 @@ export default function ({ store, $db, $socket }, inject) {
      * @param {string} serverAddress - The server address
      * @returns {Promise<Object|null>} - Promise that resolves with new tokens or null
      */
-    async refreshAccessToken(refreshToken, serverAddress) {
+    async refreshAccessToken(refreshToken, serverConnectionConfig) {
       try {
+        const serverAddress = serverConnectionConfig?.address
         if (!serverAddress) {
           throw new Error('No server address available')
         }
@@ -133,7 +137,8 @@ export default function ({ store, $db, $socket }, inject) {
           url: `${serverAddress}/auth/refresh`,
           headers: {
             'Content-Type': 'application/json',
-            'x-refresh-token': refreshToken
+            'x-refresh-token': refreshToken,
+            ...(serverConnectionConfig?.customHeaders || {})
           },
           data: {}
         })
