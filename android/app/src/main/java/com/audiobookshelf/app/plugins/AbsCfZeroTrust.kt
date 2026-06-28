@@ -55,7 +55,11 @@ class AbsCfZeroTrust : Plugin() {
           val currentHost = try { Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
 
           if (currentHost == serverHost || currentHost.endsWith(".$serverHost")) {
-            val allCookies = CookieManager.getInstance().getCookie(url)
+            val serverOrigin = try {
+              val u = Uri.parse(serverAddress)
+              "${u.scheme}://${u.host}${if (u.port != -1) ":${u.port}" else ""}"
+            } catch (e: Exception) { serverAddress }
+            val allCookies = CookieManager.getInstance().getCookie(serverOrigin)
             if (!allCookies.isNullOrEmpty() && allCookies.contains("CF_Authorization=")) {
               Log.d(tag, "CF auth complete, cookies extracted for host $currentHost")
               resolved = true

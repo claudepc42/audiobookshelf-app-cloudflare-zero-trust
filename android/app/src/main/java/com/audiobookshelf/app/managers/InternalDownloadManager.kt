@@ -46,9 +46,10 @@ class InternalDownloadManager(
                           progressCallback.onComplete(true)
                           return
                         }
-                        val contentType = response.header("Content-Type") ?: ""
-                        if (contentType.startsWith("text/html")) {
-                          Log.e(tag, "Download returned HTML (possible auth challenge) for $url")
+                        val finalHost = response.request.url.host
+                        val originalHost = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
+                        if (originalHost.isNotEmpty() && finalHost != originalHost) {
+                          Log.e(tag, "Download redirected to unexpected host $finalHost (expected $originalHost) — possible auth challenge for $url")
                           progressCallback.onComplete(true)
                           return
                         }
