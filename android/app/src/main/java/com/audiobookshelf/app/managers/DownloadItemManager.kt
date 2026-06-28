@@ -139,7 +139,7 @@ class DownloadItemManager(
 
   /** Starts an external download. */
   private fun startExternalDownload(downloadItemPart: DownloadItemPart) {
-    val dlRequest = downloadItemPart.getDownloadRequest()
+    val dlRequest = downloadItemPart.getDownloadRequest(DeviceManager.serverConnectionConfig?.customHeaders)
     val downloadId = downloadManager.enqueue(dlRequest)
     downloadItemPart.downloadId = downloadId
     Log.d(tag, "checkUpdateDownloadQueue: Starting download item part, downloadId=$downloadId")

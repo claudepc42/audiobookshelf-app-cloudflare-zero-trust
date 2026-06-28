@@ -83,12 +83,13 @@ data class DownloadItemPart(
   val serverUrl get() = uri.toString()
 
   @JsonIgnore
-  fun getDownloadRequest(): DownloadManager.Request {
+  fun getDownloadRequest(customHeaders: Map<String, String>? = null): DownloadManager.Request {
     val dlRequest = DownloadManager.Request(uri)
     dlRequest.setTitle(filename)
     dlRequest.setDescription("Downloading to $localFolderName with filename $filename")
     dlRequest.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
     dlRequest.setDestinationUri(destinationUri)
+    customHeaders?.forEach { (key, value) -> dlRequest.addRequestHeader(key, value) }
     return dlRequest
   }
 }

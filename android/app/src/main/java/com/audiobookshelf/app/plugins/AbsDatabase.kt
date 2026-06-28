@@ -161,6 +161,10 @@ class AbsDatabase : Plugin() {
           serverConnectionConfig?.token = accessToken
           shouldSave = true
         }
+        if (serverConnectionConfig?.customHeaders != serverConfigPayload.customHeaders) {
+          serverConnectionConfig?.customHeaders = serverConfigPayload.customHeaders
+          shouldSave = true
+        }
 
         // Update refresh token if provided
         if (!refreshToken.isNullOrEmpty()) {

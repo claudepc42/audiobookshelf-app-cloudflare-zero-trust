@@ -41,6 +41,17 @@ class InternalDownloadManager(
                       }
 
                       override fun onResponse(call: Call, response: Response) {
+                        if (!response.isSuccessful) {
+                          Log.e(tag, "Download failed: HTTP ${response.code} for $url")
+                          progressCallback.onComplete(true)
+                          return
+                        }
+                        val contentType = response.header("Content-Type") ?: ""
+                        if (contentType.startsWith("text/html")) {
+                          Log.e(tag, "Download returned HTML (possible auth challenge) for $url")
+                          progressCallback.onComplete(true)
+                          return
+                        }
                         response.body?.let { responseBody ->
                           val length: Long = response.header("Content-Length")?.toLongOrNull() ?: 0L
                           writer.write(responseBody.byteStream(), length)
