@@ -44,7 +44,7 @@ jobs:
       - name: Sign APK
         id: sign
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > /tmp/keystore.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d '[:space:]' | base64 -d > /tmp/keystore.jks
           UNSIGNED=android/app/build/outputs/apk/release/app-release-unsigned.apk
           SIGNED=android/app/build/outputs/apk/release/app-release-signed.apk
           BUILD_TOOLS=$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)
