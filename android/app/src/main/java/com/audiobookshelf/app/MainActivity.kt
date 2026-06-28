@@ -20,6 +20,7 @@ import com.anggrayudi.storage.SimpleStorageHelper
 import com.audiobookshelf.app.managers.DbManager
 import com.audiobookshelf.app.player.PlayerNotificationService
 import com.audiobookshelf.app.plugins.AbsAudioPlayer
+import com.audiobookshelf.app.plugins.AbsCfZeroTrust
 import com.audiobookshelf.app.plugins.AbsDatabase
 import com.audiobookshelf.app.plugins.AbsDownloader
 import com.audiobookshelf.app.plugins.AbsFileSystem
@@ -48,6 +49,7 @@ class MainActivity : BridgeActivity() {
     DbManager.initialize(applicationContext)
 
     registerPlugin(AbsAudioPlayer::class.java)
+    registerPlugin(AbsCfZeroTrust::class.java)
     registerPlugin(AbsDownloader::class.java)
     registerPlugin(AbsFileSystem::class.java)
     registerPlugin(AbsDatabase::class.java)

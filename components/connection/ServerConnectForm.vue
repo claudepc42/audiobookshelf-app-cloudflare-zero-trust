@@ -42,8 +42,9 @@
           <div class="flex justify-end items-center mt-6">
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
-          <div class="flex justify-center mt-3">
+          <div class="flex justify-center mt-3 space-x-4">
             <a class="text-fg-muted text-sm cursor-pointer" @click="addCustomHeaders">Custom Headers</a>
+            <a v-if="$platform === 'android'" class="text-fg-muted text-sm cursor-pointer" @click="openCfSsoLogin">Login with Cloudflare</a>
           </div>
         </form>
         <!-- username/password and auth methods -->
@@ -98,6 +99,7 @@
 import { Browser } from '@capacitor/browser'
 import { CapacitorHttp } from '@capacitor/core'
 import { Dialog } from '@capacitor/dialog'
+import { AbsCfZeroTrust } from '../../plugins/capacitor/AbsCfZeroTrust'
 
 // TODO: when backend ready. See validateLoginFormResponse()
 //const requiredServerVersion = '2.5.0'
@@ -440,6 +442,59 @@ export default {
     addCustomHeaders() {
       this.showAddCustomHeaders = true
     },
+    async openCfSsoLogin() {
+      if (!this.serverConfig.address) {
+        this.error = 'Enter a server address first'
+        return
+      }
+      const address = this.prependProtocolIfNeeded(this.serverConfig.address)
+      this.processing = true
+      try {
+        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
+        if (result?.cookieHeader) {
+          this.serverConfig.customHeaders = { Cookie: result.cookieHeader }
+          this.$toast.success('Cloudflare session saved — tap Submit to connect')
+        }
+      } catch (e) {
+        if (e?.message !== 'cancelled') {
+          this.error = 'Cloudflare authentication failed'
+        }
+      } finally {
+        this.processing = false
+      }
+    },
+    async checkAndHandleCfZeroTrust(address) {
+      // Skip if custom headers already set (user has service tokens or prior SSO session)
+      if (this.serverConfig.customHeaders && Object.keys(this.serverConfig.customHeaders).length > 0) {
+        return undefined
+      }
+      // Probe with redirects disabled to detect CF 302 challenge
+      try {
+        const resp = await CapacitorHttp.get({
+          url: `${address}/status`,
+          disableRedirects: true,
+          connectTimeout: 6000
+        })
+        if (resp.status >= 300 && resp.status < 400) {
+          const location = resp.headers?.location || resp.headers?.Location || ''
+          if (!location.includes('cloudflareaccess.com')) return undefined
+        } else {
+          return undefined
+        }
+      } catch (e) {
+        return undefined
+      }
+      // CF Zero Trust detected — open WebView for user to authenticate
+      try {
+        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
+        if (result?.cookieHeader) return result.cookieHeader
+        this.error = 'Cloudflare authentication did not complete'
+        return null
+      } catch (e) {
+        if (e?.message !== 'cancelled') this.error = 'Cloudflare authentication failed'
+        return null
+      }
+    },
     showServerList() {
       this.showForm = false
       this.showAuth = false
@@ -674,6 +729,18 @@ export default {
       this.processing = true
       this.error = null
       this.authMethods = []
+
+      // CF Zero Trust auto-detection: only on Android, only when no custom headers set
+      if (this.$platform === 'android') {
+        const cfCookies = await this.checkAndHandleCfZeroTrust(this.serverConfig.address)
+        if (cfCookies === null) {
+          this.processing = false
+          return false
+        }
+        if (cfCookies) {
+          this.serverConfig.customHeaders = { Cookie: cfCookies }
+        }
+      }
 
       try {
         console.log('[ServerConnectForm] submit tryServerUrl: ' + this.serverConfig.address)
