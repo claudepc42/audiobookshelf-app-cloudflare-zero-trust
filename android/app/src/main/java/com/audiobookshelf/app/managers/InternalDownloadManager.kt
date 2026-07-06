@@ -1,6 +1,7 @@
 package com.audiobookshelf.app.managers
 
 import android.util.Log
+import com.audiobookshelf.app.plugins.AbsCfZeroTrust
 import java.io.*
 import java.util.concurrent.TimeUnit
 import okhttp3.*
@@ -50,6 +51,7 @@ class InternalDownloadManager(
                         val originalHost = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
                         if (originalHost.isNotEmpty() && finalHost != originalHost) {
                           Log.e(tag, "Download redirected to unexpected host $finalHost (expected $originalHost) — possible auth challenge for $url")
+                          AbsCfZeroTrust.notifyCfSessionExpired()
                           progressCallback.onComplete(true)
                           return
                         }

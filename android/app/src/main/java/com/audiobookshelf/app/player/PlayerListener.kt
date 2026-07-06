@@ -4,8 +4,10 @@ import android.util.Log
 import com.audiobookshelf.app.data.PlaybackSession
 import com.audiobookshelf.app.data.PlayerState
 import com.audiobookshelf.app.device.DeviceManager
+import com.audiobookshelf.app.plugins.AbsCfZeroTrust
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
+import kotlin.concurrent.thread
 
 //const val PAUSE_LEN_BEFORE_RECHECK = 30000 // 30 seconds
 
@@ -21,6 +23,17 @@ class PlayerListener(var playerNotificationService:PlayerNotificationService) : 
     val errorMessage = error.message ?: "Unknown Error"
     Log.e(tag, "onPlayerError $errorMessage")
     playerNotificationService.handlePlayerPlaybackError(errorMessage) // If was direct playing session, fallback to transcode
+
+    // Probe for CF session expiry on a background thread — only when a server address is known
+    val serverAddress = DeviceManager.serverAddress
+    if (serverAddress.isNotEmpty()) {
+      thread(isDaemon = true) {
+        if (AbsCfZeroTrust.probeCfChallenge(serverAddress)) {
+          Log.w(tag, "CF session expired — notifying JS")
+          AbsCfZeroTrust.notifyCfSessionExpired()
+        }
+      }
+    }
   }
 
   override fun onPositionDiscontinuity(
