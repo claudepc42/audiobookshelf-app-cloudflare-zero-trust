@@ -493,8 +493,6 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                         .createMediaSource(mediaItems[0])
       } else if (!playbackSession.isHLS) {
         AbsLogger.info("PlayerNotificationService", "preparePlayer: Direct playing item ${currentPlaybackSession?.mediaItemId}.")
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-
         val extractorsFactory = DefaultExtractorsFactory()
         extractorsFactory.setConstantBitrateSeekingEnabled(true)
 
@@ -504,20 +502,27 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
           extractorsFactory.setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
         }
 
-        dataSourceFactory.setUserAgent(channelId)
-        val directPlayHeaders = hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
-        DeviceManager.serverConnectionConfig?.customHeaders?.let { directPlayHeaders.putAll(it) }
-        dataSourceFactory.setDefaultRequestProperties(directPlayHeaders)
+        val authHeader = "Bearer ${DeviceManager.token}"
+        val customHeaders = DeviceManager.serverConnectionConfig?.customHeaders ?: emptyMap()
+        val serverHost = DeviceManager.serverConnectionConfig?.let { android.net.Uri.parse(it.address).host ?: "" } ?: ""
+        val dataSourceFactory = if (customHeaders.isNotEmpty() && serverHost.isNotEmpty()) {
+          HostFilteredHttpDataSourceFactory(serverHost, authHeader, customHeaders)
+        } else {
+          DefaultHttpDataSource.Factory().also { it.setDefaultRequestProperties(mapOf("Authorization" to authHeader)) }
+        }
         mediaSource =
                 ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
                         .createMediaSource(mediaItems[0])
       } else {
-        AbsLogger.info("PlayerNotificationService", "preparePlayer: Playing HLS stream of item ${currentPlaybackSession?.mediaItemId}.")
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-        dataSourceFactory.setUserAgent(channelId)
-        val hlsHeaders = hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
-        DeviceManager.serverConnectionConfig?.customHeaders?.let { hlsHeaders.putAll(it) }
-        dataSourceFactory.setDefaultRequestProperties(hlsHeaders)
+        AbsLogger.info("PlayerNotificationService", "preparePlayer: HLS stream ${currentPlaybackSession?.mediaItemId}.")
+        val authHeader = "Bearer ${DeviceManager.token}"
+        val customHeaders = DeviceManager.serverConnectionConfig?.customHeaders ?: emptyMap()
+        val serverHost = DeviceManager.serverConnectionConfig?.let { android.net.Uri.parse(it.address).host ?: "" } ?: ""
+        val dataSourceFactory = if (customHeaders.isNotEmpty() && serverHost.isNotEmpty()) {
+          HostFilteredHttpDataSourceFactory(serverHost, authHeader, customHeaders)
+        } else {
+          DefaultHttpDataSource.Factory().also { it.setDefaultRequestProperties(mapOf("Authorization" to authHeader)) }
+        }
         mediaSource = HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItems[0])
       }
       mPlayer.setMediaSource(mediaSource)

@@ -17,6 +17,7 @@
 <script>
 import { CapacitorHttp } from '@capacitor/core'
 import { AbsLogger } from '@/plugins/capacitor'
+import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 
 export default {
   data() {
@@ -26,7 +27,9 @@ export default {
       disconnectTime: 0,
       socketDisconnectedTime: 0,
       timeLostFocus: 0,
-      currentLang: null
+      currentLang: null,
+      cfSessionListener: null,
+      cfRefreshInProgress: false
     }
   },
   watch: {
@@ -340,6 +343,27 @@ export default {
         this.$eventBus.$emit('device-focus-update', false)
       }
     },
+    async handleCfExpired() {
+      if (this.cfRefreshInProgress || this.$platform !== 'android') return
+      const serverConfig = this.$store.state.user.serverConnectionConfig
+      if (!serverConfig?.address) return
+      this.cfRefreshInProgress = true
+      try {
+        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
+        if (result?.cookieHeader) {
+          const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader } }
+          const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
+          this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
+          this.$toast.success('Cloudflare session refreshed — tap play to try again')
+        }
+      } catch (e) {
+        if (e?.message !== 'cancelled') {
+          this.$toast.error('Cloudflare session expired — open the menu to refresh')
+        }
+      } finally {
+        this.cfRefreshInProgress = false
+      }
+    },
     changeLanguage(code) {
       console.log('Changed lang', code)
       this.currentLang = code
@@ -349,6 +373,9 @@ export default {
   async mounted() {
     this.$eventBus.$on('change-lang', this.changeLanguage)
     document.addEventListener('visibilitychange', this.visibilityChanged)
+    if (this.$platform === 'android') {
+      this.cfSessionListener = await AbsCfZeroTrust.addListener('cfSessionExpired', this.handleCfExpired)
+    }
 
     this.$socket.on('user_updated', this.userUpdated)
     this.$socket.on('user_media_progress_updated', this.userMediaProgressUpdated)
@@ -388,6 +415,7 @@ export default {
     document.removeEventListener('visibilitychange', this.visibilityChanged)
     this.$socket.off('user_updated', this.userUpdated)
     this.$socket.off('user_media_progress_updated', this.userMediaProgressUpdated)
+    if (this.cfSessionListener) this.cfSessionListener.remove()
   }
 }
 </script>

@@ -37,6 +37,7 @@
 
 <script>
 import TouchEvent from '@/objects/TouchEvent'
+import { AbsCfZeroTrust } from '../../plugins/capacitor/AbsCfZeroTrust'
 
 export default {
   data() {
@@ -80,6 +81,9 @@ export default {
     },
     userIsAdminOrUp() {
       return this.$store.getters['user/getIsAdminOrUp']
+    },
+    hasCfCookies() {
+      return this.$platform === 'android' && !!(this.serverConnectionConfig?.customHeaders?.Cookie)
     },
     navItems() {
       var items = [
@@ -150,6 +154,14 @@ export default {
           text: this.$strings.ButtonSwitchServerUser,
           action: 'logout'
         })
+
+        if (this.hasCfCookies) {
+          items.push({
+            icon: 'cloud_sync',
+            text: 'Refresh Cloudflare Login',
+            action: 'refreshCf'
+          })
+        }
       }
 
       return items
@@ -168,6 +180,8 @@ export default {
         this.show = false
         let path = `/library/${this.$store.state.libraries.currentLibraryId}`
         await this.$store.dispatch('user/openWebClient', path)
+      } else if (action === 'refreshCf') {
+        await this.refreshCfLogin()
       }
     },
     clickBackground() {
@@ -175,6 +189,27 @@ export default {
     },
     async logout() {
       await this.$store.dispatch('user/logout')
+    },
+    async refreshCfLogin() {
+      const address = this.serverConnectionConfig?.address
+      if (!address) return
+      this.show = false
+      try {
+        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
+        if (result?.cookieHeader) {
+          const updatedConfig = {
+            ...this.serverConnectionConfig,
+            customHeaders: { Cookie: result.cookieHeader }
+          }
+          const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
+          this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
+          this.$toast.success('Cloudflare session refreshed')
+        }
+      } catch (e) {
+        if (e?.message !== 'cancelled') {
+          this.$toast.error('Cloudflare authentication failed')
+        }
+      }
     },
     async disconnect() {
       await this.$hapticsImpact()

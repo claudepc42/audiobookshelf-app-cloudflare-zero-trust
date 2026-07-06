@@ -13,15 +13,54 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.audiobookshelf.app.device.DeviceManager
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 @CapacitorPlugin(name = "AbsCfZeroTrust")
 class AbsCfZeroTrust : Plugin() {
   private val tag = "AbsCfZeroTrust"
+
+  companion object {
+    var instance: AbsCfZeroTrust? = null
+
+    fun notifyCfSessionExpired() {
+      instance?.let { plugin ->
+        Log.d("AbsCfZeroTrust", "Notifying JS of CF session expiry")
+        plugin.notifyListeners("cfSessionExpired", JSObject(), true)
+      }
+    }
+
+    fun probeCfChallenge(serverAddress: String): Boolean {
+      return try {
+        val client = OkHttpClient.Builder()
+          .connectTimeout(4, TimeUnit.SECONDS)
+          .readTimeout(4, TimeUnit.SECONDS)
+          .followRedirects(false)
+          .build()
+        val request = Request.Builder().url("$serverAddress/status").head().build()
+        val response = client.newCall(request).execute()
+        val location = response.header("Location") ?: response.header("location") ?: ""
+        response.close()
+        if (response.code in 300..399 && location.isNotEmpty()) {
+          val host = Uri.parse(location).host ?: ""
+          host == "cloudflareaccess.com" || host.endsWith(".cloudflareaccess.com")
+        } else false
+      } catch (e: Exception) {
+        false
+      }
+    }
+  }
+
+  override fun load() {
+    instance = this
+  }
 
   @SuppressLint("SetJavaScriptEnabled")
   @PluginMethod
