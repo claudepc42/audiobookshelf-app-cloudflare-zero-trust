@@ -15,7 +15,7 @@ When you enter a server address and tap **Submit**, the app automatically detect
 
 You can also tap **Login with Cloudflare** below the Submit button to trigger this manually.
 
-**Re-authentication:** When your Cloudflare session expires, API calls fail and you're returned to the connect screen. Tap your server to reconnect — the WebView opens again for a fresh login. The "Connection lost" message you see is the app telling you the session expired; just reconnect.
+**Re-authentication:** When your Cloudflare session expires, the app now detects it automatically and opens the WebView for a fresh login — no need to go back to the connect screen. See §4 below.
 
 ### 2. Custom HTTP headers (service tokens / advanced)
 
@@ -27,13 +27,23 @@ Headers are saved per server config and injected into every request the app make
 |---|---|
 | Capacitor/JS (`nativeHttp.js`, `ServerConnectForm.vue`) | Login, status probe, OAuth, library browsing, all API calls |
 | Native Kotlin OkHttp (`ApiHandler.kt`) | Background sync, play requests, progress reporting, Android Auto, token refresh |
-| ExoPlayer streaming (`PlayerNotificationService.kt`) | Direct-play audio and HLS transcoded streams |
+| ExoPlayer streaming (`PlayerNotificationService.kt`) | Direct-play audio and HLS transcoded streams — CF cookies only sent to the ABS server host, not external CDN URLs |
 | WebSocket (`server.js`) | Live sync and progress push events |
 | Download manager (`InternalDownloadManager.kt`) | Offline downloads |
 
 ### 3. Auto-connect race condition fix (`layouts/default.vue`)
 
 On cold start, if the network came online during `syncLocalSessions()` (which runs before `hasMounted` is set), the `networkConnected` watcher dropped the event and the app was left on the connect screen, requiring manual server selection. The fix re-runs `attemptConnection()` once `hasMounted` is safely set. It is idempotent — `attemptConnection()` guards against concurrent execution internally.
+
+### 4. Automatic CF session expiry detection & refresh
+
+CF session cookies have a time-based expiry (set by the CF Access admin). When the session expires, streaming and downloads fail silently. This patch adds two detection paths and handles both automatically:
+
+**In-session refresh button:** Open the side menu (hamburger icon) → tap **Refresh Cloudflare Login**. This re-opens the WebView, captures fresh cookies, and saves them to your server config — no need to disconnect and reconnect. The button only appears when your server config has CF cookies set.
+
+**Auto-detection:** When a playback error or failed download is detected, the app probes the server with a HEAD request (no redirects). If the server returns a 302 to `cloudflareaccess.com`, a `cfSessionExpired` event fires on the JS layer and the WebView opens automatically — all without the user doing anything. After re-auth, tap play again.
+
+**ExoPlayer CDN host-filter:** HLS streams can include segment URLs that point to external CDNs. Previously, CF session cookies were injected into all ExoPlayer requests, including those CDN URLs, causing those requests to fail. A custom `HostFilteredHttpDataSource` now restricts CF cookies and other custom headers to requests whose host matches the ABS server host only.
 
 ---
 

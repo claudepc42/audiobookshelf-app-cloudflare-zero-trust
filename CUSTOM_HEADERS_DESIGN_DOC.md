@@ -21,7 +21,7 @@ After successful authentication, CF redirects back to the server domain. The app
 
 The user can also trigger the WebView manually via the **Login with Cloudflare** link below the Submit button.
 
-**Re-authentication:** When the CF session expires (purely time-based JWT `exp`), requests fail with 401/403 and the user is returned to the connect screen. Reconnecting triggers the WebView again.
+**Re-authentication:** When the CF session expires (purely time-based JWT `exp`), the app now auto-detects expiry and re-opens the WebView without requiring the user to go back to the connect screen. See §4 below.
 
 ### 2. Custom HTTP headers (service tokens / advanced)
 
@@ -30,6 +30,20 @@ For CF service tokens (`CF-Access-Client-Id` / `CF-Access-Client-Secret`) or oth
 ### 3. Auto-connect race condition fix
 
 On cold start, if the network came online during `syncLocalSessions()`, the `networkConnected` watcher dropped the event and left the app on the connect screen. The fix re-runs `attemptConnection()` once `hasMounted` is safely set. Safe to call twice — `attemptConnection()` has its own concurrency guard.
+
+### 4. CF session expiry detection & in-session refresh
+
+CF session cookies expire based on the TTL set by the CF Access admin. This was previously silent — playback and downloads would fail with no clear cause and no recovery path short of disconnecting and reconnecting.
+
+**Manual refresh button (SideDrawer):** When `serverConnectionConfig.customHeaders.Cookie` is set (i.e. the server config has CF cookies), a **Refresh Cloudflare Login** item appears in the side menu. Tapping it re-opens the WebView, captures fresh cookies, updates DB and Vuex store without losing any other server config state.
+
+**Auto-detection (two paths):**
+1. `PlayerListener.onPlayerError` → daemon thread calls `AbsCfZeroTrust.probeCfChallenge()` → if confirmed CF, fires `cfSessionExpired` Capacitor event.
+2. `InternalDownloadManager.onResponse` → if final response host ≠ original URL host, fires `cfSessionExpired`.
+
+**JS-side handler (`default.vue`):** `cfSessionExpired` event triggers `handleCfExpired()`, which opens the WebView automatically. A `cfRefreshInProgress` flag prevents concurrent refresh attempts.
+
+**ExoPlayer host filtering:** HLS manifests can point to external CDN URLs for media segments. Before this fix, custom headers (including CF cookies) were injected into all ExoPlayer requests via `setDefaultRequestProperties`, meaning CF cookies were sent to CDN hosts — causing those requests to fail or behave incorrectly. `HostFilteredHttpDataSource` wraps `DefaultHttpDataSource` and only injects custom headers when the request URI host matches the ABS server host.
 
 ---
 
@@ -75,12 +89,32 @@ The app has five independent HTTP layers, all of which inject custom headers:
 
 ### 4. `android/.../player/PlayerNotificationService.kt`
 
-- **Direct play**: merges custom headers into `directPlayHeaders`.
-- **HLS**: merges custom headers into `hlsHeaders` via `putAll()`.
+- **Direct play and HLS**: replaced `setDefaultRequestProperties` with `HostFilteredHttpDataSourceFactory`. When the server config has custom headers and a parseable server host, all ExoPlayer requests go through the host filter — custom headers (CF cookies, etc.) are only injected when the request host matches the ABS server host. External CDN segment URLs receive only the `Authorization` header.
+- When no custom headers are configured, falls back to `DefaultHttpDataSource.Factory` with only the auth header (no behavior change from before).
+
+### 4a. `android/.../player/HostFilteredHttpDataSource.kt` *(new)*
+
+`HostFilteredHttpDataSourceFactory` implements `HttpDataSource.Factory`. Each `createDataSource()` call returns a `HostFilteredHttpDataSource` wrapping a `DefaultHttpDataSource` delegate.
+
+`HostFilteredHttpDataSource.open(dataSpec)`:
+1. Always sets `Authorization: Bearer <token>` on the delegate.
+2. If `dataSpec.uri.host` matches the server host (exact or subdomain): injects all `customHeaders`.
+3. Otherwise: clears all custom header keys from the delegate so they don't leak to CDN requests.
+4. Delegates `open()` to the underlying `DefaultHttpDataSource`.
+
+All other `HttpDataSource` interface methods (`read`, `close`, `getUri`, `getResponseHeaders`, `addTransferListener`, `setRequestProperty`, `clearRequestProperty`, `clearAllRequestProperties`, `getResponseCode`) delegate directly.
 
 ### 5. `layouts/default.vue`
 
 - **Auto-connect fix**: `if (!this.user) await this.attemptConnection()` after `this.hasMounted = true`.
+- **CF session expiry listener**: on `mounted()` (Android only), registers `AbsCfZeroTrust.addListener('cfSessionExpired', this.handleCfExpired)`. Removed in `beforeDestroy()`.
+- **`handleCfExpired()`**: debounced via `cfRefreshInProgress` flag. Opens the WebView, saves new cookies to DB and Vuex store, shows a toast. If the user cancels, shows an error toast pointing them to the side menu refresh button.
+
+### 5a. `components/app/SideDrawer.vue`
+
+- **`hasCfCookies` computed**: returns `true` on Android when `serverConnectionConfig.customHeaders.Cookie` is set.
+- **"Refresh Cloudflare Login" nav item**: added to the side menu when `hasCfCookies` is true (after the logout item).
+- **`refreshCfLogin()`**: opens the WebView, saves fresh cookies to DB + Vuex, shows a success toast.
 
 ### 6. `plugins/server.js`
 
@@ -89,6 +123,7 @@ The app has five independent HTTP layers, all of which inject custom headers:
 ### 7. `android/.../managers/InternalDownloadManager.kt`
 
 - **`download()`**: signature changed to accept `customHeaders: Map<String, String>? = null`; loops headers onto the `Request.Builder`.
+- **CF redirect check**: after `onResponse`, compares the final response host against the original URL host. If they differ (CF challenge redirect), calls `AbsCfZeroTrust.notifyCfSessionExpired()` and fails the download — rather than silently downloading an HTML challenge page.
 
 ### 8. `android/.../managers/DownloadItemManager.kt`
 
@@ -98,9 +133,16 @@ The app has five independent HTTP layers, all of which inject custom headers:
 
 Capacitor plugin that opens a full-screen `Dialog` containing a WebView. Loads the server URL, monitors `onPageFinished` for return to the server host, extracts all cookies from `CookieManager`, resolves the Capacitor `PluginCall` with `{ cookieHeader: String }`. Handles user cancellation via dialog dismiss listener.
 
+**Companion object** (added for cross-class notification):
+- `instance`: holds a reference to the live plugin instance (set in `load()`).
+- `notifyCfSessionExpired()`: calls `instance.notifyListeners("cfSessionExpired", JSObject(), true)` — the `retainUntilConsumed = true` flag ensures the event is delivered even if no JS listener is registered yet.
+- `probeCfChallenge(serverAddress)`: makes a HEAD request to `<serverAddress>/status` with `followRedirects(false)`. Returns `true` if the response is a 3xx redirect to `cloudflareaccess.com` or `*.cloudflareaccess.com`.
+
+`PlayerListener.kt` calls `probeCfChallenge()` on a daemon thread after any `onPlayerError`, then calls `notifyCfSessionExpired()` if the probe confirms CF.
+
 ### 10. `plugins/capacitor/AbsCfZeroTrust.js` *(new)*
 
-JS bridge wrapper that registers the `AbsCfZeroTrust` Capacitor plugin. Exports `AbsCfZeroTrust.openCfWebView({ serverAddress })` which returns `Promise<{ cookieHeader: string }>`.
+JS bridge wrapper that registers the `AbsCfZeroTrust` Capacitor plugin. Exports `AbsCfZeroTrust.openCfWebView({ serverAddress })` which returns `Promise<{ cookieHeader: string }>`. Also exposes `addListener(eventName, listenerFunc)` (delegating to `WebPlugin.addListener`) so the `cfSessionExpired` event can be subscribed from JS.
 
 ---
 
@@ -131,15 +173,18 @@ In the Kotlin stacks, `addHeader()` adds duplicate headers; OkHttp sends all of 
 3. If unchanged, `git apply` the saved patch.
 4. If changed, re-apply manually:
    - **`ApiHandler.kt`**: find each `Request.Builder()` call in `getRequest`, `postRequest`, `patchRequest`, `handleTokenRefresh`. Add `customHeaders?.forEach` loop before `.build()`.
-   - **`PlayerNotificationService.kt`**: find both `setDefaultRequestProperties(...)` calls. Replace with `hashMapOf` + `putAll(customHeaders)`.
+   - **`PlayerNotificationService.kt`**: find both `setDefaultRequestProperties(...)` calls. Replace with `HostFilteredHttpDataSourceFactory` when custom headers are present (see §4 above for the full pattern).
    - **`nativeHttp.js`**: customHeaders block goes after `options.headers` merge. `refreshAccessToken` signature takes `serverConnectionConfig`.
    - **`ServerConnectForm.vue`**: template links (2 lines), import `AbsCfZeroTrust`, CF detection block in `submit()`, three new methods (`openCfSsoLogin`, `checkAndHandleCfZeroTrust`), one-line tweaks to `getServerAddressStatus`, `connectToServer`, `oauthRequest`.
-   - **`layouts/default.vue`**: one line after `this.hasMounted = true`.
+   - **`layouts/default.vue`**: one line after `this.hasMounted = true`; `cfSessionListener` wiring in `mounted()` and `beforeDestroy()`; `handleCfExpired()` method.
+   - **`SideDrawer.vue`**: import `AbsCfZeroTrust`; `hasCfCookies` computed; nav item in `navItems`; `refreshCf` branch in `clickAction`; `refreshCfLogin()` method.
    - **`server.js`**: `extraHeaders: customHeaders` in socket.io options.
-   - **`InternalDownloadManager.kt`**: add `customHeaders` parameter, builder pattern, loop before `.build()`.
+   - **`InternalDownloadManager.kt`**: add `customHeaders` parameter, builder pattern, loop before `.build()`; CF redirect host check + `notifyCfSessionExpired()` call.
    - **`DownloadItemManager.kt`**: pass `customHeaders` as second arg to `InternalDownloadManager.download()`.
-   - **`AbsCfZeroTrust.kt`**: new file — no upstream conflict.
-   - **`AbsCfZeroTrust.js`**: new file — no upstream conflict.
+   - **`AbsCfZeroTrust.kt`**: new file — companion object with `instance`, `notifyCfSessionExpired()`, `probeCfChallenge()`, and `load()` override. No upstream conflict.
+   - **`AbsCfZeroTrust.js`**: new file — add `addListener` override. No upstream conflict.
+   - **`HostFilteredHttpDataSource.kt`**: new file — no upstream conflict.
+   - **`PlayerListener.kt`**: `onPlayerError` — daemon thread probe + `notifyCfSessionExpired()`.
    - **`MainActivity.kt`**: add `registerPlugin(AbsCfZeroTrust::class.java)` and import.
    - **`plugins/capacitor/index.js`**: add import and export.
 
@@ -153,7 +198,10 @@ In the Kotlin stacks, `addHeader()` adds duplicate headers; OkHttp sends all of 
 - [ ] After CF WebView auth: connect screen proceeds to library without error
 - [ ] "Login with Cloudflare" manual trigger works (enters address, taps link before Submit)
 - [ ] Saved CF session: close app, re-open → cookies still in serverConfig → no WebView needed on next cold start
-- [ ] CF session expiry: after expiry, reconnect → WebView opens again for fresh login
+- [ ] CF session expiry (manual): open side menu → tap **Refresh Cloudflare Login** → WebView opens, fresh cookies saved, toast shown
+- [ ] CF session expiry (auto): let session expire; attempt playback → `onPlayerError` fires → probe detects CF → WebView opens automatically
+- [ ] CF session expiry (auto via download): let session expire; attempt download → host redirect detected → `cfSessionExpired` fires → WebView opens
+- [ ] ExoPlayer CDN isolation: during HLS playback, verify CF cookies are NOT sent to CDN segment URLs (only to ABS server host requests)
 - [ ] Manual custom headers: enter service tokens → CF detection skipped, tokens sent on all requests
 - [ ] Login completes with custom headers (headers sent on `/ping`, `/status`, `/login`)
 - [ ] Library loads (headers sent via nativeHttp on all API calls)
@@ -173,15 +221,18 @@ In the Kotlin stacks, `addHeader()` adds duplicate headers; OkHttp sends all of 
 
 ```
 layouts/default.vue
+components/app/SideDrawer.vue
 components/connection/ServerConnectForm.vue
 plugins/nativeHttp.js
 plugins/server.js
 plugins/capacitor/AbsCfZeroTrust.js           (new)
 plugins/capacitor/index.js
 android/app/src/main/java/com/audiobookshelf/app/MainActivity.kt
-android/app/src/main/java/com/audiobookshelf/app/plugins/AbsCfZeroTrust.kt  (new)
-android/app/src/main/java/com/audiobookshelf/app/server/ApiHandler.kt
+android/app/src/main/java/com/audiobookshelf/app/plugins/AbsCfZeroTrust.kt  (new, expanded with companion object)
+android/app/src/main/java/com/audiobookshelf/app/player/HostFilteredHttpDataSource.kt  (new)
+android/app/src/main/java/com/audiobookshelf/app/player/PlayerListener.kt
 android/app/src/main/java/com/audiobookshelf/app/player/PlayerNotificationService.kt
+android/app/src/main/java/com/audiobookshelf/app/server/ApiHandler.kt
 android/app/src/main/java/com/audiobookshelf/app/managers/InternalDownloadManager.kt
 android/app/src/main/java/com/audiobookshelf/app/managers/DownloadItemManager.kt
 ```
