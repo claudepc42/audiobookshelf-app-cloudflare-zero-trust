@@ -64,16 +64,48 @@ class AbsCfZeroTrust : Plugin() {
     }
   }
 
+  private fun checkCookiesValid(serverAddress: String, cookies: String): Boolean {
+    return try {
+      val client = OkHttpClient.Builder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
+        .followRedirects(false)
+        .build()
+      // Check against a CF-protected path (/hls/) so stale cookies are caught.
+      // 404 from ABS = CF let it through (cookies valid). 3xx to cloudflareaccess.com = stale.
+      val request = Request.Builder()
+        .url("$serverAddress/hls/")
+        .head()
+        .addHeader("Cookie", cookies)
+        .build()
+      val response = client.newCall(request).execute()
+      val location = response.header("Location") ?: response.header("location") ?: ""
+      response.close()
+      if (response.code in 300..399 && location.isNotEmpty()) {
+        val host = Uri.parse(location).host ?: ""
+        val isCfRedirect = host == "cloudflareaccess.com" || host.endsWith(".cloudflareaccess.com")
+        !isCfRedirect  // stale if CF redirected, valid otherwise
+      } else {
+        true  // ABS responded (not CF) — cookies are valid
+      }
+    } catch (e: Exception) {
+      false
+    }
+  }
+
   @PluginMethod
   fun probeCfChallenge(call: PluginCall) {
     val serverAddress = call.getString("serverAddress") ?: run {
       call.reject("serverAddress is required")
       return
     }
+    val existingCookies = call.getString("cookies") ?: ""
     Thread {
-      val detected = probeCfChallenge(serverAddress)
+      val isCfProtected = probeCfChallenge(serverAddress)
+      val cookiesValid = isCfProtected && existingCookies.isNotEmpty() && checkCookiesValid(serverAddress, existingCookies)
       val result = JSObject()
-      result.put("isCfProtected", detected)
+      result.put("isCfProtected", isCfProtected)
+      result.put("cookiesValid", cookiesValid)
       call.resolve(result)
     }.also { it.isDaemon = true }.start()
   }

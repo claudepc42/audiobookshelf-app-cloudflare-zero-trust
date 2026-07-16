@@ -9,8 +9,8 @@ class AbsCfZeroTrustWeb extends WebPlugin {
     throw new Error('CF Zero Trust WebView is not supported on web')
   }
 
-  async probeCfChallenge({ serverAddress }) {
-    return { isCfProtected: false }
+  async probeCfChallenge({ serverAddress, cookies }) {
+    return { isCfProtected: false, cookiesValid: false }
   }
 
   async addListener(eventName, listenerFunc) {

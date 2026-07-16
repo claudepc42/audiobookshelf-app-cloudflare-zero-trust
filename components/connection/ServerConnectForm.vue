@@ -468,40 +468,29 @@ export default {
       }
     },
     async checkAndHandleCfZeroTrust(address) {
-      // Use the native OkHttp probe (AbsCfZeroTrust.probeCfChallenge) which has reliable
-      // followRedirects(false) support. CapacitorHttp's disableRedirects is unreliable on
-      // Android and was silently following redirects, making CF appear absent.
-      // The native probe checks /hls/, /s/, and /status in order.
-      let cfDetected = false
+      // Single native call: OkHttp probes /hls/, /s/, /status for CF redirect, and
+      // also verifies existing cookies against /hls/ if provided — all with reliable
+      // followRedirects(false). CapacitorHttp is not used here at all.
+      let probeResult
       try {
-        const result = await AbsCfZeroTrust.probeCfChallenge({ serverAddress: address })
-        cfDetected = !!result?.isCfProtected
+        probeResult = await AbsCfZeroTrust.probeCfChallenge({
+          serverAddress: address,
+          cookies: this.serverConfig.customHeaders?.Cookie || ''
+        })
       } catch (e) {
         return undefined
       }
-      if (!cfDetected) return undefined
 
-      // CF Zero Trust confirmed — record this regardless of whether a WebView is needed.
+      if (!probeResult?.isCfProtected) return undefined
+
+      // CF Zero Trust confirmed — persist the flag.
       this.serverConfig.isSsoAuth = true
 
-      // Step 2: if we already have cookies, check if they are still valid.
-      if (this.serverConfig.customHeaders?.Cookie) {
-        try {
-          const cookieProbe = await CapacitorHttp.get({
-            url: `${address}/status`,
-            headers: this.serverConfig.customHeaders,
-            disableRedirects: true,
-            connectTimeout: 6000
-          })
-          if (!isCfRedirect(cookieProbe)) return undefined  // cookies still valid, no WebView needed
-        } catch (e) {
-          // fall through to WebView
-        }
-        // Cookies are stale — clear them before opening the WebView
-        this.serverConfig.customHeaders = null
-      }
+      // If existing cookies passed the CF check, no WebView needed.
+      if (probeResult.cookiesValid) return undefined
 
-      // Open WebView for (re-)authentication.
+      // Cookies missing or stale — clear them and open the WebView.
+      this.serverConfig.customHeaders = null
       try {
         const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
         if (result?.cookieHeader) return result.cookieHeader
