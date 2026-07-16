@@ -172,6 +172,7 @@
 <script>
 import { Dialog } from '@capacitor/dialog'
 import { AbsFileSystem, AbsDownloader } from '@/plugins/capacitor'
+import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 import { getAverageColorFromCoverUrl } from '@/utils/coverAverageColor'
 import cellularPermissionHelpers from '@/mixins/cellularPermissionHelpers'
 
@@ -678,6 +679,34 @@ export default {
       }
     },
     async startDownload(localFolder = null) {
+      const serverConfig = this.$store.state.user.serverConnectionConfig
+      if (this.$platform === 'android' && serverConfig?.isSsoAuth) {
+        try {
+          const probeResult = await AbsCfZeroTrust.probeCfChallenge({
+            serverAddress: serverConfig.address,
+            cookies: serverConfig.customHeaders?.Cookie || ''
+          })
+          if (probeResult?.isCfProtected && !probeResult?.cookiesValid) {
+            try {
+              const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
+              if (result?.cookieHeader) {
+                const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
+                const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
+                this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
+              } else {
+                this.$toast.error('Cloudflare authentication required to download')
+                return
+              }
+            } catch (e) {
+              if (e?.message !== 'cancelled') this.$toast.error('Cloudflare authentication failed')
+              return
+            }
+          }
+        } catch (e) {
+          // probe failed — proceed with download anyway
+        }
+      }
+
       const payload = {
         libraryItemId: this.libraryItemId
       }

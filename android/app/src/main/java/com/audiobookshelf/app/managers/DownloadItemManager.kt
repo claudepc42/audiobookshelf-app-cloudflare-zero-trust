@@ -15,6 +15,8 @@ import com.audiobookshelf.app.device.DeviceManager
 import com.audiobookshelf.app.device.FolderScanner
 import com.audiobookshelf.app.models.DownloadItem
 import com.audiobookshelf.app.models.DownloadItemPart
+import com.audiobookshelf.app.plugins.AbsCfZeroTrust
+import kotlin.concurrent.thread
 import com.fasterxml.jackson.core.json.JsonReadFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.getcapacitor.JSObject
@@ -231,6 +233,16 @@ class DownloadItemManager(
             Log.d(tag, "checkDownloads Download ${downloadItemPart.filename} Failed")
             downloadItemPart.completed = true
             downloadItemPart.failed = true
+
+            val serverAddress = DeviceManager.serverAddress
+            if (serverAddress.isNotEmpty()) {
+              thread(isDaemon = true) {
+                if (AbsCfZeroTrust.probeCfChallenge(serverAddress)) {
+                  Log.w(tag, "CF session expired during external download — notifying JS")
+                  AbsCfZeroTrust.notifyCfSessionExpired()
+                }
+              }
+            }
 
             DownloadCheckStatus.Failed
           }

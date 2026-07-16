@@ -3,6 +3,7 @@ name: Build & Release APK
 on:
   push:
     branches: [master]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -64,7 +65,8 @@ jobs:
             $UNSIGNED
           echo "signedFile=$SIGNED" >> $GITHUB_OUTPUT
 
-      - name: Publish to GitHub Releases
+      - name: Publish to GitHub Releases (dev)
+        if: github.ref_type == 'branch'
         uses: ncipollo/release-action@v1
         with:
           tag: dev-build
@@ -79,6 +81,18 @@ jobs:
             **Installing:** If you have the Play Store version or a build signed with a different key, uninstall it first.
           artifacts: ${{ steps.sign.outputs.signedFile }}
           prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to GitHub Releases (stable)
+        if: github.ref_type == 'tag'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          artifacts: ${{ steps.sign.outputs.signedFile }}
+          prerelease: false
           allowUpdates: true
           removeArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}

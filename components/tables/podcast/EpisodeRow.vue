@@ -72,6 +72,7 @@
 
 <script>
 import { AbsFileSystem, AbsDownloader } from '@/plugins/capacitor'
+import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 import cellularPermissionHelpers from '@/mixins/cellularPermissionHelpers'
 
 export default {
@@ -248,6 +249,34 @@ export default {
       this.startDownload(localFolder)
     },
     async startDownload(localFolder) {
+      const serverConfig = this.$store.state.user.serverConnectionConfig
+      if (this.$platform === 'android' && serverConfig?.isSsoAuth) {
+        try {
+          const probeResult = await AbsCfZeroTrust.probeCfChallenge({
+            serverAddress: serverConfig.address,
+            cookies: serverConfig.customHeaders?.Cookie || ''
+          })
+          if (probeResult?.isCfProtected && !probeResult?.cookiesValid) {
+            try {
+              const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
+              if (result?.cookieHeader) {
+                const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
+                const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
+                this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
+              } else {
+                this.$toast.error('Cloudflare authentication required to download')
+                return
+              }
+            } catch (e) {
+              if (e?.message !== 'cancelled') this.$toast.error('Cloudflare authentication failed')
+              return
+            }
+          }
+        } catch (e) {
+          // probe failed — proceed with download anyway
+        }
+      }
+
       var payload = {
         libraryItemId: this.libraryItemId,
         episodeId: this.episode.id

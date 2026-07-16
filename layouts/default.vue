@@ -354,7 +354,7 @@ export default {
           const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
           const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
           this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
-          this.$toast.success('Cloudflare session refreshed — tap play to try again')
+          this.$toast.success('Cloudflare session refreshed — please try again')
         }
       } catch (e) {
         if (e?.message !== 'cancelled') {
