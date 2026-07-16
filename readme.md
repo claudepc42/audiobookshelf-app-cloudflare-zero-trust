@@ -3,7 +3,7 @@
 > **This is an unofficial patched build of the [Audiobookshelf Android app](https://github.com/advplyr/audiobookshelf-app).**
 > It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus a cold-start auto-connect fix.
 >
-> **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/tag/v10)**
+> **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/latest)**
 
 ---
 
@@ -49,7 +49,7 @@ CF session cookies have a time-based expiry (set by the CF Access admin). When t
 
 ## Installing
 
-1. Download `app-release-signed.apk` from the [Releases page](https://github.com/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/tag/v10).
+1. Download `app-release-signed.apk` from the [Releases page](https://github.com/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/latest).
 2. If you have the Play Store version or a previous build signed with a different key installed, **uninstall it first** before installing this APK.
 3. Allow installation from unknown sources if prompted.
 
