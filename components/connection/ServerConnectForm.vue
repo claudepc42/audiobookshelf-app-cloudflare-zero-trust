@@ -468,35 +468,50 @@ export default {
       }
     },
     async checkAndHandleCfZeroTrust(address) {
-      // Always probe — even when customHeaders are set — so stale CF sessions are detected at login time.
-      // Pass existing headers so the probe uses current cookies if present.
+      // Step 1: probe WITHOUT cookies so CF reveals itself even when cached cookies are still valid.
+      const isCfRedirect = (resp) => {
+        if (resp.status < 300 || resp.status >= 400) return false
+        const location = resp.headers?.location || resp.headers?.Location || ''
+        try {
+          const h = new URL(location).hostname
+          return h === 'cloudflareaccess.com' || h.endsWith('.cloudflareaccess.com')
+        } catch (e) {
+          return false
+        }
+      }
       try {
-        const resp = await CapacitorHttp.get({
+        const bareProbe = await CapacitorHttp.get({
           url: `${address}/status`,
-          headers: this.serverConfig.customHeaders || {},
+          headers: {},
           disableRedirects: true,
           connectTimeout: 6000
         })
-        if (resp.status >= 300 && resp.status < 400) {
-          const location = resp.headers?.location || resp.headers?.Location || ''
-          try {
-            const locationHost = new URL(location).hostname
-            if (locationHost !== 'cloudflareaccess.com' && !locationHost.endsWith('.cloudflareaccess.com')) return undefined
-          } catch (e) {
-            return undefined
-          }
-          // CF challenge detected — if we had cookies they are stale; clear them
-          if (this.serverConfig.customHeaders && Object.keys(this.serverConfig.customHeaders).length > 0) {
-            this.serverConfig.customHeaders = null
-          }
-        } else {
-          // No CF challenge — existing cookies (if any) are valid, or server has no CF
-          return undefined
-        }
+        if (!isCfRedirect(bareProbe)) return undefined  // not a CF-protected server
       } catch (e) {
         return undefined
       }
-      // CF Zero Trust detected — open WebView for user to authenticate
+
+      // CF Zero Trust confirmed — record this regardless of whether a WebView is needed.
+      this.serverConfig.isSsoAuth = true
+
+      // Step 2: if we already have cookies, check if they are still valid.
+      if (this.serverConfig.customHeaders?.Cookie) {
+        try {
+          const cookieProbe = await CapacitorHttp.get({
+            url: `${address}/status`,
+            headers: this.serverConfig.customHeaders,
+            disableRedirects: true,
+            connectTimeout: 6000
+          })
+          if (!isCfRedirect(cookieProbe)) return undefined  // cookies still valid, no WebView needed
+        } catch (e) {
+          // fall through to WebView
+        }
+        // Cookies are stale — clear them before opening the WebView
+        this.serverConfig.customHeaders = null
+      }
+
+      // Open WebView for (re-)authentication.
       try {
         const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
         if (result?.cookieHeader) return result.cookieHeader
