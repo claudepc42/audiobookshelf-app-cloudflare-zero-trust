@@ -38,24 +38,44 @@ class AbsCfZeroTrust : Plugin() {
     }
 
     fun probeCfChallenge(serverAddress: String): Boolean {
-      return try {
-        val client = OkHttpClient.Builder()
-          .connectTimeout(4, TimeUnit.SECONDS)
-          .readTimeout(4, TimeUnit.SECONDS)
-          .followRedirects(false)
-          .build()
-        val request = Request.Builder().url("$serverAddress/status").head().build()
-        val response = client.newCall(request).execute()
-        val location = response.header("Location") ?: response.header("location") ?: ""
-        response.close()
-        if (response.code in 300..399 && location.isNotEmpty()) {
-          val host = Uri.parse(location).host ?: ""
-          host == "cloudflareaccess.com" || host.endsWith(".cloudflareaccess.com")
-        } else false
-      } catch (e: Exception) {
-        false
+      val client = OkHttpClient.Builder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
+        .followRedirects(false)
+        .build()
+      // CF Zero Trust only protects specific paths. Probe media paths first (/hls/, /s/)
+      // since those are what CF guards in a typical ABS setup, then fall back to /status.
+      val paths = listOf("/hls/", "/s/", "/status")
+      for (path in paths) {
+        try {
+          val request = Request.Builder().url("$serverAddress$path").head().build()
+          val response = client.newCall(request).execute()
+          val location = response.header("Location") ?: response.header("location") ?: ""
+          response.close()
+          if (response.code in 300..399 && location.isNotEmpty()) {
+            val host = Uri.parse(location).host ?: ""
+            if (host == "cloudflareaccess.com" || host.endsWith(".cloudflareaccess.com")) return true
+          }
+        } catch (e: Exception) {
+          // network error on this path — try next
+        }
       }
+      return false
     }
+  }
+
+  @PluginMethod
+  fun probeCfChallenge(call: PluginCall) {
+    val serverAddress = call.getString("serverAddress") ?: run {
+      call.reject("serverAddress is required")
+      return
+    }
+    Thread {
+      val detected = probeCfChallenge(serverAddress)
+      val result = JSObject()
+      result.put("isCfProtected", detected)
+      call.resolve(result)
+    }.also { it.isDaemon = true }.start()
   }
 
   override fun load() {

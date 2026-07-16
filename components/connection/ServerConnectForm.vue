@@ -1,5 +1,5 @@
 <template>
-  <div :class="showForm ? 'self-start mt-16' : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
+  <div :class="showForm ? 'self-start mt-44' : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
     <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
@@ -468,34 +468,16 @@ export default {
       }
     },
     async checkAndHandleCfZeroTrust(address) {
-      // Probe WITHOUT cookies so CF reveals itself even when cached cookies are still valid.
-      // CF Zero Trust only guards specific paths — probe the media paths first (/hls/, /s/)
-      // since those are the ones CF typically protects for ABS. Fall back to /status for
-      // setups that protect the whole server.
-      const isCfRedirect = (resp) => {
-        if (resp.status < 300 || resp.status >= 400) return false
-        const location = resp.headers?.location || resp.headers?.Location || ''
-        try {
-          const h = new URL(location).hostname
-          return h === 'cloudflareaccess.com' || h.endsWith('.cloudflareaccess.com')
-        } catch (e) {
-          return false
-        }
-      }
-      const probePaths = ['/hls/', '/s/', '/status']
+      // Use the native OkHttp probe (AbsCfZeroTrust.probeCfChallenge) which has reliable
+      // followRedirects(false) support. CapacitorHttp's disableRedirects is unreliable on
+      // Android and was silently following redirects, making CF appear absent.
+      // The native probe checks /hls/, /s/, and /status in order.
       let cfDetected = false
-      for (const path of probePaths) {
-        try {
-          const resp = await CapacitorHttp.get({
-            url: `${address}${path}`,
-            headers: {},
-            disableRedirects: true,
-            connectTimeout: 6000
-          })
-          if (isCfRedirect(resp)) { cfDetected = true; break }
-        } catch (e) {
-          // network error on this path — try next
-        }
+      try {
+        const result = await AbsCfZeroTrust.probeCfChallenge({ serverAddress: address })
+        cfDetected = !!result?.isCfProtected
+      } catch (e) {
+        return undefined
       }
       if (!cfDetected) return undefined
 
