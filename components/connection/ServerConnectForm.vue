@@ -464,14 +464,12 @@ export default {
       }
     },
     async checkAndHandleCfZeroTrust(address) {
-      // Skip if custom headers already set (user has service tokens or prior SSO session)
-      if (this.serverConfig.customHeaders && Object.keys(this.serverConfig.customHeaders).length > 0) {
-        return undefined
-      }
-      // Probe with redirects disabled to detect CF 302 challenge
+      // Always probe — even when customHeaders are set — so stale CF sessions are detected at login time.
+      // Pass existing headers so the probe uses current cookies if present.
       try {
         const resp = await CapacitorHttp.get({
           url: `${address}/status`,
+          headers: this.serverConfig.customHeaders || {},
           disableRedirects: true,
           connectTimeout: 6000
         })
@@ -483,7 +481,12 @@ export default {
           } catch (e) {
             return undefined
           }
+          // CF challenge detected — if we had cookies they are stale; clear them
+          if (this.serverConfig.customHeaders && Object.keys(this.serverConfig.customHeaders).length > 0) {
+            this.serverConfig.customHeaders = null
+          }
         } else {
+          // No CF challenge — existing cookies (if any) are valid, or server has no CF
           return undefined
         }
       } catch (e) {
@@ -735,7 +738,7 @@ export default {
       this.error = null
       this.authMethods = []
 
-      // CF Zero Trust auto-detection: only on Android, only when no custom headers set
+      // CF Zero Trust detection: probe on every submit so stale sessions are caught early.
       if (this.$platform === 'android') {
         const cfCookies = await this.checkAndHandleCfZeroTrust(this.serverConfig.address)
         if (cfCookies === null) {
@@ -743,7 +746,13 @@ export default {
           return false
         }
         if (cfCookies) {
+          // Fresh cookies obtained from WebView — save them and restart submit so the
+          // entire login flow begins with cookies already confirmed valid in serverConfig.
+          // This is identical to the "Login with Cloudflare" button path and avoids any
+          // timing issues with customHeaders being set mid-flow.
           this.serverConfig.customHeaders = { Cookie: cfCookies }
+          this.processing = false
+          return this.submit(preventAutoLogin)
         }
       }
 
