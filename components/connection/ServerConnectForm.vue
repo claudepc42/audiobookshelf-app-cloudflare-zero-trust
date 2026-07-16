@@ -1,6 +1,6 @@
 <template>
   <div class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
-    <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
+    <div v-show="!loggedIn" :class="showForm ? 'mt-2' : 'mt-8'" class="bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
         <div v-for="config in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
@@ -114,7 +114,8 @@ export default {
         address: null,
         version: null,
         username: null,
-        customHeaders: null
+        customHeaders: null,
+        isSsoAuth: false
       },
       cfCookiesBuffer: null,
       password: null,
@@ -454,6 +455,7 @@ export default {
         const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
         if (result?.cookieHeader) {
           this.serverConfig.customHeaders = { Cookie: result.cookieHeader }
+          this.serverConfig.isSsoAuth = true
           this.cfCookiesBuffer = result.cookieHeader
           this.$toast.success('Cloudflare session saved — tap Submit to connect')
         }
@@ -513,18 +515,35 @@ export default {
         address: null,
         userId: null,
         username: null,
-        customHeaders: null
+        customHeaders: null,
+        isSsoAuth: false
       }
     },
     async connectToServer(config) {
       await this.$hapticsImpact()
       console.log('[ServerConnectForm] connectToServer', config.address)
       this.processing = true
-      this.serverConfig = {
-        ...config
-      }
+      this.serverConfig = { ...config }
       this.showForm = true
-      var success = await this.pingServerAddress(config.address, config.customHeaders)
+
+      // If this server previously used CF SSO, probe the session before doing anything else.
+      // checkAndHandleCfZeroTrust returns: undefined (session still valid or no CF), a cookie
+      // string (fresh cookies from WebView), or null (user cancelled / error).
+      if (this.$platform === 'android' && config.isSsoAuth) {
+        const cfCookies = await this.checkAndHandleCfZeroTrust(config.address)
+        if (cfCookies === null) {
+          this.processing = false
+          return
+        }
+        if (cfCookies) {
+          this.serverConfig.customHeaders = { Cookie: cfCookies }
+          this.serverConfig.isSsoAuth = true
+          this.cfCookiesBuffer = cfCookies
+        }
+        // cfCookies === undefined: existing session still valid, proceed with stored cookies
+      }
+
+      var success = await this.pingServerAddress(config.address, this.serverConfig.customHeaders)
       this.processing = false
       console.log(`[ServerConnectForm] pingServer result ${success}`)
       if (!success) {
@@ -567,7 +586,8 @@ export default {
           address: null,
           userId: null,
           username: null,
-          customHeaders: null
+          customHeaders: null,
+          isSsoAuth: false
         }
         this.password = null
         this.processing = false
@@ -591,7 +611,8 @@ export default {
         address: '',
         userId: '',
         username: '',
-        customHeaders: null
+        customHeaders: null,
+        isSsoAuth: false
       }
       this.showForm = true
       this.showAuth = false
@@ -756,6 +777,7 @@ export default {
           // Also store in cfCookiesBuffer as a backup in case customHeaders is dropped
           // through the async OAuth roundtrip (Vue 2 reactivity edge case).
           this.serverConfig.customHeaders = { Cookie: cfCookies }
+          this.serverConfig.isSsoAuth = true
           this.cfCookiesBuffer = cfCookies
           this.processing = false
           return this.submit(preventAutoLogin)
@@ -939,6 +961,7 @@ export default {
       // Restore CF cookies from buffer if they were lost through the async OAuth roundtrip
       if (this.cfCookiesBuffer && !this.serverConfig.customHeaders?.Cookie) {
         this.serverConfig.customHeaders = { Cookie: this.cfCookiesBuffer }
+        this.serverConfig.isSsoAuth = true
       }
       this.cfCookiesBuffer = null
 

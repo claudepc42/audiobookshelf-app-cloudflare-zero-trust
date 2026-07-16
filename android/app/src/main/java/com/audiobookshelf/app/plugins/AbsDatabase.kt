@@ -30,7 +30,7 @@ class AbsDatabase : Plugin() {
   data class LocalMediaProgressPayload(val value:List<LocalMediaProgress>)
   data class LocalLibraryItemsPayload(val value:List<LocalLibraryItem>)
   data class LocalFoldersPayload(val value:List<LocalFolder>)
-  data class ServerConnConfigPayload(val id:String?, val index:Int, val name:String?, val userId:String, val username:String, var version:String, val token:String, val refreshToken:String?, val address:String?, val customHeaders:Map<String,String>?)
+  data class ServerConnConfigPayload(val id:String?, val index:Int, val name:String?, val userId:String, val username:String, var version:String, val token:String, val refreshToken:String?, val address:String?, val customHeaders:Map<String,String>?, val isSsoAuth:Boolean = false)
 
   override fun load() {
     mainActivity = (activity as MainActivity)
@@ -145,7 +145,7 @@ class AbsDatabase : Plugin() {
         }
         Log.d(tag, "Refresh token secured = $hasRefreshToken")
 
-        serverConnectionConfig = ServerConnectionConfig(sscId, sscIndex, "$serverAddress ($username)", serverAddress, serverVersion, userId, username, accessToken, serverConfigPayload.customHeaders)
+        serverConnectionConfig = ServerConnectionConfig(sscId, sscIndex, "$serverAddress ($username)", serverAddress, serverVersion, userId, username, accessToken, serverConfigPayload.customHeaders, serverConfigPayload.isSsoAuth)
 
         // Add and save
         DeviceManager.deviceData.serverConnectionConfigs.add(serverConnectionConfig!!)
@@ -163,6 +163,10 @@ class AbsDatabase : Plugin() {
         }
         if (serverConnectionConfig?.customHeaders != serverConfigPayload.customHeaders) {
           serverConnectionConfig?.customHeaders = serverConfigPayload.customHeaders
+          shouldSave = true
+        }
+        if (serverConnectionConfig?.isSsoAuth != serverConfigPayload.isSsoAuth) {
+          serverConnectionConfig?.isSsoAuth = serverConfigPayload.isSsoAuth
           shouldSave = true
         }
 

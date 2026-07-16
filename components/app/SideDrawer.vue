@@ -23,7 +23,7 @@
           <p class="text-xs text-fg-muted" style="word-break: break-word">{{ serverConnectionConfig.address }} (v{{ serverSettings.version }})</p>
         </div>
         <div class="flex items-center">
-          <p class="text-xs">{{ $config.version }}</p>
+          <p class="text-xs">{{ $config.version }} <span class="text-fg-muted">CF-ZT v4</span></p>
           <div class="flex-grow" />
           <div v-if="user" class="flex items-center" @click="disconnect">
             <p class="text-xs pr-2">{{ $strings.ButtonDisconnect }}</p>
@@ -83,7 +83,7 @@ export default {
       return this.$store.getters['user/getIsAdminOrUp']
     },
     hasCfCookies() {
-      return this.$platform === 'android' && !!(this.serverConnectionConfig?.customHeaders?.Cookie)
+      return this.$platform === 'android' && !!(this.serverConnectionConfig?.isSsoAuth)
     },
     navItems() {
       var items = [
@@ -199,7 +199,8 @@ export default {
         if (result?.cookieHeader) {
           const updatedConfig = {
             ...this.serverConnectionConfig,
-            customHeaders: { Cookie: result.cookieHeader }
+            customHeaders: { Cookie: result.cookieHeader },
+            isSsoAuth: true
           }
           const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
           this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)

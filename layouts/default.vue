@@ -351,7 +351,7 @@ export default {
       try {
         const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
         if (result?.cookieHeader) {
-          const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader } }
+          const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
           const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
           this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
           this.$toast.success('Cloudflare session refreshed — tap play to try again')
