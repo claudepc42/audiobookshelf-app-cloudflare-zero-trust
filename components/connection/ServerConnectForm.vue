@@ -116,6 +116,7 @@ export default {
         username: null,
         customHeaders: null
       },
+      cfCookiesBuffer: null,
       password: null,
       error: null,
       showForm: false,
@@ -453,6 +454,7 @@ export default {
         const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
         if (result?.cookieHeader) {
           this.serverConfig.customHeaders = { Cookie: result.cookieHeader }
+          this.cfCookiesBuffer = result.cookieHeader
           this.$toast.success('Cloudflare session saved — tap Submit to connect')
         }
       } catch (e) {
@@ -510,7 +512,8 @@ export default {
       this.serverConfig = {
         address: null,
         userId: null,
-        username: null
+        username: null,
+        customHeaders: null
       }
     },
     async connectToServer(config) {
@@ -563,7 +566,8 @@ export default {
         this.serverConfig = {
           address: null,
           userId: null,
-          username: null
+          username: null,
+          customHeaders: null
         }
         this.password = null
         this.processing = false
@@ -586,7 +590,8 @@ export default {
       this.serverConfig = {
         address: '',
         userId: '',
-        username: ''
+        username: '',
+        customHeaders: null
       }
       this.showForm = true
       this.showAuth = false
@@ -748,9 +753,10 @@ export default {
         if (cfCookies) {
           // Fresh cookies obtained from WebView — save them and restart submit so the
           // entire login flow begins with cookies already confirmed valid in serverConfig.
-          // This is identical to the "Login with Cloudflare" button path and avoids any
-          // timing issues with customHeaders being set mid-flow.
+          // Also store in cfCookiesBuffer as a backup in case customHeaders is dropped
+          // through the async OAuth roundtrip (Vue 2 reactivity edge case).
           this.serverConfig.customHeaders = { Cookie: cfCookies }
+          this.cfCookiesBuffer = cfCookies
           this.processing = false
           return this.submit(preventAutoLogin)
         }
@@ -929,6 +935,12 @@ export default {
       if (!user) return
 
       console.log('Successfully logged in: ' + user.username)
+
+      // Restore CF cookies from buffer if they were lost through the async OAuth roundtrip
+      if (this.cfCookiesBuffer && !this.serverConfig.customHeaders?.Cookie) {
+        this.serverConfig.customHeaders = { Cookie: this.cfCookiesBuffer }
+      }
+      this.cfCookiesBuffer = null
 
       this.$store.commit('setServerSettings', serverSettings)
       this.$store.commit('libraries/setEReaderDevices', ereaderDevices)
