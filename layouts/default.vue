@@ -11,6 +11,7 @@
     <modals-rssfeeds-rss-feed-modal />
     <app-side-drawer :key="currentLang" />
     <readers-reader />
+    <app-update-prompt v-if="showUpdatePrompt" :latest-tag="updateLatestTag" :latest-url="updateLatestUrl" :is-player-open="isPlayerOpen" @dismiss="onUpdateDismiss" @silence="onUpdateSilence" @auto-hide="showUpdatePrompt = false" />
   </div>
 </template>
 
@@ -29,7 +30,10 @@ export default {
       timeLostFocus: 0,
       currentLang: null,
       cfSessionListener: null,
-      cfRefreshInProgress: false
+      cfRefreshInProgress: false,
+      showUpdatePrompt: false,
+      updateLatestTag: '',
+      updateLatestUrl: ''
     }
   },
   watch: {
@@ -115,6 +119,58 @@ export default {
     }
   },
   methods: {
+    async checkForUpdates() {
+      if (this.$platform !== 'android') return
+      const enabled = localStorage.getItem('cfzt_update_checks_enabled')
+      if (enabled === 'false') return
+
+      const CFZT_CURRENT_TAG = this.$config.cfztVersion
+      const fiveDays = 5 * 24 * 60 * 60 * 1000
+      const lastCheck = parseInt(localStorage.getItem('cfzt_last_check') || '0')
+      const now = Date.now()
+
+      let latestTag, latestUrl
+
+      if (now - lastCheck >= fiveDays) {
+        try {
+          const response = await CapacitorHttp.get({
+            url: 'https://api.github.com/repos/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/latest',
+            headers: { Accept: 'application/vnd.github+json' }
+          })
+          if (response.status !== 200 || !response.data) return
+          latestTag = response.data.tag_name
+          latestUrl = response.data.html_url
+          localStorage.setItem('cfzt_cached_tag', latestTag)
+          localStorage.setItem('cfzt_cached_url', latestUrl)
+        } catch (e) {
+          return
+        }
+      } else {
+        latestTag = localStorage.getItem('cfzt_cached_tag')
+        latestUrl = localStorage.getItem('cfzt_cached_url')
+        if (!latestTag) return
+      }
+
+      const dismissedTag = localStorage.getItem('cfzt_dismissed_tag')
+      if (dismissedTag === latestTag) return
+
+      const currentVersion = parseFloat(CFZT_CURRENT_TAG.replace(/^v/, ''))
+      const latestVersion = parseFloat(latestTag.replace(/^v/, ''))
+      if (isNaN(latestVersion) || latestVersion <= currentVersion) return
+
+      this.updateLatestTag = latestTag
+      this.updateLatestUrl = latestUrl
+      this.showUpdatePrompt = true
+    },
+    onUpdateDismiss() {
+      localStorage.setItem('cfzt_last_check', String(Date.now()))
+      this.showUpdatePrompt = false
+    },
+    onUpdateSilence() {
+      localStorage.setItem('cfzt_last_check', String(Date.now()))
+      localStorage.setItem('cfzt_dismissed_tag', this.updateLatestTag)
+      this.showUpdatePrompt = false
+    },
     initialStream(stream) {
       if (this.$refs.streamContainer?.audioPlayerReady) {
         this.$refs.streamContainer.streamOpen(stream)
@@ -412,6 +468,7 @@ export default {
 
       AbsLogger.info({ tag: 'default', message: 'mounted: fully initialized' })
       this.$eventBus.$emit('abs-ui-ready')
+      this.checkForUpdates()
     }
   },
   beforeDestroy() {

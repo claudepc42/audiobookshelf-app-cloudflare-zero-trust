@@ -175,6 +175,17 @@
       </div>
     </template>
 
+    <!-- CF-ZT settings -->
+    <template v-if="!isiOS">
+      <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">CF Zero Trust</p>
+      <div class="flex items-center py-3">
+        <div class="w-10 flex justify-center" @click="toggleCfztUpdateChecks">
+          <ui-toggle-switch v-model="cfztUpdateChecksEnabled" />
+        </div>
+        <p class="pl-4">Check for app updates</p>
+      </div>
+    </template>
+
     <div v-show="loading" class="w-full h-full absolute top-0 left-0 flex items-center justify-center z-10">
       <ui-loading-indicator />
     </div>
@@ -195,6 +206,7 @@ export default {
     return {
       loading: false,
       deviceData: null,
+      cfztUpdateChecksEnabled: true,
       showMoreMenuDialog: false,
       showSleepTimerLengthModal: false,
       showAutoSleepTimerRewindLengthModal: false,
@@ -628,6 +640,10 @@ export default {
       this.$setOrientationLock(this.settings.lockOrientation)
       this.saveSettings()
     },
+    toggleCfztUpdateChecks() {
+      this.cfztUpdateChecksEnabled = !this.cfztUpdateChecksEnabled
+      localStorage.setItem('cfzt_update_checks_enabled', String(this.cfztUpdateChecksEnabled))
+    },
     async saveSettings() {
       await this.$hapticsImpact()
       const updatedDeviceData = await this.$db.updateDeviceSettings({ ...this.settings })
@@ -678,6 +694,8 @@ export default {
       this.deviceData = await this.$db.getDeviceData()
       this.$store.commit('setDeviceData', this.deviceData)
       this.setDeviceSettings()
+      const updateChecksEnabled = localStorage.getItem('cfzt_update_checks_enabled')
+      if (updateChecksEnabled !== null) this.cfztUpdateChecksEnabled = updateChecksEnabled !== 'false'
       this.loading = false
     }
   },
