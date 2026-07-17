@@ -44,7 +44,8 @@ data class ServerConnectionConfig(
   var username:String,
   var token:String,
   var customHeaders:Map<String, String>?,
-  var isSsoAuth:Boolean = false
+  var isSsoAuth:Boolean = false,
+  var localAddress:String? = null
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

@@ -333,6 +333,10 @@ export default {
           console.log(`✅ [default] device visibility: reloading local media progress`)
           // Reload local media progresses
           await this.$store.dispatch('globals/loadLocalMediaProgress')
+          // Re-resolve LAN vs remote endpoint after being out of focus
+          if (this.$platform === 'android') {
+            this.$db.resolveEndpoint().catch(() => {})
+          }
         }
         if (document.visibilityState === 'visible') {
           this.$eventBus.$emit('device-focus-update', true)

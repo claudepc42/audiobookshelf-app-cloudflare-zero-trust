@@ -112,11 +112,30 @@ class ApiHandler(var ctx:Context) {
     }
   }
 
-  private fun makeRequest(request:Request, httpClient:OkHttpClient?, cb: (JSObject) -> Unit) {
+  private fun makeRequest(request:Request, httpClient:OkHttpClient?, cb: (JSObject) -> Unit, isRetry: Boolean = false) {
     val client = httpClient ?: defaultClient
 
     client.newCall(request).enqueue(object : Callback {
       override fun onFailure(call: Call, e: IOException) {
+        // If using a LAN address and it just failed, fall back to the primary address and retry once
+        val config = DeviceManager.serverConnectionConfig
+        val localAddr = config?.localAddress
+        if (!isRetry && !localAddr.isNullOrEmpty() &&
+          com.audiobookshelf.app.device.EndpointResolver.effectiveAddress == localAddr) {
+          Log.w(tag, "LAN request failed (${e.message}) — falling back to primary address and retrying")
+          com.audiobookshelf.app.device.EndpointResolver.markUnhealthyAndFallback(config)
+          val newUrl = request.url.toString().replace(localAddr, config.address)
+          try {
+            val retryRequest = request.newBuilder().url(newUrl).build()
+            makeRequest(retryRequest, httpClient, cb, isRetry = true)
+          } catch (ex: Exception) {
+            val jsobj = JSObject()
+            jsobj.put("error", "Failed to connect")
+            cb(jsobj)
+          }
+          return
+        }
+
         Log.d(tag, "FAILURE TO CONNECT")
         e.printStackTrace()
 

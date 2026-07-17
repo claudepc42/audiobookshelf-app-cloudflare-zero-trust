@@ -39,6 +39,8 @@
           </div>
           <h2 class="text-lg leading-7 mb-2">{{ $strings.LabelServerAddress }}</h2>
           <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" />
+          <h2 class="text-sm leading-7 mt-3 mb-1 text-fg-muted">LAN address (optional)</h2>
+          <ui-text-input v-model="serverConfig.localAddress" :disabled="processing || !networkConnected" placeholder="http://192.168.1.x:13378" type="url" class="w-full h-10" />
           <div class="flex justify-end items-center mt-6">
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
@@ -115,7 +117,8 @@ export default {
         version: null,
         username: null,
         customHeaders: null,
-        isSsoAuth: false
+        isSsoAuth: false,
+        localAddress: null
       },
       cfCookiesBuffer: null,
       password: null,
@@ -510,7 +513,8 @@ export default {
         userId: null,
         username: null,
         customHeaders: null,
-        isSsoAuth: false
+        isSsoAuth: false,
+        localAddress: null
       }
     },
     async connectToServer(config) {
@@ -581,7 +585,8 @@ export default {
           userId: null,
           username: null,
           customHeaders: null,
-          isSsoAuth: false
+          isSsoAuth: false,
+          localAddress: null
         }
         this.password = null
         this.processing = false
@@ -606,7 +611,8 @@ export default {
         userId: '',
         username: '',
         customHeaders: null,
-        isSsoAuth: false
+        isSsoAuth: false,
+        localAddress: null
       }
       this.showForm = true
       this.showAuth = false

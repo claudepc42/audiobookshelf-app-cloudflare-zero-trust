@@ -30,7 +30,7 @@ class AbsDatabase : Plugin() {
   data class LocalMediaProgressPayload(val value:List<LocalMediaProgress>)
   data class LocalLibraryItemsPayload(val value:List<LocalLibraryItem>)
   data class LocalFoldersPayload(val value:List<LocalFolder>)
-  data class ServerConnConfigPayload(val id:String?, val index:Int, val name:String?, val userId:String, val username:String, var version:String, val token:String, val refreshToken:String?, val address:String?, val customHeaders:Map<String,String>?, val isSsoAuth:Boolean = false)
+  data class ServerConnConfigPayload(val id:String?, val index:Int, val name:String?, val userId:String, val username:String, var version:String, val token:String, val refreshToken:String?, val address:String?, val customHeaders:Map<String,String>?, val isSsoAuth:Boolean = false, val localAddress:String? = null)
 
   override fun load() {
     mainActivity = (activity as MainActivity)
@@ -145,7 +145,7 @@ class AbsDatabase : Plugin() {
         }
         Log.d(tag, "Refresh token secured = $hasRefreshToken")
 
-        serverConnectionConfig = ServerConnectionConfig(sscId, sscIndex, "$serverAddress ($username)", serverAddress, serverVersion, userId, username, accessToken, serverConfigPayload.customHeaders, serverConfigPayload.isSsoAuth)
+        serverConnectionConfig = ServerConnectionConfig(sscId, sscIndex, "$serverAddress ($username)", serverAddress, serverVersion, userId, username, accessToken, serverConfigPayload.customHeaders, serverConfigPayload.isSsoAuth, serverConfigPayload.localAddress)
 
         // Add and save
         DeviceManager.deviceData.serverConnectionConfigs.add(serverConnectionConfig!!)
@@ -169,6 +169,10 @@ class AbsDatabase : Plugin() {
           serverConnectionConfig?.isSsoAuth = serverConfigPayload.isSsoAuth
           shouldSave = true
         }
+        if (serverConnectionConfig?.localAddress != serverConfigPayload.localAddress) {
+          serverConnectionConfig?.localAddress = serverConfigPayload.localAddress
+          shouldSave = true
+        }
 
         // Update refresh token if provided
         if (!refreshToken.isNullOrEmpty()) {
@@ -186,7 +190,16 @@ class AbsDatabase : Plugin() {
       }
 
       DeviceManager.serverConnectionConfig = serverConnectionConfig
+      com.audiobookshelf.app.device.EndpointResolver.resolve(DeviceManager.serverConnectionConfig)
       call.resolve(JSObject(jacksonMapper.writeValueAsString(DeviceManager.serverConnectionConfig)))
+    }
+  }
+
+  @PluginMethod
+  fun resolveEndpoint(call: PluginCall) {
+    GlobalScope.launch(Dispatchers.IO) {
+      com.audiobookshelf.app.device.EndpointResolver.resolve(DeviceManager.serverConnectionConfig)
+      call.resolve()
     }
   }
 

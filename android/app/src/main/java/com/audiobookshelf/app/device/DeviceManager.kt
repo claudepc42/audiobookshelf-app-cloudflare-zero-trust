@@ -36,7 +36,7 @@ object DeviceManager {
   val serverConnectionConfigName get() = serverConnectionConfig?.name ?: ""
   val serverConnectionConfigString get() = serverConnectionConfig?.name ?: "No server connection"
   val serverAddress
-    get() = serverConnectionConfig?.address ?: ""
+    get() = EndpointResolver.effectiveAddress.ifEmpty { serverConnectionConfig?.address ?: "" }
   val serverUserId
     get() = serverConnectionConfig?.userId ?: ""
   val token
