@@ -146,7 +146,11 @@ export default {
       }
       this.$nativeHttp
         .post(`/api/me/item/${this.libraryItemId}/bookmark`, bookmark)
-        .then(() => {
+        .then((data) => {
+          if (!data || typeof data !== 'object' || !('time' in data)) {
+            this.$toast.error('Session expired — please re-authenticate')
+            return
+          }
           this.$toast.success('Bookmark added')
         })
         .catch((error) => {
