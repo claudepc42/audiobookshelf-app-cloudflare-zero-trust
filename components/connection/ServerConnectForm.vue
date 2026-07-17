@@ -760,6 +760,12 @@ export default {
       // Add https:// if not provided
       this.serverConfig.address = this.prependProtocolIfNeeded(initialAddress)
 
+      // Normalize localAddress — LAN servers are almost always HTTP, so default to http:// not https://
+      if (this.serverConfig.localAddress) {
+        const la = this.serverConfig.localAddress.trim().replace(/\/+$/, '')
+        this.serverConfig.localAddress = la.startsWith('http://') || la.startsWith('https://') ? la : `http://${la}`
+      }
+
       this.processing = true
       this.error = null
       this.authMethods = []
