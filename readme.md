@@ -1,7 +1,7 @@
 # Audiobookshelf Mobile App — Cloudflare Zero Trust Fork
 
 > **This is an unofficial patched build of the [Audiobookshelf Android app](https://github.com/advplyr/audiobookshelf-app).**
-> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus a cold-start auto-connect fix.
+> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home and a cold-start auto-connect fix.
 >
 > **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/latest)**
 
@@ -44,6 +44,21 @@ CF session cookies have a time-based expiry (set by the CF Access admin). When t
 **Auto-detection:** When a playback error or failed download is detected, the app probes the server with a HEAD request (no redirects). If the server returns a 302 to `cloudflareaccess.com`, a `cfSessionExpired` event fires on the JS layer and the WebView opens automatically — all without the user doing anything. After re-auth, tap play again.
 
 **ExoPlayer CDN host-filter:** HLS streams can include segment URLs that point to external CDNs. Previously, CF session cookies were injected into all ExoPlayer requests, including those CDN URLs, causing those requests to fail. A custom `HostFilteredHttpDataSource` now restricts CF cookies and other custom headers to requests whose host matches the ABS server host only.
+
+### 5. LAN address auto-routing (home network fast lane)
+
+When adding or editing a server, an optional **LAN address** field appears below the main server address. Enter your server's local IP (e.g. `http://192.168.1.100:13378`).
+
+**How it works:**
+
+- On connect and on app resume from background, the app probes your LAN address with a 500 ms timeout.
+- If it responds, all streaming and downloads go through the LAN address — full local network speed, no Cloudflare overhead, no bandwidth cap.
+- If it doesn't respond (you're away from home), the app falls back to your main Cloudflare address automatically.
+- Your server config, library, progress sync, and download history stay unified under a single entry — no duplicate configs to manage.
+
+**Downloads at full LAN speed:** Downloads to custom folders use an in-app HTTP client rather than the Android system Download Manager, so they aren't subject to VPN split-tunnel routing restrictions that affect system services. The file is written to your chosen folder at full local network speed and tagged with your primary server address, so progress syncs correctly whether you're on LAN or away.
+
+> **Typical result:** streaming and downloads at 50–250 MB/s on a gigabit LAN, automatically, with zero extra setup after the initial field is filled in.
 
 ---
 
