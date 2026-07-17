@@ -65,6 +65,18 @@ jobs:
             $UNSIGNED
           echo "signedFile=$SIGNED" >> $GITHUB_OUTPUT
 
+      - name: Rename APK
+        id: rename
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            NEW_NAME="audiobookshelf-CFZT-${{ github.ref_name }}.apk"
+          else
+            NEW_NAME="audiobookshelf-CFZT-dev.apk"
+          fi
+          DIR=$(dirname ${{ steps.sign.outputs.signedFile }})
+          mv ${{ steps.sign.outputs.signedFile }} $DIR/$NEW_NAME
+          echo "apkFile=$DIR/$NEW_NAME" >> $GITHUB_OUTPUT
+
       - name: Publish to GitHub Releases (dev)
         if: github.ref_type == 'branch'
         uses: ncipollo/release-action@v1
@@ -79,7 +91,7 @@ jobs:
             - Auto-connect race condition fix — app reliably connects to your saved server on cold start
 
             **Installing:** If you have the Play Store version or a build signed with a different key, uninstall it first.
-          artifacts: ${{ steps.sign.outputs.signedFile }}
+          artifacts: ${{ steps.rename.outputs.apkFile }}
           prerelease: true
           allowUpdates: true
           removeArtifacts: true
@@ -91,7 +103,7 @@ jobs:
         with:
           tag: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          artifacts: ${{ steps.sign.outputs.signedFile }}
+          artifacts: ${{ steps.rename.outputs.apkFile }}
           prerelease: false
           allowUpdates: true
           removeArtifacts: true
