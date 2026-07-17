@@ -102,10 +102,10 @@ class DownloadItemManager(
   /** Processes the download item parts. */
   private fun processDownloadItemParts(nextDownloadItemParts: List<DownloadItemPart>) {
     nextDownloadItemParts.forEach {
-      if (it.isInternalStorage) {
-        startInternalDownload(it)
-      } else {
-        startExternalDownload(it)
+      when {
+        it.isInternalStorage -> startInternalDownload(it)
+        it.serverUrl.startsWith("http://") -> startOkHttpExternalDownload(it)
+        else -> startExternalDownload(it)
       }
     }
   }
@@ -148,6 +148,43 @@ class DownloadItemManager(
     currentDownloadItemParts.add(downloadItemPart)
   }
 
+  /**
+   * Downloads via OkHttp (in-process) instead of the system DownloadManager.
+   * Used for HTTP URLs where the system DownloadManager may fail due to network
+   * routing differences (e.g. VPN split-tunnel) or cleartext restrictions.
+   * Writes to the temp destination first; the standard moveDownloadedFile step
+   * then moves it to the user's custom folder.
+   */
+  private fun startOkHttpExternalDownload(downloadItemPart: DownloadItemPart) {
+    val tempPath = downloadItemPart.destinationUri.path ?: run {
+      Log.e(tag, "OkHttp external download: destinationUri has no path for ${downloadItemPart.filename}")
+      downloadItemPart.failed = true
+      downloadItemPart.completed = true
+      currentDownloadItemParts.add(downloadItemPart)
+      return
+    }
+    val file = File(tempPath)
+    file.parentFile?.mkdirs()
+    val fos = FileOutputStream(file)
+    val progressCallback = object : InternalProgressCallback {
+      override fun onProgress(totalBytesWritten: Long, progress: Long) {
+        downloadItemPart.bytesDownloaded = totalBytesWritten
+        downloadItemPart.progress = progress
+      }
+      override fun onComplete(failed: Boolean) {
+        downloadItemPart.failed = failed
+        downloadItemPart.completed = true
+      }
+    }
+    Log.d(tag, "Start OkHttp external download to $tempPath from ${downloadItemPart.serverUrl}")
+    InternalDownloadManager(fos, progressCallback).download(
+      downloadItemPart.serverUrl,
+      DeviceManager.serverConnectionConfig?.customHeaders
+    )
+    downloadItemPart.downloadId = 1
+    currentDownloadItemParts.add(downloadItemPart)
+  }
+
   /** Starts watching the downloads. */
   private fun startWatchingDownloads() {
     if (isDownloading) return // Already watching
@@ -159,10 +196,10 @@ class DownloadItemManager(
       while (currentDownloadItemParts.isNotEmpty()) {
         val itemParts = currentDownloadItemParts.filter { !it.isMoving }
         for (downloadItemPart in itemParts) {
-          if (downloadItemPart.isInternalStorage) {
-            handleInternalDownloadPart(downloadItemPart)
-          } else {
-            handleExternalDownloadPart(downloadItemPart)
+          when {
+            downloadItemPart.isInternalStorage -> handleInternalDownloadPart(downloadItemPart)
+            downloadItemPart.serverUrl.startsWith("http://") -> handleOkHttpExternalDownloadPart(downloadItemPart)
+            else -> handleExternalDownloadPart(downloadItemPart)
           }
         }
 
@@ -186,6 +223,24 @@ class DownloadItemManager(
       val downloadItem = downloadItemQueue.find { it.id == downloadItemPart.downloadItemId }
       downloadItem?.let { checkDownloadItemFinished(it) }
       currentDownloadItemParts.remove(downloadItemPart)
+    }
+  }
+
+  /** Handles an OkHttp-based external download part (HTTP URLs to custom folder). */
+  private fun handleOkHttpExternalDownloadPart(downloadItemPart: DownloadItemPart) {
+    clientEventEmitter.onDownloadItemPartUpdate(downloadItemPart)
+    if (!downloadItemPart.completed) return
+
+    val downloadItem = downloadItemQueue.find { it.id == downloadItemPart.downloadItemId }
+    if (downloadItem == null) {
+      currentDownloadItemParts.remove(downloadItemPart)
+      return
+    }
+    if (downloadItemPart.failed) {
+      checkDownloadItemFinished(downloadItem)
+      currentDownloadItemParts.remove(downloadItemPart)
+    } else {
+      moveDownloadedFile(downloadItem, downloadItemPart)
     }
   }
 
