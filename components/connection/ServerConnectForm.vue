@@ -1,5 +1,5 @@
 <template>
-  <div :class="showForm ? 'self-start mt-44' : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
+  <div :class="showForm ? 'self-start mt-36' : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
     <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
