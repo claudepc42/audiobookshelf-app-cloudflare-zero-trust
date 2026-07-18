@@ -121,6 +121,14 @@ class DbService {
   getMediaItemHistory(mediaId) {
     return AbsDatabase.getMediaItemHistory({ mediaId })
   }
+
+  resolveEndpoint() {
+    return AbsDatabase.resolveEndpoint()
+  }
+
+  getEffectiveAddress() {
+    return AbsDatabase.getEffectiveAddress().then((data) => data?.address || null)
+  }
 }
 
 export default ({ app, store }, inject) => {

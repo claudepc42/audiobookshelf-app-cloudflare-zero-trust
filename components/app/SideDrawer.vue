@@ -19,8 +19,9 @@
         </template>
       </div>
       <div class="absolute bottom-0 left-0 w-full py-6 px-6 text-fg">
-        <div v-if="serverConnectionConfig" class="mb-4 flex justify-center">
-          <p class="text-xs text-fg-muted" style="word-break: break-word">{{ serverConnectionConfig.address }} (v{{ serverSettings.version }})</p>
+        <div v-if="serverConnectionConfig" class="mb-4 flex flex-col items-center">
+          <p class="text-xs text-fg-muted" style="word-break: break-word">{{ isActiveAddress(serverConnectionConfig.address) ? '* ' : '' }}{{ serverConnectionConfig.address }} (v{{ serverSettings.version }})</p>
+          <p v-if="serverConnectionConfig.localAddress" class="text-xs text-fg-muted" style="word-break: break-word">{{ isActiveAddress(serverConnectionConfig.localAddress) ? '* ' : '' }}{{ serverConnectionConfig.localAddress }}</p>
         </div>
         <div class="flex items-center">
           <div class="flex flex-col">
@@ -45,7 +46,8 @@ import { AbsCfZeroTrust } from '../../plugins/capacitor/AbsCfZeroTrust'
 export default {
   data() {
     return {
-      touchEvent: null
+      touchEvent: null,
+      effectiveAddress: null
     }
   },
   watch: {
@@ -56,8 +58,12 @@ export default {
     },
     show: {
       handler(newVal) {
-        if (newVal) this.registerListener()
-        else this.removeListener()
+        if (newVal) {
+          this.registerListener()
+          this.refreshEffectiveAddress()
+        } else {
+          this.removeListener()
+        }
       }
     }
   },
@@ -242,6 +248,20 @@ export default {
         this.show = false
       }
       this.touchEvent = null
+    },
+    async refreshEffectiveAddress() {
+      if (this.$platform !== 'android' || !this.serverConnectionConfig?.localAddress) {
+        this.effectiveAddress = null
+        return
+      }
+      try {
+        this.effectiveAddress = await this.$db.getEffectiveAddress()
+      } catch (e) {
+        this.effectiveAddress = null
+      }
+    },
+    isActiveAddress(address) {
+      return !!this.effectiveAddress && this.effectiveAddress === address
     },
     registerListener() {
       document.addEventListener('touchstart', this.touchstart)

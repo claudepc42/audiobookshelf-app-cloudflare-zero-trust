@@ -204,6 +204,13 @@ class AbsDatabase : Plugin() {
   }
 
   @PluginMethod
+  fun getEffectiveAddress(call: PluginCall) {
+    val result = JSObject()
+    result.put("address", DeviceManager.serverAddress)
+    call.resolve(result)
+  }
+
+  @PluginMethod
   fun removeServerConnectionConfig(call:PluginCall) {
     GlobalScope.launch(Dispatchers.IO) {
       val serverConnectionConfigId = call.getString("serverConnectionConfigId", "").toString()
