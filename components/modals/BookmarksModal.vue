@@ -42,6 +42,7 @@
 
 <script>
 import { Dialog } from '@capacitor/dialog'
+import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 
 export default {
   props: {
@@ -93,6 +94,30 @@ export default {
     }
   },
   methods: {
+    // Pre-emptively check for a stale CF session and refresh it before hitting the API,
+    // same pattern used before downloads/playback (see startDownload in pages/item/_id/index.vue).
+    // Avoids a generic "failed to create bookmark" error when the real cause is CF session expiry.
+    async ensureCfSessionValid() {
+      const serverConfig = this.$store.state.user.serverConnectionConfig
+      if (this.$platform !== 'android' || !serverConfig?.isSsoAuth) return
+
+      try {
+        const probeResult = await AbsCfZeroTrust.probeCfChallenge({
+          serverAddress: serverConfig.address,
+          cookies: serverConfig.customHeaders?.Cookie || ''
+        })
+        if (!probeResult?.isCfProtected || probeResult?.cookiesValid) return
+
+        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
+        if (result?.cookieHeader) {
+          const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
+          const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
+          this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
+        }
+      } catch (e) {
+        // probe or webview failed/cancelled — proceed and let the request fail normally if session is actually stale
+      }
+    },
     bookmarkPlaceholder() {
       // using a method prevents caching the date
       return this.$formatDate(Date.now(), 'MMM dd, yyyy HH:mm')
@@ -124,7 +149,9 @@ export default {
       await this.$hapticsImpact()
       this.$emit('select', bm)
     },
-    submitUpdateBookmark(updatedBookmark) {
+    async submitUpdateBookmark(updatedBookmark) {
+      await this.ensureCfSessionValid()
+
       this.$nativeHttp
         .patch(`/api/me/item/${this.libraryItemId}/bookmark`, updatedBookmark)
         .then((bookmark) => {
@@ -136,7 +163,7 @@ export default {
           console.error(error)
         })
     },
-    submitCreateBookmark() {
+    async submitCreateBookmark() {
       if (!this.newBookmarkTitle) {
         this.newBookmarkTitle = this.$formatDate(Date.now(), 'MMM dd, yyyy HH:mm')
       }
@@ -144,6 +171,9 @@ export default {
         title: this.newBookmarkTitle,
         time: Math.floor(this.currentTime)
       }
+
+      await this.ensureCfSessionValid()
+
       this.$nativeHttp
         .post(`/api/me/item/${this.libraryItemId}/bookmark`, bookmark)
         .then((data) => {
@@ -151,6 +181,7 @@ export default {
             this.$toast.error('Session expired — please re-authenticate')
             return
           }
+          this.$store.commit('user/addBookmark', data)
           this.$toast.success('Bookmark added')
         })
         .catch((error) => {

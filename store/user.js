@@ -253,6 +253,11 @@ export const mutations = {
     if (!settings) return
     state.settings = settings
   },
+  addBookmark(state, bookmark) {
+    if (!state.user?.bookmarks) return
+    const exists = state.user.bookmarks.some((bm) => bm.libraryItemId === bookmark.libraryItemId && bm.time === bookmark.time)
+    if (!exists) state.user.bookmarks.push(bookmark)
+  },
   updateBookmark(state, bookmark) {
     if (!state.user?.bookmarks) return
     state.user.bookmarks = state.user.bookmarks.map((bm) => {
