@@ -208,8 +208,9 @@ class AbsDatabase : Plugin() {
     GlobalScope.launch(Dispatchers.IO) {
       val serverConnectionConfigId = call.getString("serverConnectionConfigId", "").toString()
 
-      // Remove refresh token if it exists
+      // Remove refresh token and custom headers if they exist
       secureStorage.removeRefreshToken(serverConnectionConfigId)
+      secureStorage.removeCustomHeaders(serverConnectionConfigId)
 
       DeviceManager.deviceData.serverConnectionConfigs = DeviceManager.deviceData.serverConnectionConfigs.filter { it.id != serverConnectionConfigId } as MutableList<ServerConnectionConfig>
       if (DeviceManager.deviceData.lastServerConnectionConfigId == serverConnectionConfigId) {

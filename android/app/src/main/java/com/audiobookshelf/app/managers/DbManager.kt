@@ -14,21 +14,68 @@ class DbManager {
 
   companion object {
     private var isDbInitialized = false
+    private var appContext: Context? = null
 
     fun initialize(ctx: Context) {
       if (isDbInitialized) return
+      appContext = ctx.applicationContext
       Paper.init(ctx)
       isDbInitialized = true
       Log.i("DbManager", "Initialized Paper db")
     }
   }
 
-  fun getDeviceData(): DeviceData {
-    return Paper.book("device").read("data")
-            ?: DeviceData(mutableListOf(), null, DeviceSettings.default(), null)
+  // Lazily built once appContext is available (set by initialize(), which every entry point
+  // already calls before touching device data). Used to keep server connection customHeaders
+  // (CF Zero Trust cookie / service token headers) out of the plaintext Paper/Kryo blob.
+  private val secureStorage: SecureStorage? by lazy {
+    appContext?.let { SecureStorage(it) }
   }
+
+  /**
+   * Reads DeviceData from Paper DB and rehydrates each server connection config's customHeaders
+   * from Keystore-backed SecureStorage, since the on-disk copy never contains them (see
+   * saveDeviceData). This is the single read chokepoint used by both the DeviceManager singleton
+   * init and the AbsDatabase.getDeviceData plugin method, so every consumer gets the real value.
+   */
+  fun getDeviceData(): DeviceData {
+    val deviceData = Paper.book("device").read("data")
+            ?: DeviceData(mutableListOf(), null, DeviceSettings.default(), null)
+    secureStorage?.let { storage ->
+      deviceData.serverConnectionConfigs.forEach { config ->
+        storage.getCustomHeaders(config.id)?.let { config.customHeaders = it }
+      }
+    }
+    return deviceData
+  }
+
+  /**
+   * Persists DeviceData to Paper DB. Server connection customHeaders are never written to the
+   * Paper/Kryo blob in plaintext -- they're stored separately via Keystore-backed SecureStorage
+   * and stripped from the objects just for the duration of this synchronous write, then restored
+   * immediately after so in-memory objects (and any in-flight requests using them) are unaffected.
+   * This is the single write chokepoint -- saveDeviceData has multiple callers across the app
+   * (AbsDatabase, ApiHandler, DeviceManager), most unrelated to customHeaders, so redacting here
+   * rather than at each call site is the only way to guarantee none of them leak it to disk.
+   */
   fun saveDeviceData(deviceData: DeviceData) {
-    Paper.book("device").write("data", deviceData)
+    val storage = secureStorage
+    if (storage == null) {
+      Paper.book("device").write("data", deviceData)
+      return
+    }
+    val realHeadersByConfigId = deviceData.serverConnectionConfigs.associate { it.id to it.customHeaders }
+    try {
+      deviceData.serverConnectionConfigs.forEach { config ->
+        storage.storeCustomHeaders(config.id, config.customHeaders)
+        config.customHeaders = null
+      }
+      Paper.book("device").write("data", deviceData)
+    } finally {
+      deviceData.serverConnectionConfigs.forEach { config ->
+        config.customHeaders = realHeadersByConfigId[config.id]
+      }
+    }
   }
 
   fun getLocalLibraryItems(mediaType: String? = null): MutableList<LocalLibraryItem> {
