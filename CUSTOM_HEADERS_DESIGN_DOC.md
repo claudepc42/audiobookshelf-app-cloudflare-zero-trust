@@ -7,7 +7,9 @@
 
 ## Background
 
-`ServerConnectionConfig` already has a `customHeaders: Map<String, String>?` field (`DeviceClasses.kt` line 36–47). The UI modal (`CustomHeadersModal.vue`) already exists and works. The data persists through `AbsDatabase.kt`. The feature was designed but never fully wired to the HTTP stacks the app uses.
+`ServerConnectionConfig` already has a `customHeaders: Map<String, String>?` field (`DeviceClasses.kt` line 36–47). The UI modal (`CustomHeadersModal.vue`) already exists and works. The feature was designed but never fully wired to the HTTP stacks the app uses.
+
+**Persistence (updated):** `customHeaders` is never written to the plaintext Paper/Kryo blob. `DbManager.saveDeviceData()`/`getDeviceData()` is the single chokepoint that redacts it before every disk write and rehydrates it from Keystore-backed `SecureStorage` (AES-256/GCM) after every disk read — see `SecureStorage.kt`'s `storeCustomHeaders`/`getCustomHeaders`/`removeCustomHeaders`. `AbsDatabase.kt` remains the plugin layer JS talks to, but it no longer directly determines how the data is persisted; that logic lives in `DbManager`. In-memory, the live `ServerConnectionConfig` object still carries the real value at all times — only the on-disk copy is ever redacted.
 
 ---
 
