@@ -1,7 +1,7 @@
 # Audiobookshelf Mobile App — Cloudflare Zero Trust Fork
 
 > **This is an unofficial patched build of the [Audiobookshelf Android app](https://github.com/advplyr/audiobookshelf-app).**
-> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home and a cold-start auto-connect fix.
+> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and a cold-start auto-connect fix.
 >
 > **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/latest)**
 
@@ -51,14 +51,24 @@ When adding or editing a server, an optional **LAN address** field appears below
 
 **How it works:**
 
-- On connect and on app resume from background, the app probes your LAN address with a 500 ms timeout.
-- If it responds, all streaming and downloads go through the LAN address — full local network speed, no Cloudflare overhead, no bandwidth cap.
-- If it doesn't respond (you're away from home), the app falls back to your main Cloudflare address automatically.
+- On connect and on app resume from background, the app probes your LAN address with a 500 ms timeout and checks that whatever answers actually looks like an audiobookshelf server (see §6) before trusting it.
+- If it responds and passes that check, all streaming and downloads go through the LAN address — full local network speed, no Cloudflare overhead, no bandwidth cap.
+- If it doesn't respond, or something else entirely is listening on that address (you're away from home), the app falls back to your main Cloudflare address automatically.
 - Your server config, library, progress sync, and download history stay unified under a single entry — no duplicate configs to manage.
 
 **Downloads at full LAN speed:** Downloads to custom folders use an in-app HTTP client rather than the Android system Download Manager, so they aren't subject to VPN split-tunnel routing restrictions that affect system services. The file is written to your chosen folder at full local network speed and tagged with your primary server address, so progress syncs correctly whether you're on LAN or away.
 
 > **Typical result:** streaming and downloads at 50–250 MB/s on a gigabit LAN, automatically, with zero extra setup after the initial field is filled in.
+
+### 6. Security hardening
+
+**LAN probe identity verification:** Earlier versions treated *any* response on your configured LAN address as proof your server was reachable there — a HEAD request that returned nothing more than a 2xx/4xx status code. If you ever joined a different network where something else happened to be listening on that same IP:port (a router admin page, a printer, an opportunistic device), the app could be tricked into routing real traffic — including your Cloudflare session cookie — there. The probe now sends a `GET /status` and requires the response body to match audiobookshelf's known unauthenticated status shape (`isInit`, `language`, `authMethods`) before trusting the address. No credentials are sent as part of this check — `/status` is unauthenticated on every audiobookshelf server by design. This is an identity/liveness check, not an authentication check: it confirms *an* audiobookshelf server answered, not that it's *your* server at a spoofed address.
+
+**Encrypted credential storage:** Your Cloudflare session cookie and any manually entered service token headers are now encrypted at rest using an AES-256/GCM key held in the Android Keystore, rather than being stored in plaintext. The app also disables Android's automatic backup (`allowBackup=false`), so this data is never eligible for device or cloud backup extraction (Seedvault, `adb backup`, etc.). This protects against filesystem-level extraction (a stolen backup, a disk image from an unrooted device) — it does not, and cannot, protect against a rooted device or compromised OS, where no app-level scheme holds.
+
+### 7. In-app update checker
+
+The app checks GitHub for a newer stable release shortly after launch (at most once every 5 days). If one's available, a small dismissible card appears — open the release notes, silence it until the next version, or close it for now. Can be turned off entirely in **Settings → CF Zero Trust**.
 
 ---
 
