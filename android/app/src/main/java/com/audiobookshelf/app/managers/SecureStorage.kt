@@ -5,6 +5,8 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -24,6 +26,8 @@ class SecureStorage(private val context: Context) {
     private val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply {
         load(null)
     }
+
+    private val jacksonMapper = jacksonObjectMapper()
 
     /**
      * Encrypts and stores a refresh token for a specific server connection
@@ -96,6 +100,78 @@ class SecureStorage(private val context: Context) {
     fun hasRefreshToken(serverConnectionId: String): Boolean {
         val sharedPrefs = context.getSharedPreferences("SecureStorage", Context.MODE_PRIVATE)
         return sharedPrefs.contains("refresh_token_$serverConnectionId")
+    }
+
+    /**
+     * Encrypts and stores the custom headers (CF Zero Trust session cookie and/or manually
+     * entered service token headers) for a specific server connection. Passing a null or empty
+     * map removes any previously stored value.
+     */
+    fun storeCustomHeaders(serverConnectionId: String, customHeaders: Map<String, String>?): Boolean {
+        if (customHeaders.isNullOrEmpty()) {
+            return removeCustomHeaders(serverConnectionId)
+        }
+        return try {
+            val json = jacksonMapper.writeValueAsString(customHeaders)
+            val key = getOrCreateKey()
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, key)
+
+            val encryptedBytes = cipher.doFinal(json.toByteArray(Charsets.UTF_8))
+            val combined = cipher.iv + encryptedBytes
+
+            val encoded = Base64.encodeToString(combined, Base64.DEFAULT)
+
+            val sharedPrefs = context.getSharedPreferences("SecureStorage", Context.MODE_PRIVATE)
+            sharedPrefs.edit().putString("custom_headers_$serverConnectionId", encoded).apply()
+
+            Log.d(TAG, "Successfully stored encrypted custom headers for server: $serverConnectionId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to store custom headers for server: $serverConnectionId", e)
+            false
+        }
+    }
+
+    /**
+     * Retrieves and decrypts the custom headers for a specific server connection
+     */
+    fun getCustomHeaders(serverConnectionId: String): Map<String, String>? {
+        return try {
+            val sharedPrefs = context.getSharedPreferences("SecureStorage", Context.MODE_PRIVATE)
+            val encoded = sharedPrefs.getString("custom_headers_$serverConnectionId", null) ?: return null
+
+            val combined = Base64.decode(encoded, Base64.DEFAULT)
+            val iv = combined.copyOfRange(0, IV_LENGTH)
+            val encryptedBytes = combined.copyOfRange(IV_LENGTH, combined.size)
+
+            val key = getOrCreateKey()
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            val spec = GCMParameterSpec(TAG_LENGTH, iv)
+            cipher.init(Cipher.DECRYPT_MODE, key, spec)
+
+            val decryptedBytes = cipher.doFinal(encryptedBytes)
+            val json = String(decryptedBytes, Charsets.UTF_8)
+            jacksonMapper.readValue<Map<String, String>>(json)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to retrieve custom headers for server: $serverConnectionId", e)
+            null
+        }
+    }
+
+    /**
+     * Removes the custom headers for a specific server connection
+     */
+    fun removeCustomHeaders(serverConnectionId: String): Boolean {
+        return try {
+            val sharedPrefs = context.getSharedPreferences("SecureStorage", Context.MODE_PRIVATE)
+            sharedPrefs.edit().remove("custom_headers_$serverConnectionId").apply()
+            Log.d(TAG, "Successfully removed custom headers for server: $serverConnectionId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to remove custom headers for server: $serverConnectionId", e)
+            false
+        }
     }
 
     private fun getOrCreateKey(): SecretKey {
