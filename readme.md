@@ -3,7 +3,7 @@
 > **This is an unofficial patched build of the [Audiobookshelf Android app](https://github.com/advplyr/audiobookshelf-app).**
 > It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and a cold-start auto-connect fix.
 >
-> **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/latest)**
+> **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust/releases/latest)**
 
 ---
 
@@ -74,7 +74,7 @@ The app checks GitHub for a newer stable release shortly after launch (at most o
 
 ## Installing
 
-1. Download `app-release-signed.apk` from the [Releases page](https://github.com/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/latest).
+1. Download `app-release-signed.apk` from the [Releases page](https://github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust/releases/latest).
 2. If you have the Play Store version or a previous build signed with a different key installed, **uninstall it first** before installing this APK.
 3. Allow installation from unknown sources if prompted.
 

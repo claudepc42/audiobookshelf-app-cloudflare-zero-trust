@@ -134,7 +134,7 @@ export default {
       if (now - lastCheck >= fiveDays) {
         try {
           const response = await CapacitorHttp.get({
-            url: 'https://api.github.com/repos/claudepc42/audiobookshelf-app-cf-ZeroTrust/releases/latest',
+            url: 'https://api.github.com/repos/claudepc42/audiobookshelf-app-cloudflare-zero-trust/releases/latest',
             headers: { Accept: 'application/vnd.github+json' }
           })
           if (response.status !== 200 || !response.data) return
