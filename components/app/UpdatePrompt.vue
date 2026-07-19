@@ -12,7 +12,7 @@
           </button>
         </div>
         <div class="flex items-center mt-3 gap-4">
-          <button class="text-xs text-fg-muted" @click="onSilence">Remind me next version</button>
+          <button class="text-xs text-fg/80 underline underline-offset-2" @click="onSilence">Remind me next version</button>
           <div class="flex-grow" />
           <button class="text-xs px-3 py-1.5 rounded bg-primary text-white font-medium" @click="onOpenReleases">What's new</button>
         </div>
