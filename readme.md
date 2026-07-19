@@ -3,7 +3,7 @@
 ![Latest release](https://img.shields.io/github/v/release/claudepc42/audiobookshelf-app-cloudflare-zero-trust?label=version&color=orange) ![Build](https://img.shields.io/github/actions/workflow/status/claudepc42/audiobookshelf-app-cloudflare-zero-trust/build.yml?branch=master&label=build) ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white) ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white) ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
 > **This is an unofficial patched build of the [Audiobookshelf Android app](https://github.com/advplyr/audiobookshelf-app).**
-> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and a cold-start auto-connect fix.
+> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and reliable auto-connect on cold start.
 >
 > **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust/releases/latest)**
 >
@@ -16,7 +16,7 @@
 - [What's patched](#whats-patched)
   1. [Cloudflare Zero Trust WebView SSO](#1-cloudflare-zero-trust-webview-sso)
   2. [Custom HTTP headers (service tokens / advanced)](#2-custom-http-headers-service-tokens--advanced)
-  3. [Auto-connect race condition fix](#3-auto-connect-race-condition-fix-layoutsdefaultvue)
+  3. [Auto-connect on cold start](#3-auto-connect-on-cold-start)
   4. [Automatic CF session expiry detection & refresh](#4-automatic-cf-session-expiry-detection--refresh)
   5. [LAN address auto-routing](#5-lan-address-auto-routing-home-network-fast-lane)
   6. [Security hardening](#6-security-hardening)
@@ -31,60 +31,39 @@
 
 ### 1. Cloudflare Zero Trust WebView SSO
 
-When you enter a server address and tap **Submit**, the app automatically detects if your server is behind Cloudflare Zero Trust (via the CF 302 redirect to `cloudflareaccess.com`). If detected, an in-app WebView opens, you log in with your Cloudflare identity (Google, Microsoft, GitHub, etc.), and the app extracts and stores the session cookies automatically. No manual token entry required.
+When you enter a server address and tap **Submit**, the app automatically detects if your server is behind Cloudflare Zero Trust. If detected, an in-app WebView opens, you log in with your Cloudflare identity (Google, Microsoft, GitHub, etc.), and the app captures and stores the session automatically. No manual token entry required.
 
-You can also tap **Login with Cloudflare** below the Submit button to trigger this manually.
-
-**Re-authentication:** When your Cloudflare session expires, the app now detects it automatically and opens the WebView for a fresh login — no need to go back to the connect screen. See §4 below.
+You can also tap **Login with Cloudflare** below the Submit button to trigger this manually. If your session ever expires, the app detects it and reopens the WebView for a fresh login on its own — see §4.
 
 ### 2. Custom HTTP headers (service tokens / advanced)
 
-For service tokens or other header-gated reverse proxies, tap **Custom Headers** below the Submit button to enter headers manually (e.g. `CF-Access-Client-Id` / `CF-Access-Client-Secret`). Headers entered this way skip the WebView SSO detection entirely.
+For service tokens or other header-gated reverse proxies, tap **Custom Headers** below the Submit button to enter headers manually (e.g. `CF-Access-Client-Id` / `CF-Access-Client-Secret`). Headers entered this way skip the WebView SSO detection entirely, and are sent with every request the app makes — login, browsing, streaming, downloads, background sync, and live updates.
 
-Headers are saved per server config and injected into every request the app makes across all HTTP stacks:
+### 3. Auto-connect on cold start
 
-| Stack | What it covers |
-|---|---|
-| Capacitor/JS (`nativeHttp.js`, `ServerConnectForm.vue`) | Login, status probe, OAuth, library browsing, all API calls |
-| Native Kotlin OkHttp (`ApiHandler.kt`) | Background sync, play requests, progress reporting, Android Auto, token refresh |
-| ExoPlayer streaming (`PlayerNotificationService.kt`) | Direct-play audio and HLS transcoded streams — CF cookies only sent to the ABS server host, not external CDN URLs |
-| WebSocket (`server.js`) | Live sync and progress push events |
-| Download manager (`InternalDownloadManager.kt`) | Offline downloads |
-
-### 3. Auto-connect race condition fix (`layouts/default.vue`)
-
-On cold start, if the network came online during `syncLocalSessions()` (which runs before `hasMounted` is set), the `networkConnected` watcher dropped the event and the app was left on the connect screen, requiring manual server selection. The fix re-runs `attemptConnection()` once `hasMounted` is safely set. It is idempotent — `attemptConnection()` guards against concurrent execution internally.
+Reliably reconnects to your last server on app launch, even if the network comes online right as the app is starting.
 
 ### 4. Automatic CF session expiry detection & refresh
 
-CF session cookies have a time-based expiry (set by the CF Access admin). When the session expires, streaming and downloads fail silently. This patch adds two detection paths and handles both automatically:
+Cloudflare sessions expire on a schedule set by your CF Access admin. When that happens, the app detects it and reopens the WebView to refresh automatically — no need to disconnect and reconnect, or even notice it happened.
 
-**In-session refresh button:** Open the side menu (hamburger icon) → tap **Refresh Cloudflare Login**. This re-opens the WebView, captures fresh cookies, and saves them to your server config — no need to disconnect and reconnect. The button only appears when your server config has CF cookies set.
-
-**Auto-detection:** When a playback error or failed download is detected, the app probes the server with a HEAD request (no redirects). If the server returns a 302 to `cloudflareaccess.com`, a `cfSessionExpired` event fires on the JS layer and the WebView opens automatically — all without the user doing anything. After re-auth, tap play again.
-
-**ExoPlayer CDN host-filter:** HLS streams can include segment URLs that point to external CDNs. Previously, CF session cookies were injected into all ExoPlayer requests, including those CDN URLs, causing those requests to fail. A custom `HostFilteredHttpDataSource` now restricts CF cookies and other custom headers to requests whose host matches the ABS server host only.
+You can also trigger a refresh manually anytime: side menu (hamburger icon) → **Refresh Cloudflare Login**.
 
 ### 5. LAN address auto-routing (home network fast lane)
 
 When adding or editing a server, an optional **LAN address** field appears below the main server address. Enter your server's local IP (e.g. `http://192.168.1.100:13378`).
 
-**How it works:**
+When you're home, the app automatically routes streaming and downloads through the LAN address — full local network speed, no Cloudflare overhead, no bandwidth cap. Away from home, it falls back to your main address automatically. One server entry the whole time — no duplicate configs to manage.
 
-- On connect and on app resume from background, the app probes your LAN address with a 500 ms timeout and checks that whatever answers actually looks like an audiobookshelf server (see §6) before trusting it.
-- If it responds and passes that check, all streaming and downloads go through the LAN address — full local network speed, no Cloudflare overhead, no bandwidth cap.
-- If it doesn't respond, or something else entirely is listening on that address (you're away from home), the app falls back to your main Cloudflare address automatically.
-- Your server config, library, progress sync, and download history stay unified under a single entry — no duplicate configs to manage.
-
-**Downloads at full LAN speed:** Downloads to custom folders use an in-app HTTP client rather than the Android system Download Manager, so they aren't subject to VPN split-tunnel routing restrictions that affect system services. The file is written to your chosen folder at full local network speed and tagged with your primary server address, so progress syncs correctly whether you're on LAN or away.
+Downloads use an in-app client rather than the Android system Download Manager, so they get full LAN speed too instead of being throttled by VPN split-tunneling.
 
 > **Typical result:** streaming and downloads at 50–250 MB/s on a gigabit LAN, automatically, with zero extra setup after the initial field is filled in.
 
 ### 6. Security hardening
 
-**LAN probe identity verification:** A probe now sends a `GET /status` and requires the response body to match audiobookshelf's known unauthenticated status shape (`isInit`, `language`, `authMethods`) before trusting the address. No credentials are sent as part of this check — `/status` is unauthenticated on every audiobookshelf server by design. This is an identity/liveness check, not an authentication check: it confirms *an* audiobookshelf server answered, not that it's *your* server at a spoofed address.
+The LAN probe verifies whatever answers at that address actually looks like an audiobookshelf server before trusting it — so a router admin page or unrelated device squatting on the same IP won't get mistaken for your server. This is a liveness check, not proof of identity: it can't catch someone deliberately spoofing a fake server at your exact known address.
 
-**Encrypted credential storage:** Your Cloudflare session cookie and any manually entered service token headers are now encrypted at rest using an AES-256/GCM key held in the Android Keystore, rather than being stored in plaintext. The app also disables Android's automatic backup (`allowBackup=false`), so this data is never eligible for device or cloud backup extraction (Seedvault, `adb backup`, etc.). This protects against filesystem-level extraction (a stolen backup, a disk image from an unrooted device) — it does not, and cannot, protect against a rooted device or compromised OS, where no app-level scheme holds.
+Your Cloudflare session and any custom header tokens are encrypted at rest, and the app disables Android's automatic backup so this data can never end up in a device or cloud backup. This protects against a stolen backup or disk image — not a rooted device or compromised OS.
 
 ### 7. In-app update checker
 
