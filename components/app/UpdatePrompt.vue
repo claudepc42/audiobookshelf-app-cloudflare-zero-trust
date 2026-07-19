@@ -5,9 +5,9 @@
         <div class="flex items-start">
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold">Update available: CF-ZT {{ latestTag }}</p>
-            <p class="text-xs text-fg-muted mt-0.5">A newer version of this app is ready.</p>
+            <p class="text-xs text-fg/80 mt-0.5">A newer version of this app is ready.</p>
           </div>
-          <button class="ml-3 p-0.5 text-fg-muted shrink-0" @click="onDismiss">
+          <button class="ml-3 p-0.5 text-fg/80 shrink-0" @click="onDismiss">
             <span class="material-symbols text-base">close</span>
           </button>
         </div>
