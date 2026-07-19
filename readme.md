@@ -1,6 +1,6 @@
 # Audiobookshelf Mobile App — Cloudflare Zero Trust
 
-![Version](https://img.shields.io/badge/version-v11.3-orange) ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white) ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white) ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
+![Latest release](https://img.shields.io/github/v/release/claudepc42/audiobookshelf-app-cloudflare-zero-trust?label=version&color=orange) ![Build](https://img.shields.io/github/actions/workflow/status/claudepc42/audiobookshelf-app-cloudflare-zero-trust/build.yml?branch=master&label=build) ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white) ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white) ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
 > **This is an unofficial patched build of the [Audiobookshelf Android app](https://github.com/advplyr/audiobookshelf-app).**
 > It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and a cold-start auto-connect fix.
@@ -8,6 +8,22 @@
 > **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust/releases/latest)**
 >
 > ⚠️ **This is the only official repository for this project.** A copycat repo using this exact name has been spotted funneling downloads through an external site with no real source code behind it — GitHub releases on *this* repo are the only legitimate build. If you landed here from somewhere else, verify the URL matches `github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust` before downloading anything.
+
+---
+
+## Contents
+
+- [What's patched](#whats-patched)
+  1. [Cloudflare Zero Trust WebView SSO](#1-cloudflare-zero-trust-webview-sso)
+  2. [Custom HTTP headers (service tokens / advanced)](#2-custom-http-headers-service-tokens--advanced)
+  3. [Auto-connect race condition fix](#3-auto-connect-race-condition-fix-layoutsdefaultvue)
+  4. [Automatic CF session expiry detection & refresh](#4-automatic-cf-session-expiry-detection--refresh)
+  5. [LAN address auto-routing](#5-lan-address-auto-routing-home-network-fast-lane)
+  6. [Security hardening](#6-security-hardening)
+  7. [In-app update checker](#7-in-app-update-checker)
+- [Installing](#installing)
+- [Upstream](#upstream)
+- [Contributing](#contributing)
 
 ---
 
@@ -123,6 +139,9 @@ This application is built using [NuxtJS](https://nuxtjs.org/) and [Capacitor](ht
 ### Localization
 
 Thank you to [Weblate](https://hosted.weblate.org/engage/audiobookshelf/) for hosting our localization infrastructure pro-bono. If you want to see Audiobookshelf in your language, please help us localize. Additional information on helping with the translations [here](https://www.audiobookshelf.org/faq#how-do-i-help-with-translations). <a href="https://hosted.weblate.org/engage/audiobookshelf/"> <img src="https://hosted.weblate.org/widget/audiobookshelf/abs-mobile-app/horizontal-auto.svg" alt="Translation status" /> </a>
+
+<details>
+<summary>Full dev environment setup — Android (Windows/Mac)</summary>
 
 ### Windows Environment Setup for Android
 
@@ -244,6 +263,11 @@ After making changes to the JS layer you need to rebuild the nuxt pages and sync
 npm run sync
 ```
 
+</details>
+
+<details>
+<summary>Full dev environment setup — iOS (Mac only)</summary>
+
 ### Mac Environment Setup for iOS
 
 Required Software:
@@ -319,3 +343,5 @@ After making changes to the JS layer you need to rebuild the nuxt pages and sync
 ```shell
 npm run sync
 ```
+
+</details>
