@@ -602,6 +602,17 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     mediaSessionConnector.setEnabledPlaybackActions(playbackActions)
   }
 
+  // Android Auto has no surface for the WebView re-auth flow, so surface a proper
+  // error state on the media session instead — Auto's now-playing screen displays it.
+  fun setCfSessionExpiredErrorState() {
+    if (!isAndroidAuto) return
+    val errorState = PlaybackStateCompat.Builder()
+      .setState(PlaybackStateCompat.STATE_ERROR, currentPlayer.currentPosition, 0f)
+      .setErrorMessage(PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED, "Cloudflare session expired — reopen the app on your phone to reconnect")
+      .build()
+    mediaSession.setPlaybackState(errorState)
+  }
+
   fun handlePlayerPlaybackError(errorMessage: String) {
     // On error and was attempting to direct play - fallback to transcode
     currentPlaybackSession?.let { playbackSession ->
