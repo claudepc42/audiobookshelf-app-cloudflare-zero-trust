@@ -20,8 +20,8 @@
       </div>
       <div class="absolute bottom-0 left-0 w-full py-6 px-6 text-fg">
         <div v-if="serverConnectionConfig" class="mb-4 flex flex-col items-center">
-          <p class="text-xs text-fg-muted" style="word-break: break-word">{{ isActiveAddress(serverConnectionConfig.address) ? '* ' : '' }}{{ serverConnectionConfig.address }} (v{{ serverSettings.version }})</p>
-          <p v-if="serverConnectionConfig.localAddress" class="text-xs text-fg-muted" style="word-break: break-word">{{ isActiveAddress(serverConnectionConfig.localAddress) ? '* ' : '' }}{{ serverConnectionConfig.localAddress }}</p>
+          <p :class="['text-xs', isActiveAddress(serverConnectionConfig.address) ? 'text-fg/80' : 'text-fg-muted']" style="word-break: break-word">{{ serverConnectionConfig.address }} (v{{ serverSettings.version }})</p>
+          <p v-if="serverConnectionConfig.localAddress" :class="['text-xs', isActiveAddress(serverConnectionConfig.localAddress) ? 'text-fg/80' : 'text-fg-muted']" style="word-break: break-word">{{ serverConnectionConfig.localAddress }}</p>
         </div>
         <div class="flex items-center">
           <div class="flex flex-col">
