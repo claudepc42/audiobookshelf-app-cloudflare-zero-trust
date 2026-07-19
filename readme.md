@@ -8,8 +8,8 @@
 > **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust/releases/latest)**
 >
 > ⚠️ Warning ⚠️ **This is the only official repository for this project mod.** A copycat repo using this exact name has been spotted funneling downloads through an **external site** with no real source code behind it
-
-GitHub releases on *this* repo are the only legitimate build. If you landed here from somewhere else, verify the URL matches `github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust` before downloading anything.
+>
+>GitHub releases on *this* repo are the only legitimate build. If you landed here from somewhere else, verify the URL matches `github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust` before downloading anything.
 
 ---
 
