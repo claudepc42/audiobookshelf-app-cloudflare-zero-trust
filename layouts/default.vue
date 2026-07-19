@@ -125,6 +125,20 @@ export default {
       if (enabled === 'false') return
 
       const CFZT_CURRENT_TAG = this.$config.cfztVersion
+
+      // If the running version changed since the last launch — any install or update,
+      // forward or backward — clear the cooldown and dismissal instead of carrying over
+      // stale state from the previous install. Otherwise a "remind me later" click on
+      // v11.2 could silently suppress the prompt for up to 5 days after updating to
+      // v11.3, even if v11.4 ships the next day; and a downgrade would inherit a
+      // dismissal for a version that's now newer than what's actually installed.
+      const lastSeenVersion = localStorage.getItem('cfzt_last_seen_version')
+      if (lastSeenVersion !== CFZT_CURRENT_TAG) {
+        localStorage.removeItem('cfzt_last_check')
+        localStorage.removeItem('cfzt_dismissed_tag')
+        localStorage.setItem('cfzt_last_seen_version', CFZT_CURRENT_TAG)
+      }
+
       const fiveDays = 5 * 24 * 60 * 60 * 1000
       const lastCheck = parseInt(localStorage.getItem('cfzt_last_check') || '0')
       const now = Date.now()
