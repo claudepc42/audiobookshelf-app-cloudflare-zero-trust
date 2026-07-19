@@ -1,4 +1,5 @@
 import { Network } from '@capacitor/network'
+import { AbsDatabase } from '@/plugins/capacitor'
 import { AbsAudioPlayer } from '@/plugins/capacitor'
 import { PlayMethod } from '@/plugins/constants'
 
@@ -115,6 +116,9 @@ export const actions = {
     Network.addListener('networkStatusChange', (status) => {
       console.log('Network status changed', status.connected, status.connectionType)
       commit('setNetworkStatus', status)
+      if (status.connected && status.connectionType === 'wifi') {
+        AbsDatabase.resolveEndpoint().catch(() => {})
+      }
     })
 
     AbsAudioPlayer.addListener('onNetworkMeteredChanged', (payload) => {
