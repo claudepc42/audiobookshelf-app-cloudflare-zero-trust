@@ -13,6 +13,7 @@ import com.audiobookshelf.app.media.MediaProgressSyncData
 import com.audiobookshelf.app.media.SyncResult
 import com.audiobookshelf.app.models.User
 import com.audiobookshelf.app.BuildConfig
+import com.audiobookshelf.app.plugins.AbsCfZeroTrust
 import com.audiobookshelf.app.plugins.AbsLogger
 import com.audiobookshelf.app.managers.SecureStorage
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
@@ -178,6 +179,16 @@ class ApiHandler(var ctx:Context) {
               val jsobj = JSObject()
               jsobj.put("error", "Invalid response body")
               cb(jsobj)
+
+              // A "successful" response that isn't JSON usually means a CF redirect to the
+              // login page was silently followed instead of hitting the real endpoint.
+              // Confirm and notify JS so the existing WebView re-auth listener can fire —
+              // otherwise this fails silently with no recovery path (e.g. background sync).
+              val serverAddress = DeviceManager.serverAddress
+              if (serverAddress.isNotEmpty() && AbsCfZeroTrust.probeCfChallenge(serverAddress)) {
+                Log.w(tag, "makeRequest: CF session expired — notifying JS")
+                AbsCfZeroTrust.notifyCfSessionExpired()
+              }
             }
           }
         }

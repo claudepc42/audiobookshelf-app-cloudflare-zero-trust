@@ -1,7 +1,40 @@
-import { CapacitorHttp } from '@capacitor/core'
+import { CapacitorHttp, Capacitor } from '@capacitor/core'
+import { AbsCfZeroTrust } from './capacitor/AbsCfZeroTrust'
 
 export default function ({ store, $db, $socket }, inject) {
   const nativeHttp = {
+    // ABS /api/ endpoints always return JSON. A 2xx response with a string body means
+    // CapacitorHttp silently followed a redirect to the CF login page instead of hitting
+    // the real endpoint — the same failure mode that used to crash attemptConnection().
+    looksLikeStaleCfResponse(res, url) {
+      return url.includes('/api/') && typeof res.data === 'string'
+    },
+
+    // Probes for a stale CF session and opens the WebView to refresh it if needed.
+    // Returns the updated serverConnectionConfig, or null if nothing needed refreshing
+    // or the refresh failed/was cancelled.
+    async refreshCfSessionIfStale(serverConnectionConfig) {
+      if (Capacitor.getPlatform() !== 'android' || !serverConnectionConfig?.isSsoAuth) return null
+      try {
+        const probeResult = await AbsCfZeroTrust.probeCfChallenge({
+          serverAddress: serverConnectionConfig.address,
+          cookies: serverConnectionConfig.customHeaders?.Cookie || ''
+        })
+        if (!probeResult?.isCfProtected || probeResult?.cookiesValid) return null
+
+        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConnectionConfig.address })
+        if (!result?.cookieHeader) return null
+
+        const updatedConfig = { ...serverConnectionConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
+        const savedConfig = await $db.setServerConnectionConfig(updatedConfig)
+        const finalConfig = savedConfig || updatedConfig
+        store.commit('user/setServerConnectionConfig', finalConfig)
+        return finalConfig
+      } catch (e) {
+        return null
+      }
+    },
+
     async request(method, _url, data, options = {}) {
       // When authorizing before a config is set, server config gets passed in as an option
       let serverConnectionConfig = options.serverConnectionConfig || store.state.user.serverConnectionConfig
@@ -49,6 +82,27 @@ export default function ({ store, $db, $socket }, inject) {
           const message = typeof res.data === 'string' ? res.data : `HTTP ${res.status}`
           throw new Error(message)
         }
+
+        if (this.looksLikeStaleCfResponse(res, url)) {
+          console.warn(`[nativeHttp] Non-JSON response for "${url}" — likely a stale CF session, attempting refresh`)
+          return this.refreshCfSessionIfStale(serverConnectionConfig).then((refreshedConfig) => {
+            if (!refreshedConfig) {
+              throw new Error('Cloudflare session expired')
+            }
+            const retryHeaders = { ...headers, ...refreshedConfig.customHeaders }
+            return CapacitorHttp.request({ method, url, data, headers: retryHeaders, ...options }).then((retryRes) => {
+              if (retryRes.status >= 400) {
+                const message = typeof retryRes.data === 'string' ? retryRes.data : `HTTP ${retryRes.status}`
+                throw new Error(message)
+              }
+              if (this.looksLikeStaleCfResponse(retryRes, url)) {
+                throw new Error('Cloudflare session expired')
+              }
+              return retryRes.data
+            })
+          })
+        }
+
         return res.data
       })
     },
