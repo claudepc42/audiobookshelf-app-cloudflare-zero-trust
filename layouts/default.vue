@@ -215,6 +215,29 @@ export default {
 
       AbsLogger.info({ tag: 'default', message: `attemptConnection: Got server config, attempt authorize (${serverConfig.name})` })
 
+      // Cold-start authorize has no CF session awareness of its own — refresh a stale
+      // CF session before authorizing, instead of authorizing against a CF login page
+      // returned as HTML and failing with no explanation or auto-reauth.
+      if (this.$platform === 'android' && serverConfig.isSsoAuth) {
+        try {
+          const probeResult = await AbsCfZeroTrust.probeCfChallenge({
+            serverAddress: serverConfig.address,
+            cookies: serverConfig.customHeaders?.Cookie || ''
+          })
+          if (probeResult?.isCfProtected && !probeResult?.cookiesValid) {
+            AbsLogger.info({ tag: 'default', message: `attemptConnection: CF session stale, opening WebView to refresh (${serverConfig.name})` })
+            const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address }).catch(() => null)
+            if (result?.cookieHeader) {
+              serverConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
+              const savedConfig = await this.$db.setServerConnectionConfig(serverConfig)
+              if (savedConfig) serverConfig = savedConfig
+            }
+          }
+        } catch (e) {
+          // probe or webview failed/cancelled — proceed and let the authorize call fail normally if session is actually stale
+        }
+      }
+
       const nativeHttpOptions = {
         headers: {
           Authorization: `Bearer ${serverConfig.token}`
@@ -227,7 +250,8 @@ export default {
         return false
       })
 
-      if (!authRes) {
+      if (!authRes || typeof authRes !== 'object' || !authRes.user) {
+        AbsLogger.error({ tag: 'default', message: `attemptConnection: Authorize response missing expected data, likely a stale CF session (${serverConfig.name})` })
         this.attemptingConnection = false
         return
       }

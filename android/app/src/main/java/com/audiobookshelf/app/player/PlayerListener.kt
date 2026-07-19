@@ -31,6 +31,7 @@ class PlayerListener(var playerNotificationService:PlayerNotificationService) : 
         if (AbsCfZeroTrust.probeCfChallenge(serverAddress)) {
           Log.w(tag, "CF session expired — notifying JS")
           AbsCfZeroTrust.notifyCfSessionExpired()
+          playerNotificationService.setCfSessionExpiredErrorState()
         }
       }
     }
