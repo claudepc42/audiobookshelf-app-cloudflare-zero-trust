@@ -292,11 +292,6 @@ html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book {
   overflow: hidden !important;
 }
 
-/* Hide 4th+ covers */
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(n+4) {
-  display: none !important;
-}
-
 /* Back cover — Y-only depth offset, darkest */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(3) {
   transform: translateY(18px) !important;
@@ -393,8 +388,7 @@ html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard > div {
   background-image: none !important;
   border: 1px solid rgba(255, 255, 255, 0.10) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.50) !important;
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
+  border-radius: 8px !important;
 }
 
 /* Alt-view categorized label (direct child p, no categoryPlacard wrapper) */

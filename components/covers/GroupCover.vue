@@ -158,7 +158,7 @@ export default {
       }
       this.noValidCovers = false
 
-      validCovers = validCovers.slice(0, 10)
+      validCovers = validCovers.slice(0, 3)
 
       var coverWidth = this.width
       var widthPer = this.width
