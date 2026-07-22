@@ -1,5 +1,5 @@
 <template>
-  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 300px; touch-action: pan-y">
+  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 300px">
     <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
