@@ -253,10 +253,16 @@ html[data-theme='nanohive'] [id^="series-card-"] > .overflow-hidden {
   background: transparent !important;
 }
 
+/* The full-card shadow placeholder in LazySeriesCard spans the whole slot —
+   suppress its glow so only the actual cover divs carry the amber shadow. */
+html[data-theme='nanohive'] [id^="series-card-"] > .shadow-height {
+  box-shadow: none !important;
+}
+
 /* Each cover: reset JS fan position, shrink to ~one-book width, add radius */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book {
   left: 0 !important;
-  width: 55% !important;
+  width: 70% !important;
   border-radius: 12px !important;
   overflow: hidden !important;
 }
