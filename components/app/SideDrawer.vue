@@ -1,7 +1,7 @@
 <template>
   <div class="fixed top-0 left-0 right-0 layout-wrapper w-full z-50 overflow-hidden pointer-events-none">
     <div class="absolute top-0 left-0 w-full h-full bg-black transition-opacity duration-200" :class="show ? 'bg-opacity-60 pointer-events-auto' : 'bg-opacity-0'" @click="clickBackground" />
-    <div class="absolute top-0 right-0 w-64 h-full bg-bg transform transition-transform py-6 pointer-events-auto" :class="show ? '' : 'translate-x-64'" @click.stop>
+    <div id="nh-side-drawer" class="absolute top-0 right-0 w-64 h-full bg-bg transform transition-transform py-6 pointer-events-auto" :class="show ? '' : 'translate-x-64'" @click.stop>
       <div class="px-6 mb-4">
         <p v-if="user" class="text-base" v-html="$getString('HeaderWelcome', [username])" />
       </div>
@@ -19,6 +19,24 @@
         </template>
       </div>
       <div class="absolute bottom-0 left-0 w-full py-6 px-6 text-fg">
+        <!-- NanoHive / Stock UI toggle -->
+        <div class="mb-4 flex items-center justify-between px-1">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs" :class="nhThemeActive ? 'text-fg' : 'text-fg-muted'">NanoHive</span>
+          </div>
+          <button
+            type="button"
+            :aria-label="nhThemeActive ? 'Switch to stock UI' : 'Switch to NanoHive UI'"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors duration-200 focus:outline-none"
+            :class="nhThemeActive ? 'bg-fg/70' : 'bg-fg-muted/30'"
+            @click="toggleNhTheme"
+          >
+            <span
+              class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full shadow transition-transform duration-200"
+              :class="nhThemeActive ? 'translate-x-[18px] bg-secondary' : 'translate-x-0.5 bg-fg-muted'"
+            />
+          </button>
+        </div>
         <div v-if="serverConnectionConfig" class="mb-4 flex items-center justify-center gap-2">
           <template v-if="!serverConnectionConfig.localAddress">
             <p :class="['text-xs', socketConnected ? 'text-fg/80' : 'text-fg-muted']">{{ socketConnected ? 'Cloudflare Connected' : 'Cloudflare Disconnected' }}</p>
@@ -189,6 +207,9 @@ export default {
     },
     currentRoutePath() {
       return this.$route.path
+    },
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
     }
   },
   methods: {
@@ -249,6 +270,31 @@ export default {
 
       // Close side drawer
       this.show = false
+    },
+    async toggleNhTheme() {
+      const newVal = !this.nhThemeActive
+      this.$store.commit('setNhThemeActive', newVal)
+      if (newVal) {
+        document.documentElement.dataset.theme = 'nanohive'
+        this._loadNhFont()
+      } else {
+        // Restore whatever stock theme was set before NH; fall back to default (no attribute)
+        const previousTheme = await this.$localStore.getTheme()
+        if (previousTheme) {
+          document.documentElement.dataset.theme = previousTheme
+        } else {
+          delete document.documentElement.dataset.theme
+        }
+      }
+      await this.$localStore.setNhSettings({ active: newVal })
+    },
+    _loadNhFont() {
+      if (document.getElementById('nh-spectral-font')) return
+      const link = document.createElement('link')
+      link.id = 'nh-spectral-font'
+      link.rel = 'stylesheet'
+      link.href = 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap'
+      document.head.appendChild(link)
     },
     touchstart(e) {
       this.touchEvent = new TouchEvent(e)

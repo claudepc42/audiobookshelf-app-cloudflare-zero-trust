@@ -281,6 +281,19 @@ export default ({ store, app }, inject) => {
     }
   })
 
+  // NanoHive theme — overrides the stock theme if the user previously activated it
+  app.$localStore?.getNhSettings()?.then((nhSettings) => {
+    if (nhSettings?.active) {
+      store.commit('setNhThemeActive', true)
+      document.documentElement.dataset.theme = 'nanohive'
+      const link = document.createElement('link')
+      link.id = 'nh-spectral-font'
+      link.rel = 'stylesheet'
+      link.href = 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap'
+      document.head.appendChild(link)
+    }
+  })
+
   // iOS Only
   //  backButton event does not work with iOS swipe navigation so use this workaround
   if (app.router && Capacitor.getPlatform() === 'ios') {

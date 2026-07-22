@@ -60,6 +60,28 @@
     --gradient-minimized-audio-player: linear-gradient(145deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.9) 20%, rgb(255, 255, 255) 60%);
   }
 
+  /* NanoHive warm theme — maps NH palette tokens to ABS CSS variable names */
+  /* canvas #181512 · rail #120f0d · raised #221e1a · raised-hover #2d2925 */
+  /* text-1 #f4eee2 · muted #9a9085 · amber #e0c27a */
+  html[data-theme='nanohive'] {
+    color: #f4eee2;
+    --color-bg: 24 21 18;
+    --color-bg-hover: 45 41 37;
+    --color-fg: 244 238 226;
+    --color-fg-muted: 154 144 133;
+    --color-primary: 34 30 26;
+    --color-secondary: 18 15 13;
+    --color-border: 56 54 51;
+    --color-bg-toggle: 24 21 18;
+    --color-bg-toggle-selected: 45 41 37;
+    --color-track-cursor: 224 194 122;
+    --color-track: 154 144 133;
+    --color-track-buffered: 80 74 68;
+    --gradient-item-page: linear-gradient(169deg, rgba(24, 21, 18, 0.4) 0%, rgba(24, 21, 18, 1) 80%);
+    --gradient-audio-player: linear-gradient(180deg, rgba(24, 21, 18, 0) 0%, rgba(24, 21, 18, 1) 80%);
+    --gradient-minimized-audio-player: linear-gradient(145deg, rgba(34, 30, 26, 0.5) 0%, rgba(34, 30, 26, 0.9) 20%, rgb(34, 30, 26) 60%);
+  }
+
   body {
     @apply bg-primary
   }

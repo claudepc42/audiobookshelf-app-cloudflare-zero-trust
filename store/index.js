@@ -25,6 +25,7 @@ export const state = () => ({
   ereaderKeepProgress: false,
   ereaderFileId: null,
   showSideDrawer: false,
+  nhThemeActive: false,
   isNetworkListenerInit: false,
   serverSettings: null,
   lastBookshelfScrollData: {},
@@ -105,6 +106,7 @@ export const getters = {
 
 export const actions = {
   // Listen for network connection
+  // Initialises the Capacitor Network listener and the AbsAudioPlayer metered-network listener.
   async setupNetworkListener({ state, commit }) {
     if (state.isNetworkListenerInit) return
     commit('setNetworkListenerInit', true)
@@ -116,8 +118,12 @@ export const actions = {
     Network.addListener('networkStatusChange', (status) => {
       console.log('Network status changed', status.connected, status.connectionType)
       commit('setNetworkStatus', status)
+      // Re-probe LAN vs remote endpoint when Wi-Fi connects so routing switches dynamically
+      // without requiring an app restart or manual reconnect.
       if (status.connected && status.connectionType === 'wifi') {
-        AbsDatabase.resolveEndpoint().catch(() => {})
+        AbsDatabase.resolveEndpoint().catch((err) => {
+          console.warn('[store] resolveEndpoint failed on Wi-Fi connect', err)
+        })
       }
     })
 
@@ -210,6 +216,9 @@ export const mutations = {
   },
   setShowSideDrawer(state, val) {
     state.showSideDrawer = val
+  },
+  setNhThemeActive(state, val) {
+    state.nhThemeActive = val
   },
   setServerSettings(state, val) {
     state.serverSettings = val
