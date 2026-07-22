@@ -223,7 +223,6 @@ export default {
         // Vertical scroll — cancel drag and let browser handle it
         this.isDragging = false
         this.dragOffset = 0
-        this.startTimer()
         return
       }
 
