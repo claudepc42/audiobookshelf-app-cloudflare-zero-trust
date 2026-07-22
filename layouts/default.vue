@@ -10,6 +10,7 @@
     <modals-select-local-folder-modal />
     <modals-rssfeeds-rss-feed-modal />
     <app-side-drawer :key="currentLang" />
+    <nh-dev-panel v-if="showNhDevPanel" @close="showNhDevPanel = false" />
     <readers-reader />
     <app-update-prompt v-if="showUpdatePrompt" :latest-tag="updateLatestTag" :latest-url="updateLatestUrl" :is-player-open="isPlayerOpen" @dismiss="onUpdateDismiss" @silence="onUpdateSilence" @auto-hide="showUpdatePrompt = false" />
   </div>
@@ -25,6 +26,7 @@ export default {
     return {
       inittingLibraries: false,
       hasMounted: false,
+      showNhDevPanel: false,
       disconnectTime: 0,
       socketDisconnectedTime: 0,
       timeLostFocus: 0,
@@ -136,8 +138,18 @@ export default {
     cinematicCoverSrc() {
       if (!this.nhThemeActive) return null
       const session = this.currentPlaybackSession
-      if (!session?.libraryItemId) return null
-      return this.$store.getters['globals/getLibraryItemCoverSrcById'](session.libraryItemId)
+      if (session?.libraryItemId) {
+        return this.$store.getters['globals/getLibraryItemCoverSrcById'](session.libraryItemId)
+      }
+      // Fallback: most recently listened item from the user's media progress
+      const mediaProgress = this.$store.state.user.user?.mediaProgress
+      if (mediaProgress?.length) {
+        const recent = [...mediaProgress].sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0))[0]
+        if (recent?.libraryItemId) {
+          return this.$store.getters['globals/getLibraryItemCoverSrcById'](recent.libraryItemId)
+        }
+      }
+      return null
     }
   },
   methods: {
@@ -492,6 +504,7 @@ export default {
   },
   async mounted() {
     this.$eventBus.$on('change-lang', this.changeLanguage)
+    this.$eventBus.$on('open-nh-dev-panel', () => { this.showNhDevPanel = true })
     document.addEventListener('visibilitychange', this.visibilityChanged)
     if (this.$platform === 'android') {
       this.cfSessionListener = await AbsCfZeroTrust.addListener('cfSessionExpired', this.handleCfExpired)
@@ -533,6 +546,7 @@ export default {
   },
   beforeDestroy() {
     this.$eventBus.$off('change-lang', this.changeLanguage)
+    this.$eventBus.$off('open-nh-dev-panel')
     document.removeEventListener('visibilitychange', this.visibilityChanged)
     this.$socket.off('user_updated', this.userUpdated)
     this.$socket.off('user_media_progress_updated', this.userMediaProgressUpdated)
