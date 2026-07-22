@@ -96,7 +96,6 @@ export default {
   data() {
     return {
       activeIndex: 0,
-      timer: null,
       // Drag state
       dragStartX: null,
       dragStartY: null,
@@ -188,15 +187,8 @@ export default {
       this.activeIndex = (this.activeIndex - 1 + this.slides.length) % this.slides.length
       this.restartTimer()
     },
-    startTimer() {
-      if (this.slides.length <= 1) return
-      this.timer = setInterval(() => {
-        this.activeIndex = (this.activeIndex + 1) % this.slides.length
-      }, 15000)
-    },
     restartTimer() {
-      clearInterval(this.timer)
-      this.startTimer()
+      // No auto-advance — user navigates manually via drag/swipe
     },
     onTouchStart(e) {
       const touch = e.touches[0]
@@ -209,7 +201,6 @@ export default {
       this.dragMoved = false
       this.dragLocked = null
       this.isDragging = true
-      clearInterval(this.timer)
     },
     onTouchMove(e) {
       if (!this.isDragging || this.dragStartX === null) return
@@ -265,19 +256,16 @@ export default {
       this.dragStartX = null
       this.dragStartY = null
       this.dragLocked = null
-      this.startTimer()
 
       this.$nextTick(() => { this.dragMoved = false })
     }
   },
   mounted() {
-    this.startTimer()
     this.$el.addEventListener('touchstart', this.onTouchStart, { passive: true })
     this.$el.addEventListener('touchmove', this.onTouchMove, { passive: false })
     this.$el.addEventListener('touchend', this.onTouchEnd, { passive: true })
   },
   beforeDestroy() {
-    clearInterval(this.timer)
     this.$el.removeEventListener('touchstart', this.onTouchStart)
     this.$el.removeEventListener('touchmove', this.onTouchMove)
     this.$el.removeEventListener('touchend', this.onTouchEnd)
