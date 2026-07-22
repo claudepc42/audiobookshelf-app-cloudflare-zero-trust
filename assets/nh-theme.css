@@ -1,0 +1,107 @@
+/* NanoHive Theme — Native App Port */
+/* Source of truth: https://github.com/rodzalendo/nanohive-abs-theme */
+
+/* ============ BODY & AMBIENT GRADIENT BACKGROUND ============ */
+/* The signature NH cinematic background — a warm amber bloom at top-right
+   fading to deep canvas at bottom-left, visible through transparent elements. */
+html[data-theme='nanohive'] body {
+  background-color: #181512 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html[data-theme='nanohive'] body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle at 80% 0%, rgba(224, 194, 122, 0.30) 0%, transparent 70%),
+    radial-gradient(circle at 20% 100%, rgba(24, 21, 18, 1) 0%, #181512 80%);
+  pointer-events: none;
+}
+
+/* Make the layout wrapper transparent so the body gradient shows through */
+html[data-theme='nanohive'] .layout-wrapper {
+  background: transparent !important;
+}
+
+/* ============ FROSTED APPBAR ============ */
+/* Glass morphism on the appbar — semi-transparent with blur over the ambient gradient */
+html[data-theme='nanohive'] #nh-appbar-wrapper {
+  background-color: rgba(24, 21, 18, 0.70) !important;
+  backdrop-filter: blur(28px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+/* ============ SIDE DRAWER ============ */
+html[data-theme='nanohive'] .absolute.top-0.right-0.w-64.h-full.bg-bg {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ============ ACCENT COLOR OVERRIDES ============ */
+/* Tailwind hardcodes `accent` as #1ad691 (ABS teal) in tailwind.config.js —
+   NH uses amber #e0c27a, so we override the generated utility classes here. */
+html[data-theme='nanohive'] .text-accent,
+html[data-theme='nanohive'] .text-yellow-400 {
+  color: #e0c27a !important;
+}
+
+html[data-theme='nanohive'] .bg-accent,
+html[data-theme='nanohive'] .bg-yellow-400 {
+  background-color: #e0c27a !important;
+  color: #1a1610 !important;
+}
+
+html[data-theme='nanohive'] .border-accent,
+html[data-theme='nanohive'] .border-yellow-400 {
+  border-color: #e0c27a !important;
+}
+
+/* Success and info inherit amber in NH (connection indicators, toggles-on, etc.) */
+html[data-theme='nanohive'] .text-success {
+  color: #e0c27a !important;
+}
+
+html[data-theme='nanohive'] .bg-success {
+  background-color: #e0c27a !important;
+  color: #1a1610 !important;
+}
+
+html[data-theme='nanohive'] .text-info {
+  color: #e0c27a !important;
+}
+
+html[data-theme='nanohive'] .bg-info {
+  background-color: #e0c27a !important;
+  color: #1a1610 !important;
+}
+
+/* ============ DISPLAY FONT ============ */
+/* Spectral serif for headings — loaded dynamically by the theme toggle */
+html[data-theme='nanohive'] h1,
+html[data-theme='nanohive'] h2,
+html[data-theme='nanohive'] h3 {
+  font-family: 'Spectral', Georgia, serif;
+}
+
+/* ============ SCROLLBARS ============ */
+html[data-theme='nanohive'] ::-webkit-scrollbar-thumb {
+  background: #e0c27a !important;
+  border-radius: 4px;
+}
+
+html[data-theme='nanohive'] ::-webkit-scrollbar-thumb:hover {
+  background: #eccf91 !important;
+}
+
+/* ============ INTERACTIVE STATES ============ */
+/* Hover ring and focus ring use amber */
+html[data-theme='nanohive'] .focus\:ring-accent:focus,
+html[data-theme='nanohive'] .hover\:border-accent:hover {
+  --tw-ring-color: #e0c27a !important;
+  border-color: #e0c27a !important;
+}
