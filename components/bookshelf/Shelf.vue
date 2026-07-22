@@ -1,6 +1,6 @@
 <template>
   <div class="w-full relative">
-    <div v-if="altViewEnabled" class="px-5 pb-3 pt-4">
+    <div v-if="altViewEnabled" class="px-5 pb-3 pt-4 shelf-label-alt">
       <p class="font-semibold" :style="{ fontSize: sizeMultiplier + 'rem' }">{{ label }}</p>
     </div>
 

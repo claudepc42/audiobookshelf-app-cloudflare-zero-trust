@@ -144,6 +144,60 @@ html[data-theme='nanohive'] .default-style {
   line-height: 1.75 !important;
 }
 
+/* ============ BOOK CARDS ============ */
+/* Amber micro-border + warm drop-shadow replaces the plain dark shadow */
+html[data-theme='nanohive'] .box-shadow-book {
+  box-shadow:
+    0 0 0 1px rgba(224, 194, 122, 0.18),
+    0 8px 28px rgba(0, 0, 0, 0.60) !important;
+  border-radius: 4px !important;
+}
+
+/* Thicker progress bar with rounded bottom corners; remove the old glow shadow */
+html[data-theme='nanohive'] .box-shadow-progressbar {
+  height: 3px !important;
+  border-radius: 0 0 4px 4px !important;
+  box-shadow: none !important;
+}
+
+/* ============ BOOKSHELF ROWS & DIVIDERS ============ */
+/* Replace the wood-panel texture with the transparent canvas so the
+   ambient body gradient shows through between shelves. */
+html[data-theme='nanohive'] .bookshelfRow {
+  background-image: none !important;
+  background-color: transparent !important;
+}
+
+/* Replace the brown wood-grain divider with a single dark ruled line */
+html[data-theme='nanohive'] .bookshelfDivider {
+  background: rgba(56, 54, 51, 0.55) !important;
+  box-shadow: none !important;
+  height: 1px !important;
+}
+
+/* ============ SHELF LABELS ============ */
+/* Default (non-alt) view: the placard badge at the bottom of each shelf row */
+html[data-theme='nanohive'] .shinyBlack {
+  background: rgba(24, 21, 18, 0.82) !important;
+  background-image: none !important;
+  border-color: rgba(224, 194, 122, 0.28) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+html[data-theme='nanohive'] .categoryPlacard p {
+  color: #e0c27a !important;
+  font-size: 0.6rem !important;
+  letter-spacing: 0.1em !important;
+}
+
+/* Alt view: larger heading above each shelf row */
+html[data-theme='nanohive'] .shelf-label-alt p {
+  font-family: 'Spectral', Georgia, serif !important;
+  color: #e0c27a !important;
+  letter-spacing: 0.04em;
+}
+
 /* ============ INTERACTIVE STATES ============ */
 /* Hover ring and focus ring use amber */
 html[data-theme='nanohive'] .focus\:ring-accent:focus,
