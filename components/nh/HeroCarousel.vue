@@ -23,27 +23,29 @@
     <div
       v-for="(slide, i) in slides"
       :key="`content-${slide.id}`"
-      class="absolute inset-0 z-20 flex flex-col justify-between px-5 pt-5 pb-4"
+      class="absolute inset-0 z-20 flex flex-col px-5 pt-5 pb-4"
       :style="slideStyle(i)"
     >
       <!-- Amber label -->
-      <p class="text-xs font-semibold tracking-widest" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.12em">Pick up where you left off</p>
+      <p class="text-xs font-semibold tracking-widest flex-shrink-0" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.12em">Pick up where you left off</p>
 
-      <!-- Cover + text row -->
-      <div class="flex items-start gap-4 mt-3 flex-1" @click="openItem(slide)">
+      <!-- Cover + text row — fixed height, no flex-1 so it won't squeeze other items -->
+      <div class="flex items-start gap-4 mt-3 flex-shrink-0" style="height: 150px" @click="openItem(slide)">
         <img
           :src="coverSrc(slide)"
-          class="shrink-0 object-cover shadow-2xl"
+          class="shrink-0 object-cover"
           style="height: 150px; width: auto; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.60)"
           :alt="itemTitle(slide)"
           loading="lazy"
         />
-        <div class="flex-1 min-w-0 flex flex-col justify-between h-full" style="min-height: 150px">
-          <div>
-            <p class="font-medium leading-snug line-clamp-3" style="font-family: 'Spectral', Georgia, serif; font-size: 1.05rem; color: #f4eee2">{{ itemTitle(slide) }}</p>
-            <p class="text-xs mt-1 truncate" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
+        <!-- Text column: title + author at top, description in middle, progress at bottom -->
+        <div class="flex-1 min-w-0 flex flex-col h-full">
+          <div class="flex-shrink-0">
+            <p class="font-medium leading-snug line-clamp-2" style="font-family: 'Spectral', Georgia, serif; font-size: 1.05rem; color: #f4eee2">{{ itemTitle(slide) }}</p>
+            <p class="text-xs mt-0.5 truncate" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
           </div>
-          <div class="mt-auto pt-3">
+          <p v-if="itemDescription(slide)" class="text-xs mt-1.5 line-clamp-2 leading-relaxed flex-shrink-0" style="color: rgba(154,144,133,0.80)">{{ itemDescription(slide) }}</p>
+          <div class="mt-auto flex-shrink-0">
             <div class="h-0.5 w-full rounded-full overflow-hidden mb-1" style="background: rgba(244,238,226,0.15)">
               <div class="h-full rounded-full transition-all duration-300" style="background: #e0c27a" :style="{ width: itemProgress(slide) + '%' }" />
             </div>
@@ -52,12 +54,12 @@
         </div>
       </div>
 
-      <!-- Book description excerpt -->
-      <p v-if="itemDescription(slide)" class="text-xs mt-2 line-clamp-2 leading-relaxed" style="color: rgba(154,144,133,0.85)">{{ itemDescription(slide) }}</p>
+      <!-- Spacer pushes Continue button to bottom -->
+      <div class="flex-1" />
 
-      <!-- Continue button -->
+      <!-- Continue button — flex-shrink-0 so it never compresses -->
       <button
-        class="mt-4 w-full flex items-center justify-center gap-2 rounded-xl font-semibold text-sm"
+        class="w-full flex items-center justify-center gap-2 rounded-xl font-semibold text-sm flex-shrink-0"
         style="background: #e0c27a; color: #1a1610; height: 44px; box-shadow: 0 4px 20px rgba(224,194,122,0.30)"
         @click.stop="continueItem(slide)"
       >
@@ -65,8 +67,8 @@
         Continue
       </button>
 
-      <!-- Dot indicators -->
-      <div v-if="slides.length > 1" class="flex justify-center items-center gap-1.5 mt-3">
+      <!-- Dot indicators — flex-shrink-0 -->
+      <div v-if="slides.length > 1" class="flex justify-center items-center gap-1.5 mt-3 flex-shrink-0">
         <div
           v-for="(_, di) in slides"
           :key="`dot-${di}`"
@@ -97,8 +99,10 @@ export default {
       timer: null,
       // Drag state
       dragStartX: null,
+      dragStartY: null,
       dragOffset: 0,
       isDragging: false,
+      dragLocked: null, // 'horizontal' | 'vertical' | null
       dragVelocity: 0,
       lastTouchX: null,
       lastTouchTime: null,
@@ -114,28 +118,26 @@ export default {
   methods: {
     slideStyle(i) {
       const isActive = this.activeIndex === i
-      if (!isActive && !this.isDragging) {
-        return { opacity: 0, pointerEvents: 'none', transform: 'translateX(0)', transition: 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s' }
-      }
-
-      // During drag, offset active slide with finger; adjacent slides follow
-      const diff = i - this.activeIndex
-      const base = diff * 100 // percent
-      const px = this.isDragging ? this.dragOffset : 0
       const transition = this.isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s'
 
+      if (!isActive && !this.isDragging) {
+        return { opacity: 0, pointerEvents: 'none', transform: 'translateX(0)', transition }
+      }
+
+      const diff = i - this.activeIndex
+      const px = this.isDragging ? this.dragOffset : 0
+
       if (Math.abs(diff) > 1) {
-        return { opacity: 0, pointerEvents: 'none', transform: `translateX(${base}%)`, transition }
+        return { opacity: 0, pointerEvents: 'none', transform: `translateX(${diff * 100}%)`, transition }
       }
 
       const cardWidth = this.$el ? this.$el.offsetWidth : 300
-      const dragRatio = Math.min(1, Math.abs(px) / cardWidth)
-      const adjacentOpacity = diff !== 0 ? Math.max(0, dragRatio * 1.4 - 0.1) : 1
+      const adjacentOpacity = diff !== 0 ? Math.min(1, Math.abs(px) / cardWidth * 1.5) : 1
 
       return {
         opacity: diff === 0 ? 1 : adjacentOpacity,
         pointerEvents: diff === 0 ? 'auto' : 'none',
-        transform: `translateX(calc(${base}% + ${px}px))`,
+        transform: `translateX(calc(${diff * 100}% + ${px}px))`,
         transition
       }
     },
@@ -147,6 +149,9 @@ export default {
     },
     itemAuthor(item) {
       return item.media?.metadata?.authorName || item.media?.metadata?.author || ''
+    },
+    itemDescription(item) {
+      return item.media?.metadata?.description || ''
     },
     itemProgress(item) {
       const prog = this._getProgress(item)
@@ -160,9 +165,6 @@ export default {
       if (!dur) return `${pct}%`
       const remaining = Math.max(0, dur - (prog.currentTime || 0))
       return `${pct}% · ${this.$elapsedPretty(remaining)} left`
-    },
-    itemDescription(item) {
-      return item.media?.metadata?.description || ''
     },
     _getProgress(item) {
       return this.$store.getters['user/getUserMediaProgress'](item.id) || item.userMediaProgress || null
@@ -197,28 +199,53 @@ export default {
       this.startTimer()
     },
     onTouchStart(e) {
-      const x = e.touches[0].clientX
-      this.dragStartX = x
-      this.lastTouchX = x
+      const touch = e.touches[0]
+      this.dragStartX = touch.clientX
+      this.dragStartY = touch.clientY
+      this.lastTouchX = touch.clientX
       this.lastTouchTime = Date.now()
       this.dragOffset = 0
       this.dragVelocity = 0
       this.dragMoved = false
+      this.dragLocked = null
       this.isDragging = true
       clearInterval(this.timer)
     },
     onTouchMove(e) {
       if (!this.isDragging || this.dragStartX === null) return
-      const x = e.touches[0].clientX
+
+      const touch = e.touches[0]
+      const x = touch.clientX
+      const y = touch.clientY
+      const dx = x - this.dragStartX
+      const dy = y - this.dragStartY
+
+      // Lock direction on first significant movement
+      if (!this.dragLocked) {
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+          this.dragLocked = Math.abs(dx) >= Math.abs(dy) ? 'horizontal' : 'vertical'
+        }
+        return
+      }
+
+      if (this.dragLocked === 'vertical') {
+        // Vertical scroll — cancel drag and let browser handle it
+        this.isDragging = false
+        this.dragOffset = 0
+        this.startTimer()
+        return
+      }
+
+      // Horizontal drag — prevent page scroll and track position
+      e.preventDefault()
+
       const now = Date.now()
       const dt = now - this.lastTouchTime
-      if (dt > 0) {
-        this.dragVelocity = (x - this.lastTouchX) / dt
-      }
+      if (dt > 0) this.dragVelocity = (x - this.lastTouchX) / dt
       this.lastTouchX = x
       this.lastTouchTime = now
-      this.dragOffset = x - this.dragStartX
-      if (Math.abs(this.dragOffset) > 8) this.dragMoved = true
+      this.dragOffset = dx
+      if (Math.abs(dx) > 8) this.dragMoved = true
     },
     onTouchEnd() {
       if (!this.isDragging) return
@@ -236,16 +263,17 @@ export default {
 
       this.dragOffset = 0
       this.dragStartX = null
+      this.dragStartY = null
+      this.dragLocked = null
       this.startTimer()
 
-      // Clear dragMoved after click event has had a chance to fire
       this.$nextTick(() => { this.dragMoved = false })
     }
   },
   mounted() {
     this.startTimer()
     this.$el.addEventListener('touchstart', this.onTouchStart, { passive: true })
-    this.$el.addEventListener('touchmove', this.onTouchMove, { passive: true })
+    this.$el.addEventListener('touchmove', this.onTouchMove, { passive: false })
     this.$el.addEventListener('touchend', this.onTouchEnd, { passive: true })
   },
   beforeDestroy() {
