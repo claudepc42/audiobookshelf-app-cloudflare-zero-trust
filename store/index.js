@@ -116,6 +116,8 @@ export const actions = {
     Network.addListener('networkStatusChange', (status) => {
       console.log('Network status changed', status.connected, status.connectionType)
       commit('setNetworkStatus', status)
+      // Re-probe LAN vs remote endpoint when Wi-Fi connects so routing switches dynamically
+      // without requiring an app restart or manual reconnect.
       if (status.connected && status.connectionType === 'wifi') {
         AbsDatabase.resolveEndpoint().catch(() => {})
       }
