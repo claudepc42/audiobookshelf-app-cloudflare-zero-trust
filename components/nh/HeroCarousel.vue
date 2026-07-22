@@ -112,17 +112,20 @@ export default {
       return item.media?.metadata?.authorName || item.media?.metadata?.author || ''
     },
     itemProgress(item) {
-      const prog = item.userMediaProgress?.progress || 0
-      return Math.round(prog * 100)
+      const prog = this._getProgress(item)
+      return Math.round((prog?.progress || 0) * 100)
     },
     itemProgressLabel(item) {
-      const prog = item.userMediaProgress
+      const prog = this._getProgress(item)
       if (!prog) return ''
       const pct = Math.round((prog.progress || 0) * 100)
       const dur = item.media?.duration || 0
       if (!dur) return `${pct}%`
       const remaining = Math.max(0, dur - (prog.currentTime || 0))
       return `${pct}% · ${this.$elapsedPretty(remaining)} left`
+    },
+    _getProgress(item) {
+      return this.$store.getters['user/getUserMediaProgress'](item.id) || item.userMediaProgress || null
     },
     goTo(i) {
       this.activeIndex = i
