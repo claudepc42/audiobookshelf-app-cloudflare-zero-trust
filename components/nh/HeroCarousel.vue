@@ -4,12 +4,11 @@
     <div
       v-for="(slide, i) in slides"
       :key="`bg-${slide.id}`"
-      class="absolute inset-0 transition-opacity duration-700"
+      class="nh-slide-bg absolute inset-0 transition-opacity duration-700"
       :style="{
         backgroundImage: `url(${coverSrc(slide)})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        filter: 'blur(24px) brightness(0.25)',
         transform: 'scale(1.12)',
         opacity: activeIndex === i ? 1 : 0,
         pointerEvents: 'none'
@@ -17,7 +16,7 @@
     />
 
     <!-- Gradient overlay -->
-    <div class="absolute inset-0 z-10 pointer-events-none" style="background: linear-gradient(to bottom, rgba(24,21,18,0.10) 0%, rgba(24,21,18,0.80) 75%, rgba(24,21,18,1) 100%)" />
+    <div class="nh-slide-gradient absolute inset-0 z-10 pointer-events-none" />
 
     <!-- Slide content -->
     <div
