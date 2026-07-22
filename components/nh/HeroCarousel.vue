@@ -107,6 +107,7 @@ export default {
       lastTouchTime: null,
       dragMoved: false,
       // Auto-advance state
+      firstTouchTime: 0,
       lastUserTouchTime: 0,
       lastAdvanceTime: 0,
       advanceInterval: null
@@ -195,10 +196,15 @@ export default {
     checkAutoAdvance() {
       if (this.slides.length <= 1) return
       const now = Date.now()
-      if (now - this.lastUserTouchTime < 30000) return
+      if (this.firstTouchTime) {
+        if (now - this.firstTouchTime < 30000) return
+        if (now - this.lastUserTouchTime < 15000) return
+      }
       if (now - this.lastAdvanceTime < 15000) return
       this.activeIndex = (this.activeIndex + 1) % this.slides.length
       this.lastAdvanceTime = now
+      this.firstTouchTime = 0
+      this.lastUserTouchTime = 0
     },
     onTouchStart(e) {
       const touch = e.touches[0]
@@ -211,7 +217,9 @@ export default {
       this.dragMoved = false
       this.dragLocked = null
       this.isDragging = true
-      this.lastUserTouchTime = Date.now()
+      const now = Date.now()
+      if (!this.firstTouchTime) this.firstTouchTime = now
+      this.lastUserTouchTime = now
     },
     onTouchMove(e) {
       if (!this.isDragging || this.dragStartX === null) return
