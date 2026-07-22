@@ -1,5 +1,5 @@
 <template>
-  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 300px">
+  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 300px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
     <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
@@ -279,16 +279,10 @@ export default {
     }
   },
   mounted() {
-    this.$el.addEventListener('touchstart', this.onTouchStart, { passive: true })
-    this.$el.addEventListener('touchmove', this.onTouchMove, { passive: false })
-    this.$el.addEventListener('touchend', this.onTouchEnd, { passive: true })
     this.lastAdvanceTime = Date.now()
     this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
   },
   beforeDestroy() {
-    this.$el.removeEventListener('touchstart', this.onTouchStart)
-    this.$el.removeEventListener('touchmove', this.onTouchMove)
-    this.$el.removeEventListener('touchend', this.onTouchEnd)
     clearInterval(this.advanceInterval)
   }
 }
