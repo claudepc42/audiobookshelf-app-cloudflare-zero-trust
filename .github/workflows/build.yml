@@ -2,7 +2,7 @@ name: Build & Release APK
 
 on:
   push:
-    branches: [master]
+    branches: [master, wip]
     tags: ['v*']
   workflow_dispatch:
 
@@ -84,7 +84,7 @@ jobs:
           tag: dev-build
           name: "Dev Build (latest main)"
           body: |
-            Automated build from latest `master` branch.
+            Automated build from latest development branch.
 
             **Patches applied:**
             - Custom headers on all HTTP stacks (Cloudflare Zero Trust / reverse proxy auth) — covers API calls, streaming, WebSocket, downloads, and token refresh
