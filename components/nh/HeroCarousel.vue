@@ -1,5 +1,5 @@
 <template>
-  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="height: 240px">
+  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 300px">
     <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
@@ -9,67 +9,78 @@
         backgroundImage: `url(${coverSrc(slide)})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        filter: 'blur(24px) brightness(0.28)',
+        filter: 'blur(24px) brightness(0.25)',
         transform: 'scale(1.12)',
         opacity: activeIndex === i ? 1 : 0,
         pointerEvents: 'none'
       }"
     />
 
-    <!-- Gradient overlay so bottom content is always readable -->
-    <div class="absolute inset-0 z-10 pointer-events-none" style="background: linear-gradient(to bottom, rgba(24,21,18,0.15) 0%, rgba(24,21,18,0.85) 70%, rgba(24,21,18,1) 100%)" />
+    <!-- Gradient overlay -->
+    <div class="absolute inset-0 z-10 pointer-events-none" style="background: linear-gradient(to bottom, rgba(24,21,18,0.10) 0%, rgba(24,21,18,0.80) 75%, rgba(24,21,18,1) 100%)" />
 
     <!-- Slide content -->
     <div
       v-for="(slide, i) in slides"
       :key="`content-${slide.id}`"
-      class="absolute inset-0 z-20 flex items-end px-5 pb-6 transition-opacity duration-500"
+      class="absolute inset-0 z-20 flex flex-col justify-between px-5 pt-5 pb-4 transition-opacity duration-500"
       :style="{ opacity: activeIndex === i ? 1 : 0, pointerEvents: activeIndex === i ? 'auto' : 'none' }"
-      @click="openItem(slide)"
     >
-      <img
-        :src="coverSrc(slide)"
-        class="h-28 w-20 object-cover rounded-lg shadow-2xl shrink-0"
-        :alt="itemTitle(slide)"
-        loading="lazy"
-      />
-      <div class="pl-4 flex-1 min-w-0">
-        <p class="text-sm font-semibold text-fg leading-snug line-clamp-2">{{ itemTitle(slide) }}</p>
-        <p class="text-xs text-fg-muted mt-0.5 truncate">{{ itemAuthor(slide) }}</p>
-        <div class="mt-3 h-0.5 w-full rounded-full overflow-hidden" style="background: rgba(244,238,226,0.15)">
-          <div class="h-full rounded-full transition-all duration-300" style="background: #e0c27a" :style="{ width: itemProgress(slide) + '%' }" />
+      <!-- Amber label -->
+      <p class="text-xs font-semibold tracking-widest" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.12em">Pick up where you left off</p>
+
+      <!-- Cover + text row -->
+      <div class="flex items-start gap-4 mt-3 flex-1" @click="openItem(slide)">
+        <img
+          :src="coverSrc(slide)"
+          class="shrink-0 object-cover shadow-2xl"
+          style="height: 150px; width: auto; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.60)"
+          :alt="itemTitle(slide)"
+          loading="lazy"
+        />
+        <div class="flex-1 min-w-0 flex flex-col justify-between h-full" style="min-height: 150px">
+          <div>
+            <p class="font-medium leading-snug line-clamp-3" style="font-family: 'Spectral', Georgia, serif; font-size: 1.05rem; color: #f4eee2">{{ itemTitle(slide) }}</p>
+            <p class="text-xs mt-1 truncate" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
+          </div>
+          <div class="mt-auto pt-3">
+            <div class="h-0.5 w-full rounded-full overflow-hidden mb-1" style="background: rgba(244,238,226,0.15)">
+              <div class="h-full rounded-full transition-all duration-300" style="background: #e0c27a" :style="{ width: itemProgress(slide) + '%' }" />
+            </div>
+            <p class="text-xs" style="color: rgba(154,144,133,0.9)">{{ itemProgressLabel(slide) }}</p>
+          </div>
         </div>
-        <p class="text-xs mt-1" style="color: rgba(154,144,133,0.8)">{{ itemProgressLabel(slide) }}</p>
+      </div>
+
+      <!-- Continue button -->
+      <button
+        class="mt-4 w-full flex items-center justify-center gap-2 rounded-xl font-semibold text-sm"
+        style="background: #e0c27a; color: #1a1610; height: 44px; box-shadow: 0 4px 20px rgba(224,194,122,0.30)"
+        @click.stop="continueItem(slide)"
+      >
+        <span class="material-symbols fill" style="font-size: 1.2rem">play_arrow</span>
+        Continue
+      </button>
+
+      <!-- Dot indicators -->
+      <div v-if="slides.length > 1" class="flex justify-center items-center gap-1.5 mt-3">
+        <div
+          v-for="(_, i) in slides"
+          :key="`dot-${i}`"
+          class="rounded-full transition-all duration-300 cursor-pointer"
+          :style="{
+            width: activeIndex === i ? '14px' : '5px',
+            height: '5px',
+            background: activeIndex === i ? '#e0c27a' : 'rgba(154,144,133,0.45)'
+          }"
+          @click.stop="goTo(i)"
+        />
       </div>
     </div>
 
-    <!-- Tap zones for prev / next -->
-    <button
-      v-if="slides.length > 1"
-      class="absolute left-0 top-0 bottom-0 w-1/3 z-30"
-      aria-label="Previous"
-      @click.stop="prev"
-    />
-    <button
-      v-if="slides.length > 1"
-      class="absolute right-0 top-0 bottom-0 w-1/3 z-30"
-      aria-label="Next"
-      @click.stop="next"
-    />
-
-    <!-- Dot indicators -->
-    <div v-if="slides.length > 1" class="absolute bottom-2 left-0 right-0 z-30 flex justify-center items-center gap-1.5 pointer-events-none">
-      <div
-        v-for="(_, i) in slides"
-        :key="`dot-${i}`"
-        class="rounded-full transition-all duration-300"
-        :style="{
-          width: activeIndex === i ? '14px' : '5px',
-          height: '5px',
-          background: activeIndex === i ? '#e0c27a' : 'rgba(154,144,133,0.45)'
-        }"
-      />
-    </div>
+    <!-- Tap zones for prev / next (above content, not overlapping Continue button) -->
+    <button v-if="slides.length > 1" class="absolute left-0 top-0 w-1/4 z-30" style="bottom: 120px" aria-label="Previous" @click.stop="prev" />
+    <button v-if="slides.length > 1" class="absolute right-0 top-0 w-1/4 z-30" style="bottom: 120px" aria-label="Next" @click.stop="next" />
   </div>
 </template>
 
@@ -88,11 +99,6 @@ export default {
       activeIndex: 0,
       timer: null,
       touchEvent: null
-    }
-  },
-  computed: {
-    serverAddress() {
-      return this.$store.getters['user/getServerAddress']
     }
   },
   watch: {
@@ -127,6 +133,12 @@ export default {
     _getProgress(item) {
       return this.$store.getters['user/getUserMediaProgress'](item.id) || item.userMediaProgress || null
     },
+    openItem(item) {
+      this.$router.push(`/item/${item.id}`)
+    },
+    continueItem(item) {
+      this.$eventBus.$emit('play-item', { libraryItemId: item.id })
+    },
     goTo(i) {
       this.activeIndex = i
       this.restartTimer()
@@ -138,9 +150,6 @@ export default {
     prev() {
       this.activeIndex = (this.activeIndex - 1 + this.slides.length) % this.slides.length
       this.restartTimer()
-    },
-    openItem(item) {
-      this.$router.push(`/item/${item.id}`)
     },
     startTimer() {
       if (this.slides.length <= 1) return
