@@ -150,6 +150,24 @@ class LocalStorage {
    * @param {string} key 
    * @returns {Promise<string>}
    */
+  async setNhSettings(settings) {
+    try {
+      await Preferences.set({ key: 'nhSettings', value: JSON.stringify(settings) })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set NH settings', error)
+    }
+  }
+
+  async getNhSettings() {
+    try {
+      const obj = await Preferences.get({ key: 'nhSettings' }) || {}
+      return obj.value ? JSON.parse(obj.value) : null
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get NH settings', error)
+      return null
+    }
+  }
+
   async getPreferenceByKey(key) {
     try {
       const obj = await Preferences.get({ key }) || {}

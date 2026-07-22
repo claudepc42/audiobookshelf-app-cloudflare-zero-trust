@@ -25,6 +25,7 @@ export const state = () => ({
   ereaderKeepProgress: false,
   ereaderFileId: null,
   showSideDrawer: false,
+  nhThemeActive: false,
   isNetworkListenerInit: false,
   serverSettings: null,
   lastBookshelfScrollData: {},
@@ -215,6 +216,9 @@ export const mutations = {
   },
   setShowSideDrawer(state, val) {
     state.showSideDrawer = val
+  },
+  setNhThemeActive(state, val) {
+    state.nhThemeActive = val
   },
   setServerSettings(state, val) {
     state.serverSettings = val
