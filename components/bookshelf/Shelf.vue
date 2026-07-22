@@ -72,7 +72,7 @@ export default {
       return this.$store.getters['libraries/getBookCoverAspectRatio']
     },
     altViewEnabled() {
-      return this.$store.getters['getAltViewEnabled']
+      return this.$store.getters['getAltViewEnabled'] || this.$store.state.nhThemeActive
     }
   },
   methods: {},
