@@ -120,7 +120,7 @@ export default {
     continueListeningItems() {
       const shelf = this.shelves.find((s) => s.id === 'continue-listening')
       if (!shelf) return []
-      return shelf.entities.filter((e) => e.userMediaProgress && !e.userMediaProgress.isFinished).slice(0, 8)
+      return shelf.entities.slice(0, 8)
     }
   },
   methods: {
