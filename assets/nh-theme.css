@@ -38,7 +38,7 @@ html[data-theme='nanohive'] #nh-appbar-wrapper {
 }
 
 /* ============ SIDE DRAWER ============ */
-html[data-theme='nanohive'] .absolute.top-0.right-0.w-64.h-full.bg-bg {
+html[data-theme='nanohive'] #nh-side-drawer {
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -61,22 +61,23 @@ html[data-theme='nanohive'] .border-yellow-400 {
   border-color: #e0c27a !important;
 }
 
-/* Success and info inherit amber in NH (connection indicators, toggles-on, etc.) */
+/* Success uses a lighter amber so "active/connected" states remain distinct from
+   decorative accent amber (#e0c27a) at a glance */
 html[data-theme='nanohive'] .text-success {
-  color: #e0c27a !important;
+  color: #f0d898 !important;
 }
 
 html[data-theme='nanohive'] .bg-success {
-  background-color: #e0c27a !important;
+  background-color: #f0d898 !important;
   color: #1a1610 !important;
 }
 
 html[data-theme='nanohive'] .text-info {
-  color: #e0c27a !important;
+  color: #f0d898 !important;
 }
 
 html[data-theme='nanohive'] .bg-info {
-  background-color: #e0c27a !important;
+  background-color: #f0d898 !important;
   color: #1a1610 !important;
 }
 
