@@ -99,6 +99,51 @@ html[data-theme='nanohive'] ::-webkit-scrollbar-thumb:hover {
   background: #eccf91 !important;
 }
 
+/* ============ BOOK DETAIL PAGE ============ */
+/* Deeper, more cinematic blur on the blown-out cover background */
+html[data-theme='nanohive'] #coverBg {
+  filter: blur(9vw) brightness(0.45) saturate(1.4) !important;
+}
+
+/* Cinematic fade from cover into content */
+html[data-theme='nanohive'] #item-page > div:first-child::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: linear-gradient(to bottom, transparent, #181512);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Title in Spectral serif */
+html[data-theme='nanohive'] #item-page h1 {
+  font-family: 'Spectral', Georgia, serif !important;
+  letter-spacing: -0.01em;
+}
+
+/* All metadata links (author, series, narrator, genre, tag) in amber */
+html[data-theme='nanohive'] #metadata a {
+  color: #e0c27a !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid rgba(224, 194, 122, 0.25) !important;
+}
+
+/* Metadata label rows — tighter caps, refined */
+html[data-theme='nanohive'] #metadata .text-fg-muted {
+  letter-spacing: 0.08em !important;
+  font-size: 0.625rem !important;
+  opacity: 0.75;
+}
+
+/* Description in Spectral for readability */
+html[data-theme='nanohive'] .default-style {
+  font-family: 'Spectral', Georgia, serif !important;
+  line-height: 1.75 !important;
+}
+
 /* ============ INTERACTIVE STATES ============ */
 /* Hover ring and focus ring use amber */
 html[data-theme='nanohive'] .focus\:ring-accent:focus,
