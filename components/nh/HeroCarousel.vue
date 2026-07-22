@@ -1,5 +1,5 @@
 <template>
-  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 300px">
+  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 300px; touch-action: pan-y">
     <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
@@ -194,7 +194,7 @@ export default {
     },
     restartTimer() {},
     checkAutoAdvance() {
-      if (this.slides.length <= 1) return
+      if (this.slides.length <= 1 || this.isDragging) return
       const now = Date.now()
       if (this.firstTouchTime) {
         if (now - this.firstTouchTime < 30000) return
