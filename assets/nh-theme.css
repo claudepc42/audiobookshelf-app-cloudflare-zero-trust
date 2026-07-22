@@ -198,6 +198,43 @@ html[data-theme='nanohive'] .shelf-label-alt p {
   letter-spacing: 0.04em;
 }
 
+/* ============ BOOKSHELF NAV BAR (Home / Library / Series tabs) ============ */
+html[data-theme='nanohive'] #bookshelf-navbar {
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(56, 54, 51, 0.7);
+}
+
+/* Active tab: amber text + amber underline indicator */
+html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary {
+  background-color: transparent !important;
+  border-bottom: 2px solid #e0c27a;
+}
+
+html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary p {
+  color: #e0c27a !important;
+}
+
+/* ============ BOOKSHELF TOOLBAR (count + sort/filter icons) ============ */
+html[data-theme='nanohive'] #bookshelf-toolbar {
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(56, 54, 51, 0.6);
+}
+
+/* ============ SEARCH PAGE ============ */
+/* Section headers: Books, Podcasts, Series, Authors … */
+html[data-theme='nanohive'] #nh-search-page p.font-semibold {
+  color: #e0c27a !important;
+  font-size: 0.68rem !important;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase;
+}
+
+/* Subtitle / author lines in result rows */
+html[data-theme='nanohive'] #nh-search-page .text-gray-200,
+html[data-theme='nanohive'] #nh-search-page .text-gray-300 {
+  color: #9a9085 !important;
+}
+
 /* ============ INTERACTIVE STATES ============ */
 /* Hover ring and focus ring use amber */
 html[data-theme='nanohive'] .focus\:ring-accent:focus,

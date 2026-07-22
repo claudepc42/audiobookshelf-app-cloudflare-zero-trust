@@ -52,6 +52,9 @@ export default {
     showBookshelfListView(newVal) {
       this.resetEntities()
     },
+    nhThemeActive() {
+      this.resetEntities()
+    },
     seriesId() {
       this.resetEntities()
     }
@@ -154,7 +157,10 @@ export default {
       return this.entityWidth + 24
     },
     altViewEnabled() {
-      return this.$store.getters['getAltViewEnabled']
+      return this.$store.getters['getAltViewEnabled'] || this.$store.state.nhThemeActive
+    },
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
     },
     sizeMultiplier() {
       const baseSize = this.isCoverSquareAspectRatio ? 192 : 120
