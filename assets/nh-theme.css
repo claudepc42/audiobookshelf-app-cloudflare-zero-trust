@@ -284,10 +284,10 @@ html[data-theme='nanohive'] [id^="series-card-"] > .shadow-height {
   box-shadow: none !important;
 }
 
-/* Each cover: reset JS fan position, shrink to ~one-book width, add radius */
+/* Each cover: keep JS horizontal spread, add radius. No left/width override —
+   GroupCover.vue already calculates left values that fill the card width exactly,
+   and cover widths based on aspect ratio. We only layer CSS depth via Y offset. */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book {
-  left: 0 !important;
-  width: 70% !important;
   border-radius: 12px !important;
   overflow: hidden !important;
 }
@@ -297,15 +297,15 @@ html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(n+
   display: none !important;
 }
 
-/* Back cover — offset furthest, darkest */
+/* Back cover — Y-only depth offset, darkest */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(3) {
-  transform: translate(38px, 24px) !important;
+  transform: translateY(18px) !important;
   filter: brightness(0.45) !important;
 }
 
-/* Middle cover */
+/* Middle cover — Y-only depth offset */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(2) {
-  transform: translate(20px, 13px) !important;
+  transform: translateY(10px) !important;
   filter: brightness(0.68) !important;
 }
 
@@ -389,10 +389,12 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .play-btn {
    so the title reads as plain amber text on the transparent canvas. */
 html[data-theme='nanohive'] [id^="series-card-"] .categoryPlacard > div,
 html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard > div {
-  background: transparent !important;
+  background: rgba(14, 11, 9, 0.82) !important;
   background-image: none !important;
-  border: none !important;
-  box-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.50) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
 }
 
 /* Alt-view categorized label (direct child p, no categoryPlacard wrapper) */
