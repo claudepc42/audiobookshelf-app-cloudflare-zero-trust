@@ -304,6 +304,24 @@ html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(2)
   filter: brightness(0.68) !important;
 }
 
+/* 4th cover */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(4) {
+  transform: translateY(24px) !important;
+  filter: brightness(0.30) !important;
+}
+
+/* 5th cover */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(5) {
+  transform: translateY(28px) !important;
+  filter: brightness(0.18) !important;
+}
+
+/* 6th cover */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(6) {
+  transform: translateY(31px) !important;
+  filter: brightness(0.10) !important;
+}
+
 /* Front cover — no offset, full brightness */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(1) {
   filter: none !important;
@@ -384,7 +402,7 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .play-btn {
    so the title reads as plain amber text on the transparent canvas. */
 html[data-theme='nanohive'] [id^="series-card-"] .categoryPlacard > div,
 html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard > div {
-  background: rgba(14, 11, 9, 0.82) !important;
+  background: rgba(14, 11, 9, 0.55) !important;
   background-image: none !important;
   border: 1px solid rgba(255, 255, 255, 0.10) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.50) !important;
