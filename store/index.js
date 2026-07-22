@@ -119,7 +119,9 @@ export const actions = {
       // Re-probe LAN vs remote endpoint when Wi-Fi connects so routing switches dynamically
       // without requiring an app restart or manual reconnect.
       if (status.connected && status.connectionType === 'wifi') {
-        AbsDatabase.resolveEndpoint().catch(() => {})
+        AbsDatabase.resolveEndpoint().catch((err) => {
+          console.warn('[store] resolveEndpoint failed on Wi-Fi connect', err)
+        })
       }
     })
 
