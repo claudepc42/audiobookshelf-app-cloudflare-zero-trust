@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full">
+  <div id="nh-search-page" class="w-full h-full">
     <div class="px-4 py-6">
       <ui-text-input ref="input" v-model="search" @input="updateSearch" borderless :placeholder="$strings.ButtonSearch" bg="white bg-opacity-10" rounded="md" prepend-icon="search" text-size="base" clearable class="w-full text-lg" />
     </div>

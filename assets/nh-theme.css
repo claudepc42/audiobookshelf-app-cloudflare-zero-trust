@@ -1,0 +1,244 @@
+/* NanoHive Theme — Native App Port */
+/* Source of truth: https://github.com/rodzalendo/nanohive-abs-theme */
+
+/* ============ BODY & AMBIENT GRADIENT BACKGROUND ============ */
+/* The signature NH cinematic background — a warm amber bloom at top-right
+   fading to deep canvas at bottom-left, visible through transparent elements. */
+html[data-theme='nanohive'] body {
+  background-color: #181512 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html[data-theme='nanohive'] body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle at 80% 0%, rgba(224, 194, 122, 0.30) 0%, transparent 70%),
+    radial-gradient(circle at 20% 100%, rgba(24, 21, 18, 1) 0%, #181512 80%);
+  pointer-events: none;
+}
+
+/* Make the layout wrapper transparent so the body gradient shows through */
+html[data-theme='nanohive'] .layout-wrapper {
+  background: transparent !important;
+}
+
+/* ============ FROSTED APPBAR ============ */
+/* Glass morphism on the appbar — semi-transparent with blur over the ambient gradient */
+html[data-theme='nanohive'] #nh-appbar-wrapper {
+  background-color: rgba(24, 21, 18, 0.70) !important;
+  backdrop-filter: blur(28px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+/* ============ SIDE DRAWER ============ */
+html[data-theme='nanohive'] #nh-side-drawer {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ============ ACCENT COLOR OVERRIDES ============ */
+/* Tailwind hardcodes `accent` as #1ad691 (ABS teal) in tailwind.config.js —
+   NH uses amber #e0c27a, so we override the generated utility classes here. */
+html[data-theme='nanohive'] .text-accent,
+html[data-theme='nanohive'] .text-yellow-400 {
+  color: #e0c27a !important;
+}
+
+html[data-theme='nanohive'] .bg-accent,
+html[data-theme='nanohive'] .bg-yellow-400 {
+  background-color: #e0c27a !important;
+  color: #1a1610 !important;
+}
+
+html[data-theme='nanohive'] .border-accent,
+html[data-theme='nanohive'] .border-yellow-400 {
+  border-color: #e0c27a !important;
+}
+
+/* Success uses a lighter amber so "active/connected" states remain distinct from
+   decorative accent amber (#e0c27a) at a glance */
+html[data-theme='nanohive'] .text-success {
+  color: #f0d898 !important;
+}
+
+html[data-theme='nanohive'] .bg-success {
+  background-color: #f0d898 !important;
+  color: #1a1610 !important;
+}
+
+html[data-theme='nanohive'] .text-info {
+  color: #f0d898 !important;
+}
+
+html[data-theme='nanohive'] .bg-info {
+  background-color: #f0d898 !important;
+  color: #1a1610 !important;
+}
+
+/* ============ DISPLAY FONT ============ */
+/* Spectral serif for headings — loaded dynamically by the theme toggle */
+html[data-theme='nanohive'] h1,
+html[data-theme='nanohive'] h2,
+html[data-theme='nanohive'] h3 {
+  font-family: 'Spectral', Georgia, serif;
+}
+
+/* ============ SCROLLBARS ============ */
+html[data-theme='nanohive'] ::-webkit-scrollbar-thumb {
+  background: #e0c27a !important;
+  border-radius: 4px;
+}
+
+html[data-theme='nanohive'] ::-webkit-scrollbar-thumb:hover {
+  background: #eccf91 !important;
+}
+
+/* ============ BOOK DETAIL PAGE ============ */
+/* Deeper, more cinematic blur on the blown-out cover background */
+html[data-theme='nanohive'] #coverBg {
+  filter: blur(9vw) brightness(0.45) saturate(1.4) !important;
+}
+
+/* Cinematic fade from cover into content */
+html[data-theme='nanohive'] #item-page > div:first-child::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: linear-gradient(to bottom, transparent, #181512);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Title in Spectral serif */
+html[data-theme='nanohive'] #item-page h1 {
+  font-family: 'Spectral', Georgia, serif !important;
+  letter-spacing: -0.01em;
+}
+
+/* All metadata links (author, series, narrator, genre, tag) in amber */
+html[data-theme='nanohive'] #metadata a {
+  color: #e0c27a !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid rgba(224, 194, 122, 0.25) !important;
+}
+
+/* Metadata label rows — tighter caps, refined */
+html[data-theme='nanohive'] #metadata .text-fg-muted {
+  letter-spacing: 0.08em !important;
+  font-size: 0.625rem !important;
+  opacity: 0.75;
+}
+
+/* Description in Spectral for readability */
+html[data-theme='nanohive'] .default-style {
+  font-family: 'Spectral', Georgia, serif !important;
+  line-height: 1.75 !important;
+}
+
+/* ============ BOOK CARDS ============ */
+/* Amber micro-border + warm drop-shadow replaces the plain dark shadow */
+html[data-theme='nanohive'] .box-shadow-book {
+  box-shadow:
+    0 0 0 1px rgba(224, 194, 122, 0.18),
+    0 8px 28px rgba(0, 0, 0, 0.60) !important;
+  border-radius: 4px !important;
+}
+
+/* Thicker progress bar with rounded bottom corners; remove the old glow shadow */
+html[data-theme='nanohive'] .box-shadow-progressbar {
+  height: 3px !important;
+  border-radius: 0 0 4px 4px !important;
+  box-shadow: none !important;
+}
+
+/* ============ BOOKSHELF ROWS & DIVIDERS ============ */
+/* Replace the wood-panel texture with the transparent canvas so the
+   ambient body gradient shows through between shelves. */
+html[data-theme='nanohive'] .bookshelfRow {
+  background-image: none !important;
+  background-color: transparent !important;
+}
+
+/* Replace the brown wood-grain divider with a single dark ruled line */
+html[data-theme='nanohive'] .bookshelfDivider {
+  background: rgba(56, 54, 51, 0.55) !important;
+  box-shadow: none !important;
+  height: 1px !important;
+}
+
+/* ============ SHELF LABELS ============ */
+/* Default (non-alt) view: the placard badge at the bottom of each shelf row */
+html[data-theme='nanohive'] .shinyBlack {
+  background: rgba(24, 21, 18, 0.82) !important;
+  background-image: none !important;
+  border-color: rgba(224, 194, 122, 0.28) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+html[data-theme='nanohive'] .categoryPlacard p {
+  color: #e0c27a !important;
+  font-size: 0.6rem !important;
+  letter-spacing: 0.1em !important;
+}
+
+/* Alt view: larger heading above each shelf row */
+html[data-theme='nanohive'] .shelf-label-alt p {
+  font-family: 'Spectral', Georgia, serif !important;
+  color: #e0c27a !important;
+  letter-spacing: 0.04em;
+}
+
+/* ============ BOOKSHELF NAV BAR (Home / Library / Series tabs) ============ */
+html[data-theme='nanohive'] #bookshelf-navbar {
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(56, 54, 51, 0.7);
+}
+
+/* Active tab: amber text + amber underline indicator */
+html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary {
+  background-color: transparent !important;
+  border-bottom: 2px solid #e0c27a;
+}
+
+html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary p {
+  color: #e0c27a !important;
+}
+
+/* ============ BOOKSHELF TOOLBAR (count + sort/filter icons) ============ */
+html[data-theme='nanohive'] #bookshelf-toolbar {
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(56, 54, 51, 0.6);
+}
+
+/* ============ SEARCH PAGE ============ */
+/* Section headers: Books, Podcasts, Series, Authors … */
+html[data-theme='nanohive'] #nh-search-page p.font-semibold {
+  color: #e0c27a !important;
+  font-size: 0.68rem !important;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase;
+}
+
+/* Subtitle / author lines in result rows */
+html[data-theme='nanohive'] #nh-search-page .text-gray-200,
+html[data-theme='nanohive'] #nh-search-page .text-gray-300 {
+  color: #9a9085 !important;
+}
+
+/* ============ INTERACTIVE STATES ============ */
+/* Hover ring and focus ring use amber */
+html[data-theme='nanohive'] .focus\:ring-accent:focus,
+html[data-theme='nanohive'] .hover\:border-accent:hover {
+  --tw-ring-color: #e0c27a !important;
+  border-color: #e0c27a !important;
+}

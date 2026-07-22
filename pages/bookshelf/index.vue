@@ -10,6 +10,7 @@
     </div>
 
     <div class="w-full" :class="{ 'py-6': altViewEnabled }">
+      <nh-hero-carousel v-if="nhThemeActive && !currentLibraryIsPodcast" :slides="continueListeningItems" />
       <template v-for="(shelf, index) in shelves">
         <bookshelf-shelf :key="shelf.id" :label="getShelfLabel(shelf)" :entities="shelf.entities" :type="shelf.type" :style="{ zIndex: shelves.length - index }" />
       </template>
@@ -112,6 +113,14 @@ export default {
     },
     attemptingConnection() {
       return this.$store.state.attemptingConnection
+    },
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
+    },
+    continueListeningItems() {
+      const shelf = this.shelves.find((s) => s.id === 'continue-listening')
+      if (!shelf) return []
+      return shelf.entities.filter((e) => e.userMediaProgress && !e.userMediaProgress.isFinished).slice(0, 8)
     }
   },
   methods: {
