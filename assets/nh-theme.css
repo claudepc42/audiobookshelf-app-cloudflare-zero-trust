@@ -1,14 +1,21 @@
 /* NanoHive Theme — Native App Port */
 /* Source of truth: https://github.com/rodzalendo/nanohive-abs-theme */
 
-/* ============ BODY & AMBIENT GRADIENT BACKGROUND ============ */
-/* The signature NH cinematic background — a warm amber bloom at top-right
-   fading to deep canvas at bottom-left, visible through transparent elements. */
+/* ============ BODY & CINEMATIC BACKGROUND ============ */
+/* Canvas color lives on html so body can be transparent — this lets the
+   cinematic cover layer (body::before) and gradient overlay (body::after)
+   show through behind all app content. */
+html[data-theme='nanohive'] {
+  background-color: #181512;
+}
+
 html[data-theme='nanohive'] body {
-  background-color: #181512 !important;
+  background-color: transparent !important;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* body::before: blurred cinematic cover art — set via --nh-cinematic-cover
+   CSS custom property from default.vue whenever a playback session is active. */
 html[data-theme='nanohive'] body::before {
   content: '';
   position: fixed;
@@ -17,9 +24,27 @@ html[data-theme='nanohive'] body::before {
   right: 0;
   bottom: 0;
   z-index: -1;
+  background-image: var(--nh-cinematic-cover, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(60px) brightness(0.22) saturate(1.5);
+  transform: scale(1.12);
+  pointer-events: none;
+}
+
+/* body::after: ambient gradient overlay — sharp, on top of the blurred cover.
+   Painted after ::before so it composites above the cinematic image. */
+html[data-theme='nanohive'] body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
   background-image:
-    radial-gradient(circle at 80% 0%, rgba(224, 194, 122, 0.30) 0%, transparent 70%),
-    radial-gradient(circle at 20% 100%, rgba(24, 21, 18, 1) 0%, #181512 80%);
+    radial-gradient(circle at 80% 0%, rgba(224, 194, 122, 0.22) 0%, transparent 65%),
+    radial-gradient(circle at 20% 100%, rgba(24, 21, 18, 0.70) 0%, transparent 75%);
   pointer-events: none;
 }
 
@@ -274,14 +299,14 @@ html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(n+
 
 /* Back cover — offset furthest, darkest */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(3) {
-  transform: translate(14px, 10px) !important;
-  filter: brightness(0.50) !important;
+  transform: translate(38px, 24px) !important;
+  filter: brightness(0.45) !important;
 }
 
 /* Middle cover */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(2) {
-  transform: translate(7px, 5px) !important;
-  filter: brightness(0.72) !important;
+  transform: translate(20px, 13px) !important;
+  filter: brightness(0.68) !important;
 }
 
 /* Front cover — no offset, full brightness */
@@ -357,4 +382,61 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .cover-wrapper {
 html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .play-btn {
   background-color: rgba(224, 194, 122, 0.20) !important;
   border: 1.5px solid rgba(224, 194, 122, 0.50) !important;
+}
+
+/* ============ SERIES & COLLECTION TITLE LABELS ============ */
+/* altBookshelfLabel has a white border + dark gradient box — strip it in NH mode
+   so the title reads as plain amber text on the transparent canvas. */
+html[data-theme='nanohive'] [id^="series-card-"] .categoryPlacard > div,
+html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard > div {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Alt-view categorized label (direct child p, no categoryPlacard wrapper) */
+html[data-theme='nanohive'] [id^="series-card-"] > .absolute.text-center > p,
+html[data-theme='nanohive'] [id^="collection-card-"] > .absolute.text-center > p {
+  color: #e0c27a !important;
+  font-family: 'Spectral', Georgia, serif !important;
+}
+
+/* ============ AUTHOR CARDS ============ */
+/* Warm cream for name, muted for book count — matches NH palette */
+html[data-theme='nanohive'] .box-shadow-book .bg-black p:first-child {
+  color: #f4eee2 !important;
+}
+html[data-theme='nanohive'] .box-shadow-book .bg-black p:last-child {
+  color: #9a9085 !important;
+}
+
+/* ============ SIDE DRAWER ============ */
+/* Frosted glass panel instead of flat bg-bg */
+html[data-theme='nanohive'] #nh-side-drawer {
+  background-color: rgba(22, 18, 15, 0.88) !important;
+  backdrop-filter: blur(32px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(140%) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* "Welcome, [name]" — Spectral serif with warm cream tone */
+html[data-theme='nanohive'] #nh-side-drawer .px-6 > p {
+  font-family: 'Spectral', Georgia, serif !important;
+  color: #f4eee2 !important;
+  font-size: 1.1rem !important;
+  font-weight: 500;
+}
+
+/* Active nav item background — amber tint instead of default bg-bg-hover */
+html[data-theme='nanohive'] #nh-side-drawer [class*="bg-bg-hover"] {
+  background-color: rgba(224, 194, 122, 0.12) !important;
+}
+
+/* Active nav item: amber text + icon (links WITHOUT the muted class are active) */
+html[data-theme='nanohive'] #nh-side-drawer a:not(.text-fg-muted) {
+  color: #e0c27a !important;
+}
+html[data-theme='nanohive'] #nh-side-drawer a:not(.text-fg-muted) .material-symbols {
+  color: #e0c27a !important;
 }
