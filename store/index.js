@@ -105,6 +105,7 @@ export const getters = {
 
 export const actions = {
   // Listen for network connection
+  // Initialises the Capacitor Network listener and the AbsAudioPlayer metered-network listener.
   async setupNetworkListener({ state, commit }) {
     if (state.isNetworkListenerInit) return
     commit('setNetworkListenerInit', true)
