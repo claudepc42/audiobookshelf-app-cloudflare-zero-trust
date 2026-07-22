@@ -1,12 +1,20 @@
 <template>
   <div
     class="fixed inset-0 z-50 flex items-end"
-    style="background: rgba(0,0,0,0.55)"
+    :style="{ background: `rgba(0,0,0,${panel.scrimOpacity})` }"
     @click.self="$emit('close')"
   >
     <div
       class="w-full overflow-y-auto"
-      style="max-height: 85vh; background: rgba(18,15,13,0.97); border-top: 1px solid rgba(255,255,255,0.14); border-radius: 20px 20px 0 0; padding: 20px 20px 40px"
+      :style="{
+        maxHeight: '85vh',
+        background: `rgba(18,15,13,${panel.bgOpacity})`,
+        backdropFilter: `blur(${panel.blur}px)`,
+        WebkitBackdropFilter: `blur(${panel.blur}px)`,
+        borderTop: '1px solid rgba(255,255,255,0.14)',
+        borderRadius: '20px 20px 0 0',
+        padding: '20px 20px 40px'
+      }"
     >
       <!-- Header -->
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px">
@@ -14,7 +22,39 @@
         <button @click="$emit('close')" style="color: #9a9085; font-size: 1.3rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center">✕</button>
       </div>
 
-      <!-- Control groups -->
+      <!-- This Panel section -->
+      <div style="margin-bottom: 24px">
+        <p style="color: #9a9085; font-size: 0.68rem; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 10px">This Panel</p>
+
+        <div style="margin-bottom: 18px">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
+            <span style="color: #f4eee2; font-size: 0.82rem">Background Opacity</span>
+            <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.bgOpacity.toFixed(2) }}</span>
+          </div>
+          <input type="range" min="0" max="1" step="0.01" :value="panel.bgOpacity" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="panel.bgOpacity = parseFloat($event.target.value)" />
+          <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0</span><span>1</span></div>
+        </div>
+
+        <div style="margin-bottom: 18px">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
+            <span style="color: #f4eee2; font-size: 0.82rem">Scrim Opacity</span>
+            <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.scrimOpacity.toFixed(2) }}</span>
+          </div>
+          <input type="range" min="0" max="1" step="0.01" :value="panel.scrimOpacity" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="panel.scrimOpacity = parseFloat($event.target.value)" />
+          <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0</span><span>1</span></div>
+        </div>
+
+        <div style="margin-bottom: 18px">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
+            <span style="color: #f4eee2; font-size: 0.82rem">Blur</span>
+            <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.blur }}px</span>
+          </div>
+          <input type="range" min="0" max="40" step="1" :value="panel.blur" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="panel.blur = parseFloat($event.target.value)" />
+          <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0px</span><span>40px</span></div>
+        </div>
+      </div>
+
+      <!-- CSS var control groups -->
       <div v-for="group in controlGroups" :key="group.label" style="margin-bottom: 24px">
         <p style="color: #9a9085; font-size: 0.68rem; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 10px">{{ group.label }}</p>
 
@@ -63,11 +103,16 @@ const CONTROLS = [
   { group: 'Carousel', prop: '--nh-carousel-gradient-bottom', label: 'Gradient Bottom Opacity', default: 0.88, min: 0, max: 1, step: 0.01, unit: '' },
 ]
 
+const PANEL_DEFAULTS = { bgOpacity: 0.97, scrimOpacity: 0.55, blur: 0 }
+
 export default {
   data() {
     const values = {}
     CONTROLS.forEach((c) => { values[c.prop] = c.default })
-    return { values }
+    return {
+      panel: { ...PANEL_DEFAULTS },
+      values
+    }
   },
   computed: {
     controlGroups() {
@@ -90,6 +135,7 @@ export default {
       document.documentElement.style.setProperty(ctrl.prop, ctrl.unit ? `${num}${ctrl.unit}` : String(num))
     },
     resetAll() {
+      this.panel = { ...PANEL_DEFAULTS }
       CONTROLS.forEach((c) => {
         this.$set(this.values, c.prop, c.default)
         document.documentElement.style.setProperty(c.prop, c.unit ? `${c.default}${c.unit}` : String(c.default))
