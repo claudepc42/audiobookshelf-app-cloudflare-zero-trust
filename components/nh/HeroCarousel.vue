@@ -23,8 +23,8 @@
     <div
       v-for="(slide, i) in slides"
       :key="`content-${slide.id}`"
-      class="absolute inset-0 z-20 flex flex-col justify-between px-5 pt-5 pb-4 transition-opacity duration-500"
-      :style="{ opacity: activeIndex === i ? 1 : 0, pointerEvents: activeIndex === i ? 'auto' : 'none' }"
+      class="absolute inset-0 z-20 flex flex-col justify-between px-5 pt-5 pb-4"
+      :style="slideStyle(i)"
     >
       <!-- Amber label -->
       <p class="text-xs font-semibold tracking-widest" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.12em">Pick up where you left off</p>
@@ -68,15 +68,15 @@
       <!-- Dot indicators -->
       <div v-if="slides.length > 1" class="flex justify-center items-center gap-1.5 mt-3">
         <div
-          v-for="(_, i) in slides"
-          :key="`dot-${i}`"
+          v-for="(_, di) in slides"
+          :key="`dot-${di}`"
           class="rounded-full transition-all duration-300 cursor-pointer"
           :style="{
-            width: activeIndex === i ? '14px' : '5px',
+            width: activeIndex === di ? '14px' : '5px',
             height: '5px',
-            background: activeIndex === i ? '#e0c27a' : 'rgba(154,144,133,0.45)'
+            background: activeIndex === di ? '#e0c27a' : 'rgba(154,144,133,0.45)'
           }"
-          @click.stop="goTo(i)"
+          @click.stop="goTo(di)"
         />
       </div>
     </div>
@@ -84,8 +84,6 @@
 </template>
 
 <script>
-import TouchEvent from '@/objects/TouchEvent'
-
 export default {
   props: {
     slides: {
@@ -97,7 +95,14 @@ export default {
     return {
       activeIndex: 0,
       timer: null,
-      touchEvent: null
+      // Drag state
+      dragStartX: null,
+      dragOffset: 0,
+      isDragging: false,
+      dragVelocity: 0,
+      lastTouchX: null,
+      lastTouchTime: null,
+      dragMoved: false
     }
   },
   watch: {
@@ -107,6 +112,33 @@ export default {
     }
   },
   methods: {
+    slideStyle(i) {
+      const isActive = this.activeIndex === i
+      if (!isActive && !this.isDragging) {
+        return { opacity: 0, pointerEvents: 'none', transform: 'translateX(0)', transition: 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s' }
+      }
+
+      // During drag, offset active slide with finger; adjacent slides follow
+      const diff = i - this.activeIndex
+      const base = diff * 100 // percent
+      const px = this.isDragging ? this.dragOffset : 0
+      const transition = this.isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s'
+
+      if (Math.abs(diff) > 1) {
+        return { opacity: 0, pointerEvents: 'none', transform: `translateX(${base}%)`, transition }
+      }
+
+      const cardWidth = this.$el ? this.$el.offsetWidth : 300
+      const dragRatio = Math.min(1, Math.abs(px) / cardWidth)
+      const adjacentOpacity = diff !== 0 ? Math.max(0, dragRatio * 1.4 - 0.1) : 1
+
+      return {
+        opacity: diff === 0 ? 1 : adjacentOpacity,
+        pointerEvents: diff === 0 ? 'auto' : 'none',
+        transform: `translateX(calc(${base}% + ${px}px))`,
+        transition
+      }
+    },
     coverSrc(item) {
       return this.$store.getters['globals/getLibraryItemCoverSrc'](item) || ''
     },
@@ -136,6 +168,7 @@ export default {
       return this.$store.getters['user/getUserMediaProgress'](item.id) || item.userMediaProgress || null
     },
     openItem(item) {
+      if (this.dragMoved) return
       this.$router.push(`/item/${item.id}`)
     },
     continueItem(item) {
@@ -164,24 +197,61 @@ export default {
       this.startTimer()
     },
     onTouchStart(e) {
-      this.touchEvent = new TouchEvent(e)
+      const x = e.touches[0].clientX
+      this.dragStartX = x
+      this.lastTouchX = x
+      this.lastTouchTime = Date.now()
+      this.dragOffset = 0
+      this.dragVelocity = 0
+      this.dragMoved = false
+      this.isDragging = true
+      clearInterval(this.timer)
     },
-    onTouchEnd(e) {
-      if (!this.touchEvent) return
-      this.touchEvent.setEndEvent(e)
-      if (this.touchEvent.isSwipeLeft()) this.next()
-      else if (this.touchEvent.isSwipeRight()) this.prev()
-      this.touchEvent = null
+    onTouchMove(e) {
+      if (!this.isDragging || this.dragStartX === null) return
+      const x = e.touches[0].clientX
+      const now = Date.now()
+      const dt = now - this.lastTouchTime
+      if (dt > 0) {
+        this.dragVelocity = (x - this.lastTouchX) / dt
+      }
+      this.lastTouchX = x
+      this.lastTouchTime = now
+      this.dragOffset = x - this.dragStartX
+      if (Math.abs(this.dragOffset) > 8) this.dragMoved = true
+    },
+    onTouchEnd() {
+      if (!this.isDragging) return
+      this.isDragging = false
+
+      const offset = this.dragOffset
+      const velocity = this.dragVelocity
+      const threshold = (this.$el ? this.$el.offsetWidth : 300) * 0.30
+
+      if (offset < -threshold || velocity < -0.4) {
+        this.next()
+      } else if (offset > threshold || velocity > 0.4) {
+        this.prev()
+      }
+
+      this.dragOffset = 0
+      this.dragStartX = null
+      this.startTimer()
+
+      // Clear dragMoved after click event has had a chance to fire
+      this.$nextTick(() => { this.dragMoved = false })
     }
   },
   mounted() {
     this.startTimer()
     this.$el.addEventListener('touchstart', this.onTouchStart, { passive: true })
+    this.$el.addEventListener('touchmove', this.onTouchMove, { passive: true })
     this.$el.addEventListener('touchend', this.onTouchEnd, { passive: true })
   },
   beforeDestroy() {
     clearInterval(this.timer)
     this.$el.removeEventListener('touchstart', this.onTouchStart)
+    this.$el.removeEventListener('touchmove', this.onTouchMove)
     this.$el.removeEventListener('touchend', this.onTouchEnd)
   }
 }
