@@ -37,6 +37,16 @@ export default {
     }
   },
   watch: {
+    cinematicCoverSrc: {
+      immediate: true,
+      handler(val) {
+        if (val) {
+          document.documentElement.style.setProperty('--nh-cinematic-cover', `url("${val}")`)
+        } else {
+          document.documentElement.style.removeProperty('--nh-cinematic-cover')
+        }
+      }
+    },
     networkConnected: {
       handler(newVal, oldVal) {
         if (!this.hasMounted) {
@@ -116,6 +126,18 @@ export default {
       set(val) {
         this.$store.commit('setAttemptingConnection', val)
       }
+    },
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
+    },
+    currentPlaybackSession() {
+      return this.$store.state.currentPlaybackSession
+    },
+    cinematicCoverSrc() {
+      if (!this.nhThemeActive) return null
+      const session = this.currentPlaybackSession
+      if (!session?.libraryItemId) return null
+      return this.$store.getters['globals/getLibraryItemCoverSrcById'](session.libraryItemId)
     }
   },
   methods: {

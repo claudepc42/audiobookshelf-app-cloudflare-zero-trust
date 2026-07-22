@@ -52,6 +52,9 @@
         </div>
       </div>
 
+      <!-- Book description excerpt -->
+      <p v-if="itemDescription(slide)" class="text-xs mt-2 line-clamp-2 leading-relaxed" style="color: rgba(154,144,133,0.85)">{{ itemDescription(slide) }}</p>
+
       <!-- Continue button -->
       <button
         class="mt-4 w-full flex items-center justify-center gap-2 rounded-xl font-semibold text-sm"
@@ -77,10 +80,6 @@
         />
       </div>
     </div>
-
-    <!-- Tap zones for prev / next (above content, not overlapping Continue button) -->
-    <button v-if="slides.length > 1" class="absolute left-0 top-0 w-1/4 z-30" style="bottom: 120px" aria-label="Previous" @click.stop="prev" />
-    <button v-if="slides.length > 1" class="absolute right-0 top-0 w-1/4 z-30" style="bottom: 120px" aria-label="Next" @click.stop="next" />
   </div>
 </template>
 
@@ -129,6 +128,9 @@ export default {
       if (!dur) return `${pct}%`
       const remaining = Math.max(0, dur - (prog.currentTime || 0))
       return `${pct}% · ${this.$elapsedPretty(remaining)} left`
+    },
+    itemDescription(item) {
+      return item.media?.metadata?.description || ''
     },
     _getProgress(item) {
       return this.$store.getters['user/getUserMediaProgress'](item.id) || item.userMediaProgress || null
