@@ -15,8 +15,8 @@
         <h2 class="mt-1 text-2xl font-medium leading-tight" style="font-family: 'Spectral', Georgia, serif; color: #f4eee2">Welcome back, {{ username }}</h2>
       </div>
       <nh-hero-carousel v-if="nhThemeActive && !currentLibraryIsPodcast" :slides="continueListeningItems" />
-      <template v-for="(shelf, index) in shelves">
-        <bookshelf-shelf :key="shelf.id" :label="getShelfLabel(shelf)" :entities="shelf.entities" :type="shelf.type" :style="{ zIndex: shelves.length - index }" />
+      <template v-for="(shelf, index) in displayShelves">
+        <bookshelf-shelf :key="shelf.id" :label="getShelfLabel(shelf)" :entities="shelf.entities" :type="shelf.type" :style="{ zIndex: displayShelves.length - index }" />
       </template>
     </div>
 
@@ -129,6 +129,10 @@ export default {
       const time = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
       return `${days[new Date().getDay()]} · ${time}`
+    },
+    displayShelves() {
+      if (!this.nhThemeActive) return this.shelves
+      return this.shelves.filter((s) => s.id !== 'continue-listening')
     },
     continueListeningItems() {
       const shelf = this.shelves.find((s) => s.id === 'continue-listening')
