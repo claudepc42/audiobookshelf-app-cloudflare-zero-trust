@@ -31,7 +31,7 @@
             <span style="color: #f4eee2; font-size: 0.82rem">Background Opacity</span>
             <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.bgOpacity.toFixed(2) }}</span>
           </div>
-          <input type="range" min="0" max="1" step="0.01" :value="panel.bgOpacity" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="panel.bgOpacity = parseFloat($event.target.value)" />
+          <input type="range" min="0" max="1" step="0.01" :value="panel.bgOpacity" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="setPanel('bgOpacity', $event.target.value)" />
           <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0</span><span>1</span></div>
         </div>
 
@@ -40,7 +40,7 @@
             <span style="color: #f4eee2; font-size: 0.82rem">Scrim Opacity</span>
             <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.scrimOpacity.toFixed(2) }}</span>
           </div>
-          <input type="range" min="0" max="1" step="0.01" :value="panel.scrimOpacity" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="panel.scrimOpacity = parseFloat($event.target.value)" />
+          <input type="range" min="0" max="1" step="0.01" :value="panel.scrimOpacity" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="setPanel('scrimOpacity', $event.target.value)" />
           <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0</span><span>1</span></div>
         </div>
 
@@ -49,7 +49,7 @@
             <span style="color: #f4eee2; font-size: 0.82rem">Blur</span>
             <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.blur }}px</span>
           </div>
-          <input type="range" min="0" max="40" step="1" :value="panel.blur" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="panel.blur = parseFloat($event.target.value)" />
+          <input type="range" min="0" max="40" step="1" :value="panel.blur" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="setPanel('blur', $event.target.value)" />
           <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0px</span><span>40px</span></div>
         </div>
       </div>
@@ -103,14 +103,19 @@ const CONTROLS = [
   { group: 'Carousel', prop: '--nh-carousel-gradient-bottom', label: 'Gradient Bottom Opacity', default: 0.88, min: 0, max: 1, step: 0.01, unit: '' },
 ]
 
-const PANEL_DEFAULTS = { bgOpacity: 0.97, scrimOpacity: 0.55, blur: 0 }
+// Survives component destroy/remount — stores panel's own appearance between opens
+const panelState = { bgOpacity: 0.97, scrimOpacity: 0.55, blur: 0 }
 
 export default {
   data() {
+    // Read CSS vars from documentElement inline styles so sliders match reality on reopen
     const values = {}
-    CONTROLS.forEach((c) => { values[c.prop] = c.default })
+    CONTROLS.forEach((c) => {
+      const live = document.documentElement.style.getPropertyValue(c.prop).trim()
+      values[c.prop] = live !== '' ? parseFloat(live) : c.default
+    })
     return {
-      panel: { ...PANEL_DEFAULTS },
+      panel: { ...panelState },
       values
     }
   },
@@ -129,13 +134,19 @@ export default {
       const v = this.values[ctrl.prop]
       return ctrl.unit ? `${v}${ctrl.unit}` : parseFloat(v).toFixed(2)
     },
+    setPanel(key, rawVal) {
+      const num = parseFloat(rawVal)
+      this.$set(this.panel, key, num)
+      panelState[key] = num
+    },
     apply(ctrl, rawVal) {
       const num = parseFloat(rawVal)
       this.$set(this.values, ctrl.prop, num)
       document.documentElement.style.setProperty(ctrl.prop, ctrl.unit ? `${num}${ctrl.unit}` : String(num))
     },
     resetAll() {
-      this.panel = { ...PANEL_DEFAULTS }
+      Object.assign(panelState, { bgOpacity: 0.97, scrimOpacity: 0.55, blur: 0 })
+      this.panel = { ...panelState }
       CONTROLS.forEach((c) => {
         this.$set(this.values, c.prop, c.default)
         document.documentElement.style.setProperty(c.prop, c.unit ? `${c.default}${c.unit}` : String(c.default))
