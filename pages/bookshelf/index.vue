@@ -10,6 +10,10 @@
     </div>
 
     <div class="w-full" :class="{ 'py-6': altViewEnabled }">
+      <div v-if="nhThemeActive && !currentLibraryIsPodcast" id="nh-welcome" class="px-5 pt-6 pb-3">
+        <p class="text-xs font-semibold tracking-widest" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.12em">{{ greetingLine }}</p>
+        <h2 class="mt-1 text-2xl font-medium leading-tight" style="font-family: 'Spectral', Georgia, serif; color: #f4eee2">Welcome back, {{ username }}</h2>
+      </div>
       <nh-hero-carousel v-if="nhThemeActive && !currentLibraryIsPodcast" :slides="continueListeningItems" />
       <template v-for="(shelf, index) in shelves">
         <bookshelf-shelf :key="shelf.id" :label="getShelfLabel(shelf)" :entities="shelf.entities" :type="shelf.type" :style="{ zIndex: shelves.length - index }" />
@@ -116,6 +120,15 @@ export default {
     },
     nhThemeActive() {
       return this.$store.state.nhThemeActive
+    },
+    username() {
+      return this.$store.state.user.user?.username || ''
+    },
+    greetingLine() {
+      const hour = new Date().getHours()
+      const time = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+      return `${days[new Date().getDay()]} · ${time}`
     },
     continueListeningItems() {
       const shelf = this.shelves.find((s) => s.id === 'continue-listening')
