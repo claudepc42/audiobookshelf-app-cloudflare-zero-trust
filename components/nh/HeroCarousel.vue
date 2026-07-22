@@ -105,7 +105,11 @@ export default {
       dragVelocity: 0,
       lastTouchX: null,
       lastTouchTime: null,
-      dragMoved: false
+      dragMoved: false,
+      // Auto-advance state
+      lastUserTouchTime: 0,
+      lastAdvanceTime: 0,
+      advanceInterval: null
     }
   },
   watch: {
@@ -187,8 +191,14 @@ export default {
       this.activeIndex = (this.activeIndex - 1 + this.slides.length) % this.slides.length
       this.restartTimer()
     },
-    restartTimer() {
-      // No auto-advance — user navigates manually via drag/swipe
+    restartTimer() {},
+    checkAutoAdvance() {
+      if (this.slides.length <= 1) return
+      const now = Date.now()
+      if (now - this.lastUserTouchTime < 30000) return
+      if (now - this.lastAdvanceTime < 15000) return
+      this.activeIndex = (this.activeIndex + 1) % this.slides.length
+      this.lastAdvanceTime = now
     },
     onTouchStart(e) {
       const touch = e.touches[0]
@@ -201,6 +211,7 @@ export default {
       this.dragMoved = false
       this.dragLocked = null
       this.isDragging = true
+      this.lastUserTouchTime = Date.now()
     },
     onTouchMove(e) {
       if (!this.isDragging || this.dragStartX === null) return
@@ -263,11 +274,14 @@ export default {
     this.$el.addEventListener('touchstart', this.onTouchStart, { passive: true })
     this.$el.addEventListener('touchmove', this.onTouchMove, { passive: false })
     this.$el.addEventListener('touchend', this.onTouchEnd, { passive: true })
+    this.lastAdvanceTime = Date.now()
+    this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
   },
   beforeDestroy() {
     this.$el.removeEventListener('touchstart', this.onTouchStart)
     this.$el.removeEventListener('touchmove', this.onTouchMove)
     this.$el.removeEventListener('touchend', this.onTouchEnd)
+    clearInterval(this.advanceInterval)
   }
 }
 </script>
