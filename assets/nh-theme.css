@@ -145,18 +145,25 @@ html[data-theme='nanohive'] .default-style {
 }
 
 /* ============ BOOK CARDS ============ */
-/* Amber micro-border + warm drop-shadow replaces the plain dark shadow */
+/* Amber micro-border + warm drop-shadow replaces the plain dark shadow.
+   14px radius matches NanoHive's signature rounded cover corners. */
 html[data-theme='nanohive'] .box-shadow-book {
   box-shadow:
     0 0 0 1px rgba(224, 194, 122, 0.18),
     0 8px 28px rgba(0, 0, 0, 0.60) !important;
-  border-radius: 4px !important;
+  border-radius: 14px !important;
 }
 
-/* Thicker progress bar with rounded bottom corners; remove the old glow shadow */
+/* The inner overflow-hidden div clips the actual cover image — needs the
+   same radius so the image corners match the card corners. */
+html[data-theme='nanohive'] .box-shadow-book > .overflow-hidden {
+  border-radius: 14px !important;
+}
+
+/* Thicker progress bar with rounded bottom corners to match cover radius */
 html[data-theme='nanohive'] .box-shadow-progressbar {
   height: 3px !important;
-  border-radius: 0 0 4px 4px !important;
+  border-radius: 0 0 14px 14px !important;
   box-shadow: none !important;
 }
 
@@ -235,10 +242,113 @@ html[data-theme='nanohive'] #nh-search-page .text-gray-300 {
   color: #9a9085 !important;
 }
 
+/* ============ SERIES CARD STACKING ============ */
+/* Replace the side-by-side fan layout with a NanoHive 3D depth stack.
+   GroupCover.vue sets left/width via inline JS styles; !important overrides them.
+   nth-child(1) = first book = highest z-index = front cover. */
+
+/* Let shadow covers bleed right of the clip wrapper; clear the opaque bg */
+html[data-theme='nanohive'] [id^="series-card-"] > .overflow-hidden {
+  overflow: visible !important;
+  background: transparent !important;
+}
+
+/* Each cover: reset JS fan position, shrink to ~one-book width, add radius */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book {
+  left: 0 !important;
+  width: 55% !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+/* Hide 4th+ covers */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(n+4) {
+  display: none !important;
+}
+
+/* Back cover — offset furthest, darkest */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(3) {
+  transform: translate(14px, 10px) !important;
+  filter: brightness(0.50) !important;
+}
+
+/* Middle cover */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(2) {
+  transform: translate(7px, 5px) !important;
+  filter: brightness(0.72) !important;
+}
+
+/* Front cover — no offset, full brightness */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(1) {
+  filter: none !important;
+}
+
+/* ============ TOOLBAR ICON BUTTONS ============ */
+/* Give bare material-symbols icons in the toolbar a subtle pill background */
+html[data-theme='nanohive'] #bookshelf-toolbar .material-symbols {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 10px !important;
+  padding: 4px 8px !important;
+}
+
+/* ============ MODAL / BOTTOM-SHEET FROSTED GLASS ============ */
+/* The modal overlay gets a light blur so the page behind it stays legible */
+html[data-theme='nanohive'] .modal-bg {
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* The inner content panel: frosted warm dark instead of flat bg-primary */
+html[data-theme='nanohive'] .modal-bg .bg-primary.rounded-lg {
+  background-color: rgba(34, 30, 26, 0.94) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-radius: 20px !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Amber check/sort indicator in list modals */
+html[data-theme='nanohive'] .modal-bg .text-yellow-300 {
+  color: #e0c27a !important;
+}
+
 /* ============ INTERACTIVE STATES ============ */
 /* Hover ring and focus ring use amber */
 html[data-theme='nanohive'] .focus\:ring-accent:focus,
 html[data-theme='nanohive'] .hover\:border-accent:hover {
   --tw-ring-color: #e0c27a !important;
   border-color: #e0c27a !important;
+}
+
+/* ============ MINI PLAYER — FLOATING FROSTED PILL ============ */
+/* In NanoHive the player floats off the bottom as a frosted glass pill.
+   The inline backgroundColor (extracted cover color) is overridden here via
+   !important — CSS !important outranks inline styles in the cascade. */
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerContent {
+  background-color: rgba(18, 15, 13, 0.82) !important;
+  backdrop-filter: blur(28px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.70), 0 2px 12px rgba(0, 0, 0, 0.40) !important;
+  bottom: 20px !important;
+  left: 12px !important;
+  right: 12px !important;
+}
+
+/* The gradient overlay div (v-else branch, no id) sits on top of the
+   cover-color background and would block the frosted glass — clear it. */
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerContent > div:not([id]) {
+  background: transparent !important;
+}
+
+/* Book cover thumbnail inside the mini player — rounder corners for consistency */
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .cover-wrapper {
+  border-radius: 10px !important;
+}
+
+/* Play button: amber-tinted circle instead of a random cover-colour circle */
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .play-btn {
+  background-color: rgba(224, 194, 122, 0.20) !important;
+  border: 1.5px solid rgba(224, 194, 122, 0.50) !important;
 }
