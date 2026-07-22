@@ -292,34 +292,26 @@ html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book {
   overflow: hidden !important;
 }
 
-/* Back cover — Y-only depth offset, darkest */
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(3) {
-  transform: translateY(18px) !important;
-  filter: brightness(0.45) !important;
-}
-
-/* Middle cover — Y-only depth offset */
+/* Covers 2–6: brightness and Y spread evenly from 0.89 down to 0.45 */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(2) {
-  transform: translateY(10px) !important;
-  filter: brightness(0.68) !important;
+  transform: translateY(6px) !important;
+  filter: brightness(0.89) !important;
 }
-
-/* 4th cover */
+html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(3) {
+  transform: translateY(12px) !important;
+  filter: brightness(0.78) !important;
+}
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(4) {
-  transform: translateY(24px) !important;
-  filter: brightness(0.30) !important;
+  transform: translateY(19px) !important;
+  filter: brightness(0.67) !important;
 }
-
-/* 5th cover */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(5) {
-  transform: translateY(28px) !important;
-  filter: brightness(0.18) !important;
+  transform: translateY(25px) !important;
+  filter: brightness(0.56) !important;
 }
-
-/* 6th cover */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(6) {
   transform: translateY(31px) !important;
-  filter: brightness(0.10) !important;
+  filter: brightness(0.45) !important;
 }
 
 /* Front cover — no offset, full brightness */
@@ -369,15 +361,16 @@ html[data-theme='nanohive'] .hover\:border-accent:hover {
    The inline backgroundColor (extracted cover color) is overridden here via
    !important — CSS !important outranks inline styles in the cascade. */
 html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerContent {
-  background-color: rgba(18, 15, 13, 0.82) !important;
-  backdrop-filter: blur(28px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
+  background-color: rgba(18, 15, 13, 0.65) !important;
+  backdrop-filter: blur(28px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
   border-radius: 20px !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.70), 0 2px 12px rgba(0, 0, 0, 0.40) !important;
   bottom: 20px !important;
   left: 12px !important;
   right: 12px !important;
+  width: auto !important;
 }
 
 /* The gradient overlay div (v-else branch, no id) sits on top of the
