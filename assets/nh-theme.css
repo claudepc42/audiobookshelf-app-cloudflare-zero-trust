@@ -63,6 +63,20 @@ html[data-theme='nanohive'] .layout-wrapper {
   background: transparent !important;
 }
 
+/* With the floating pill, extend content to full height so book covers are
+   visible behind the pill and the frosted glass has something real to blur over.
+   Original playerOpen reserved 184px of dead space at the bottom. */
+html[data-theme='nanohive'] #content.playerOpen {
+  height: calc(100% - 64px) !important;
+  min-height: calc(100% - 64px) !important;
+  max-height: calc(100% - 64px) !important;
+}
+
+/* Bookshelf bottom padding lets the last row of covers scroll above the pill */
+html[data-theme='nanohive'] #bookshelf {
+  padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+}
+
 /* ============ FROSTED APPBAR ============ */
 /* Glass morphism on the appbar — semi-transparent with blur over the ambient gradient */
 html[data-theme='nanohive'] #nh-appbar-wrapper {
@@ -377,7 +391,7 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerContent {
   border-radius: 20px !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.70), 0 2px 12px rgba(0, 0, 0, 0.40) !important;
-  bottom: 20px !important;
+  bottom: calc(20px + env(safe-area-inset-bottom)) !important;
   left: 12px !important;
   right: 12px !important;
   width: auto !important;
@@ -389,9 +403,16 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerContent > d
   background: transparent !important;
 }
 
-/* Book cover thumbnail inside the mini player — rounder corners for consistency */
+/* Book cover thumbnail — rounder corners, and shifted up to stay inside the raised pill.
+   Original bottom: 68px; pill moved up 20px so cover moves up by the same amount. */
 html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .cover-wrapper {
   border-radius: 10px !important;
+  bottom: calc(88px + env(safe-area-inset-bottom)) !important;
+}
+
+/* Title/author texts — shifted up to match pill offset (original bottom: 76px) */
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .title-author-texts {
+  bottom: calc(96px + env(safe-area-inset-bottom)) !important;
 }
 
 /* Play button: amber-tinted circle instead of a random cover-colour circle */
