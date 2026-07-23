@@ -1,5 +1,5 @@
 <template>
-  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 300px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 370px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
     <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
@@ -25,48 +25,62 @@
       class="absolute inset-0 z-20 flex flex-col px-5 pt-5 pb-4"
       :style="slideStyle(i)"
     >
-      <!-- Amber label -->
-      <p class="text-xs font-semibold tracking-widest flex-shrink-0" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.12em">Pick up where you left off</p>
+      <!-- Amber label — small caps -->
+      <p class="text-xs font-semibold flex-shrink-0" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.13em">Pick up where you left off</p>
 
-      <!-- Cover + text row — fixed height, no flex-1 so it won't squeeze other items -->
-      <div class="flex items-start gap-4 mt-3 flex-shrink-0" style="height: 150px" @click="openItem(slide)">
-        <img
-          :src="coverSrc(slide)"
-          class="shrink-0 object-cover"
-          style="height: 150px; width: auto; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.60)"
-          :alt="itemTitle(slide)"
-          loading="lazy"
-        />
-        <!-- Text column: title + author at top, description in middle, progress at bottom -->
-        <div class="flex-1 min-w-0 flex flex-col h-full">
-          <div class="flex-shrink-0">
-            <p class="font-medium leading-snug line-clamp-2" style="font-family: 'Spectral', Georgia, serif; font-size: 1.05rem; color: #f4eee2">{{ itemTitle(slide) }}</p>
-            <p class="text-xs mt-0.5 truncate" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
+      <!-- Main row: text LEFT, cover RIGHT -->
+      <div class="flex gap-4 mt-2 flex-1 min-h-0" @click="openItem(slide)">
+
+        <!-- Text column (left) -->
+        <div class="flex-1 min-w-0 flex flex-col">
+          <!-- Big Spectral title -->
+          <p class="leading-tight line-clamp-2 flex-shrink-0" style="font-family: 'Spectral', Georgia, serif; font-size: 1.70rem; font-weight: 700; color: #f4eee2; letter-spacing: -0.01em; margin-top: 4px">{{ itemTitle(slide) }}</p>
+          <!-- Author -->
+          <p class="text-xs mt-1 truncate flex-shrink-0" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
+
+          <!-- Metadata pills -->
+          <div class="flex flex-wrap gap-1.5 mt-2 flex-shrink-0">
+            <span v-if="itemDuration(slide)" class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemDuration(slide) }}</span>
+            <span v-if="itemNarrator(slide)" class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">Narrated by {{ itemNarrator(slide) }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">Audiobook</span>
           </div>
-          <p v-if="itemDescription(slide)" class="text-xs mt-1.5 line-clamp-2 leading-relaxed flex-shrink-0" style="color: rgba(154,144,133,0.80)">{{ itemDescription(slide) }}</p>
-          <div class="mt-auto flex-shrink-0">
+
+          <!-- Description -->
+          <p v-if="itemDescription(slide)" class="text-xs mt-2 line-clamp-3 leading-relaxed flex-shrink-0" style="color: rgba(154,144,133,0.80)">{{ itemDescription(slide) }}</p>
+
+          <!-- Spacer -->
+          <div class="flex-1 min-h-0" />
+
+          <!-- Progress -->
+          <div class="flex-shrink-0">
             <div class="h-0.5 w-full rounded-full overflow-hidden mb-1" style="background: rgba(244,238,226,0.15)">
               <div class="h-full rounded-full transition-all duration-300" style="background: #e0c27a" :style="{ width: itemProgress(slide) + '%' }" />
             </div>
-            <p class="text-xs" style="color: rgba(154,144,133,0.9)">{{ itemProgressLabel(slide) }}</p>
+            <p class="text-xs mb-2" style="color: rgba(154,144,133,0.9)">{{ itemProgressLabel(slide) }}</p>
           </div>
+
+          <!-- Small amber-outlined Continue pill -->
+          <button
+            class="flex items-center justify-center gap-1.5 rounded-xl font-semibold text-xs flex-shrink-0"
+            style="background: rgba(224,194,122,0.14); border: 1px solid rgba(224,194,122,0.50); color: #e0c27a; height: 38px; padding: 0 18px; align-self: flex-start"
+            @click.stop="continueItem(slide)"
+          >
+            <span class="material-symbols fill" style="font-size: 1.05rem">play_arrow</span>
+            Continue
+          </button>
         </div>
+
+        <!-- Cover (right) — fixed width, natural height via aspect ratio -->
+        <img
+          :src="coverSrc(slide)"
+          class="object-cover flex-shrink-0"
+          style="width: 128px; height: 205px; border-radius: 14px; box-shadow: 0 14px 44px rgba(0,0,0,0.72); align-self: flex-start; margin-top: 4px"
+          :alt="itemTitle(slide)"
+          loading="lazy"
+        />
       </div>
 
-      <!-- Spacer pushes Continue button to bottom -->
-      <div class="flex-1" />
-
-      <!-- Continue button — flex-shrink-0 so it never compresses -->
-      <button
-        class="w-full flex items-center justify-center gap-2 rounded-xl font-semibold text-sm flex-shrink-0"
-        style="background: #e0c27a; color: #1a1610; height: 44px; box-shadow: 0 4px 20px rgba(224,194,122,0.30)"
-        @click.stop="continueItem(slide)"
-      >
-        <span class="material-symbols fill" style="font-size: 1.2rem">play_arrow</span>
-        Continue
-      </button>
-
-      <!-- Dot indicators — flex-shrink-0 -->
+      <!-- Dot indicators -->
       <div v-if="slides.length > 1" class="flex justify-center items-center gap-1.5 mt-3 flex-shrink-0">
         <div
           v-for="(_, di) in slides"
@@ -155,6 +169,18 @@ export default {
     },
     itemDescription(item) {
       return item.media?.metadata?.description || ''
+    },
+    itemDuration(item) {
+      const dur = item.media?.duration
+      if (!dur) return ''
+      const h = Math.floor(dur / 3600)
+      const m = Math.floor((dur % 3600) / 60)
+      return h > 0 ? `${h}h ${m}m` : `${m}m`
+    },
+    itemNarrator(item) {
+      const narrators = item.media?.metadata?.narrators
+      if (narrators?.length) return narrators[0]
+      return item.media?.metadata?.narrator || ''
     },
     itemProgress(item) {
       const prog = this._getProgress(item)

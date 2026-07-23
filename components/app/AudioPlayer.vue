@@ -69,6 +69,8 @@
 
       <div id="playerControls" class="absolute right-0 bottom-0 mx-auto" style="max-width: 414px">
         <div class="flex items-center max-w-full" :class="playerSettings.lockUi ? 'justify-center' : 'justify-between'">
+          <!-- Speed indicator — mini player only, taps into speed modal -->
+          <span v-show="!showFullscreen && !playerSettings.lockUi" class="font-mono text-fg-muted cursor-pointer" style="font-size: 0.78rem; min-width: 32px; text-align: center" @click.stop="$emit('selectPlaybackSpeed')">{{ currentPlaybackRate }}x</span>
           <span v-show="showFullscreen && !playerSettings.lockUi" class="material-symbols next-icon text-fg cursor-pointer" :class="showLoadingState ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpChapterStart">first_page</span>
           <div v-show="!playerSettings.lockUi" class="jump-icon text-fg cursor-pointer flex flex-col items-center" :class="showLoadingState ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpBackwards">
             <span class="material-symbols text-3xl leading-none">replay</span>
@@ -84,6 +86,11 @@
             <span class="material-symbols text-3xl leading-none">forward_media</span>
             <span v-if="showFullscreen" class="jump-label text-[10px] font-semibold leading-tight">{{ jumpForwardLabel }}</span>
           </div>
+          <!-- Sleep timer — mini player only -->
+          <span v-show="!showFullscreen && !playerSettings.lockUi" class="text-fg-muted cursor-pointer" style="font-size: 1.35rem; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center" @click.stop="$emit('showSleepTimer')">
+            <svg v-if="!sleepTimerRunning" xmlns="http://www.w3.org/2000/svg" style="width: 1.2rem; height: 1.2rem" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+            <p v-else class="text-success" style="font-size: 0.72rem; font-family: monospace">{{ sleepTimeRemainingPretty }}</p>
+          </span>
           <span v-show="showFullscreen && !playerSettings.lockUi" class="material-symbols next-icon text-fg cursor-pointer" :class="nextChapter && !showLoadingState ? 'text-opacity-75' : 'text-opacity-10'" @click.stop="jumpNextChapter">last_page</span>
         </div>
       </div>

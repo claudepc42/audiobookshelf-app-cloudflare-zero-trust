@@ -8,14 +8,14 @@
 html[data-theme='nanohive'] {
   background-color: #181512;
   /* NH UI Tuner defaults — overridden live by DevPanel.vue */
-  --nh-cinematic-brightness: 0.38;
+  --nh-cinematic-brightness: 0.55;
   --nh-appbar-opacity: 0.70;
   --nh-appbar-blur: 28px;
   --nh-drawer-opacity: 0.60;
   --nh-drawer-blur: 32px;
   --nh-miniplayer-opacity: 0.45;
   --nh-miniplayer-blur: 28px;
-  --nh-carousel-bg-brightness: 0.18;
+  --nh-carousel-bg-brightness: 0.32;
   --nh-carousel-gradient-bottom: 0.88;
 }
 
@@ -37,7 +37,7 @@ html[data-theme='nanohive'] body::before {
   background-image: var(--nh-cinematic-cover, none);
   background-size: cover;
   background-position: center;
-  filter: blur(60px) brightness(var(--nh-cinematic-brightness, 0.38)) saturate(1.5);
+  filter: blur(60px) brightness(var(--nh-cinematic-brightness, 0.55)) saturate(1.5);
   transform: scale(1.12);
   pointer-events: none;
 }
@@ -296,22 +296,25 @@ html[data-theme='nanohive'] #nh-search-page .text-gray-300 {
    GroupCover.vue sets left/width via inline JS styles; !important overrides them.
    nth-child(1) = first book = highest z-index = front cover. */
 
-/* Let shadow covers bleed right of the clip wrapper; clear the opaque bg */
-html[data-theme='nanohive'] [id^="series-card-"] > .overflow-hidden {
+/* Clear opaque bg and let shadow covers be visible; also fix collection cards */
+html[data-theme='nanohive'] [id^="series-card-"] > .overflow-hidden,
+html[data-theme='nanohive'] [id^="collection-card-"] > .overflow-hidden {
   overflow: visible !important;
   background: transparent !important;
 }
 
-/* The full-card shadow placeholder in LazySeriesCard spans the whole slot —
-   suppress its glow so only the actual cover divs carry the amber shadow. */
-html[data-theme='nanohive'] [id^="series-card-"] > .shadow-height {
+/* Suppress full-card shadow placeholder on both series and collection cards */
+html[data-theme='nanohive'] [id^="series-card-"] > .shadow-height,
+html[data-theme='nanohive'] [id^="collection-card-"] > .shadow-height {
   box-shadow: none !important;
 }
 
-/* Each cover: keep JS horizontal spread, add radius. No left/width override —
-   GroupCover.vue already calculates left values that fill the card width exactly,
-   and cover widths based on aspect ratio. We only layer CSS depth via Y offset. */
+/* Force all covers to stack at left:0 width:100% — GroupCover.vue spreads them
+   sideways by default; we want NanoHive's depth-stack look (front cover fills
+   the card, subsequent covers peek below it via translateY). */
 html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book {
+  left: 0 !important;
+  width: 100% !important;
   border-radius: 12px !important;
   overflow: hidden !important;
 }
@@ -422,15 +425,22 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .play-btn {
 }
 
 /* ============ SERIES & COLLECTION TITLE LABELS ============ */
-/* altBookshelfLabel has a white border + dark gradient box — strip it in NH mode
-   so the title reads as plain amber text on the transparent canvas. */
+/* Strip the altBookshelfLabel border/box — NH style is plain amber Spectral text
+   below the cover art, no pill or badge framing. */
 html[data-theme='nanohive'] [id^="series-card-"] .categoryPlacard > div,
 html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard > div {
-  background: rgba(14, 11, 9, 0.55) !important;
+  background: transparent !important;
   background-image: none !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.50) !important;
-  border-radius: 8px !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='nanohive'] [id^="series-card-"] .categoryPlacard p,
+html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard p {
+  color: #e0c27a !important;
+  font-family: 'Spectral', Georgia, serif !important;
+  font-size: 0.78rem !important;
+  letter-spacing: 0.02em !important;
 }
 
 /* Alt-view categorized label (direct child p, no categoryPlacard wrapper) */
