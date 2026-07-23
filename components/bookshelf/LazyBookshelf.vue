@@ -131,6 +131,10 @@ export default {
     entityWidth() {
       if (this.showBookshelfListView) return this.bookshelfWidth - 16
       if (this.isBookEntity || this.entityName === 'playlists') return this.bookWidth
+      if (this.nhThemeActive) {
+        // 2-column grid for NH theme — covers stack cleanly at this narrower width
+        return Math.floor((this.bookshelfWidth - 16) / 2) - 24
+      }
       return this.bookWidth * 2
     },
     entityHeight() {
