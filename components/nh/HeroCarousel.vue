@@ -122,6 +122,9 @@
 </template>
 
 <script>
+// TEMP DIAGNOSTIC IMPORT (remove once cinematic bg bug is found)
+import { AbsLogger } from '@/plugins/capacitor'
+
 export default {
   props: {
     slides: {
@@ -148,6 +151,12 @@ export default {
       lastTouchX: null,
       lastTouchTime: null,
       dragMoved: false,
+      // Set on release to the drag's last offset (as % of card width) so the
+      // settle transition can be timed to the distance actually remaining,
+      // instead of always using the full-traversal duration. Cleared after
+      // the settle animation finishes.
+      releaseOffsetPercent: null,
+      releaseClearTimeout: null,
       // Auto-advance state
       firstTouchTime: 0,
       lastUserTouchTime: 0,
@@ -168,14 +177,35 @@ export default {
   methods: {
     publishActiveCover() {
       const slide = this.slides[this.activeIndex]
-      if (!slide) return
+      if (!slide) {
+        // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
+        AbsLogger.info({ tag: 'nh-diag', message: `HeroCarousel.publishActiveCover: no slide at index ${this.activeIndex}, slides.length=${this.slides.length}` })
+        return
+      }
       const url = this.coverSrc(slide)
+      // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
+      AbsLogger.info({ tag: 'nh-diag', message: `HeroCarousel.publishActiveCover: index=${this.activeIndex} title=${this.itemTitle(slide)} url=${url || '(empty)'}` })
       if (url) this.$store.commit('setNhHomeCoverUrl', url)
     },
     slideStyle(i) {
-      const transition = this.isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s'
       const diff = i - this.activeIndex
       const px = this.isDragging ? this.dragOffset : 0
+
+      let transition
+      if (this.isDragging) {
+        transition = 'none'
+      } else if (this.releaseOffsetPercent !== null) {
+        // Scale the settle duration to how far this slide's transform still
+        // has to travel from where the drag left off, so a fast-but-short
+        // flick (velocity-triggered, not distance-triggered) doesn't have to
+        // cover most of the card's width in the same fixed duration a
+        // full-traversal animation uses.
+        const remainingFraction = Math.min(1, Math.abs(diff * 100 - this.releaseOffsetPercent) / 100)
+        const duration = Math.max(0.12, remainingFraction * 0.35).toFixed(2)
+        transition = `transform ${duration}s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s`
+      } else {
+        transition = 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s'
+      }
 
       if (Math.abs(diff) > 1) {
         return { opacity: 0, pointerEvents: 'none', transform: `translateX(${diff * 100}%)`, transition }
@@ -330,7 +360,14 @@ export default {
 
       const offset = this.dragOffset
       const velocity = this.dragVelocity
-      const threshold = (this.$el ? this.$el.offsetWidth : 300) * 0.30
+      const cardWidth = this.$el ? this.$el.offsetWidth : 300
+      const threshold = cardWidth * 0.30
+
+      this.releaseOffsetPercent = (offset / cardWidth) * 100
+      clearTimeout(this.releaseClearTimeout)
+      this.releaseClearTimeout = setTimeout(() => {
+        this.releaseOffsetPercent = null
+      }, 400)
 
       if (offset < -threshold || velocity < -0.4) {
         this.next()
@@ -349,10 +386,13 @@ export default {
   mounted() {
     this.lastAdvanceTime = Date.now()
     this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
+    // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
+    AbsLogger.info({ tag: 'nh-diag', message: `HeroCarousel mounted: slides.length=${this.slides.length} activeIndex=${this.activeIndex}` })
     this.publishActiveCover()
   },
   beforeDestroy() {
     clearInterval(this.advanceInterval)
+    clearTimeout(this.releaseClearTimeout)
   }
 }
 </script>
