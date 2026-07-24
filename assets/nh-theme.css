@@ -100,7 +100,14 @@ html[data-theme='nanohive'] #nh-home-bg .nh-bg-layer {
   inset: 0;
   background-size: cover;
   background-position: center;
-  filter: blur(55px) brightness(0.45) saturate(1.35);
+  /* NH source uses blur(55px), tuned for a ~1920px desktop viewport. At that
+     radius on a ~400px phone screen the blur is proportionally ~5x larger
+     relative to the viewport, smoothing the cover almost entirely flat
+     instead of leaving it recognizably blurred — confirmed via device
+     diagnostics (real cover URL + correct opacity, just visually washed
+     out). Scaled down for a phone-width viewport; brightness/saturate
+     unchanged from source. */
+  filter: blur(26px) brightness(0.45) saturate(1.35);
   opacity: 0;
   transition: opacity 2.8s ease;
 }
@@ -126,7 +133,7 @@ html[data-theme='nanohive'] #nh-home-bg::after {
 }
 /* Item / series-detail pages: lighter blur brightness + softer gradient (NH: body.nh-cinematic-item) */
 html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item .nh-bg-layer {
-  filter: blur(55px) brightness(0.62) saturate(1.3);
+  filter: blur(26px) brightness(0.62) saturate(1.3);
 }
 html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item::after {
   background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), 0.3) 0%, rgba(var(--nh-bg-rgb), 0.6) 55%, rgb(var(--nh-bg-rgb)) 100%);
@@ -1372,10 +1379,12 @@ html[data-theme='nanohive'] .box-shadow-book .bg-black p:last-child {
 
 /* ============ HERO CAROUSEL ============ */
 /* Per-slide blurred cover background. NH source: enhancements.js slideMarkup()
-   .nh-hero-bg — inset:-12%, filter: blur(60px) brightness(0.5) saturate(1.4). */
+   .nh-hero-bg — inset:-12%, filter: blur(60px) brightness(0.5) saturate(1.4).
+   Same phone-viewport scaling as #nh-home-bg's blur above — 60px was tuned
+   for a desktop-width card, not this ~350-400px mobile carousel slide. */
 html[data-theme='nanohive'] .nh-slide-bg {
   inset: -12% !important;
-  filter: blur(60px) brightness(0.5) saturate(1.4);
+  filter: blur(28px) brightness(0.5) saturate(1.4);
 }
 
 /* Gradient overlay — NH source: enhancements.js slideMarkup(), 110deg diagonal
