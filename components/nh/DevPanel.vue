@@ -91,16 +91,18 @@
 </template>
 
 <script>
+// Defaults match NH source exactly (core.js): appbar/player rgba(--nh-bg-rgb,0.45/0.4)
+// blur(28px), mobile drawer rgba(--nh-bg-rgb,0.98..0.94) blur(24px). The cinematic
+// background and hero-carousel slide vars are no longer tunable here — they're
+// hardcoded in nh-theme.css to NH's fixed values (blur(55px) brightness(0.45/0.62)
+// saturate(1.35/1.3), and blur(60px) brightness(0.5) saturate(1.4) respectively).
 const CONTROLS = [
-  { group: 'Cinematic Background', prop: '--nh-cinematic-brightness', label: 'Brightness', default: 0.55, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.70, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.45, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Appbar', prop: '--nh-appbar-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
-  { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0.60, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Drawer', prop: '--nh-drawer-blur', label: 'Blur', default: 32, min: 0, max: 60, step: 1, unit: 'px' },
-  { group: 'Mini Player', prop: '--nh-miniplayer-opacity', label: 'Opacity', default: 0.45, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Mini Player', prop: '--nh-miniplayer-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
-  { group: 'Carousel', prop: '--nh-carousel-bg-brightness', label: 'Slide BG Brightness', default: 0.32, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Carousel', prop: '--nh-carousel-gradient-bottom', label: 'Gradient Bottom Opacity', default: 0.88, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0.96, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Drawer', prop: '--nh-drawer-blur', label: 'Blur', default: 24, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Mini Player', prop: '--nh-miniplayer-opacity', label: 'Opacity', default: 0.4, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Mini Player', prop: '--nh-miniplayer-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' }
 ]
 
 const panelState = { bgOpacity: 0.97, scrimOpacity: 0.55, blur: 0 }

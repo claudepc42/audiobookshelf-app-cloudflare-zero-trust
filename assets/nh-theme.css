@@ -3,20 +3,55 @@
 
 /* ============ BODY & CINEMATIC BACKGROUND ============ */
 /* Canvas color lives on html so body can be transparent — this lets the
-   cinematic cover layer (body::before) and gradient overlay (body::after)
+   ambient gradient (#nh-ambient-bg) and cinematic cover layer (#nh-home-bg)
    show through behind all app content. */
 html[data-theme='nanohive'] {
-  background-color: #181512;
-  /* NH UI Tuner defaults — overridden live by DevPanel.vue */
-  --nh-cinematic-brightness: 0.55;
-  --nh-appbar-opacity: 0.70;
+  background-color: var(--nh-canvas);
+  /* NH-standard theme vars (core.js :root block) — the 'warm' base theme values.
+     Overridden live (inline on <html>) by layouts/default.vue's applyNhCustomizations()
+     once the settings system (base theme / accent colour / font) is applied — these are
+     just the pre-JS/first-paint fallbacks. Text/muted/hairline vars are NOT part of
+     the settings system (NH's baseThemes only vary canvas/rail/raised/rgb/appbar, not
+     text colors — core.js lines 48-57), so these are fixed, not JS-overridden. */
+  --nh-bg-rgb: 24, 21, 18;
+  --nh-canvas: #181512;
+  --nh-rail: #120f0d;
+  --nh-raised: #221e1a;
+  /* core.js's page-load default is a distinct #2d2925, but nh-early.js's boot
+     shim (which runs after and wins) always sets this equal to --nh-raised for
+     whichever base theme is active — no distinct hover shade actually reaches
+     a live NH instance. Matching the real runtime behavior, not the transient
+     initial value. */
+  --nh-raised-hover: var(--nh-raised);
+  --nh-amber: #e0c27a;
+  --nh-amber-hover: #eccf91;
+  --nh-amber-rgb: 224, 194, 122;
+  --nh-amber-shadow: rgba(224, 194, 122, 0.30);
+  --nh-amber-tint: rgba(224, 194, 122, 0.12);
+  --nh-serif: 'Merriweather', 'Spectral', Georgia, serif;
+  --nh-font-scale: 1;
+  --nh-text-1: #f4eee2;
+  --nh-text-2: #d8cfc2;
+  --nh-text-3: #cfc6ba;
+  --nh-muted: #9a9085;
+  --nh-muted-2: #8a8075;
+  --nh-icon-base: #a89f94;
+  --nh-hairline: rgba(255, 255, 255, 0.06);
+  --nh-hairline-lit: rgba(255, 255, 255, 0.14);
+  /* NH UI Tuner defaults — overridden live by DevPanel.vue. Values match NH source
+     exactly (core.js: appbar/player rgba(--nh-bg-rgb,0.45/0.4) blur(28px) saturate(150%);
+     mobile drawer rgba(--nh-bg-rgb,0.98/0.94) blur(24px) saturate(140%)). */
+  --nh-appbar-opacity: 0.45;
   --nh-appbar-blur: 28px;
-  --nh-drawer-opacity: 0.60;
-  --nh-drawer-blur: 32px;
-  --nh-miniplayer-opacity: 0.45;
+  --nh-drawer-opacity: 0.96;
+  --nh-drawer-blur: 24px;
+  --nh-miniplayer-opacity: 0.4;
   --nh-miniplayer-blur: 28px;
-  --nh-carousel-bg-brightness: 0.32;
-  --nh-carousel-gradient-bottom: 0.88;
+}
+
+/* NH source: core.js line 67 — global font-size scaling driven by the fontScale setting */
+html[data-theme='nanohive'] {
+  font-size: calc(16px * var(--nh-font-scale)) !important;
 }
 
 html[data-theme='nanohive'] body {
@@ -24,43 +59,83 @@ html[data-theme='nanohive'] body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* body::before: blurred cinematic cover art — set via --nh-cinematic-cover
-   CSS custom property from default.vue whenever a playback session is active. */
-html[data-theme='nanohive'] body::before {
+/* Ambient gradient (NH source: core.js #__layout::before) — always present behind
+   everything at z-index -2. Hidden whenever the cinematic cover (#nh-home-bg) is
+   showing, exactly like NH's body.nh-cinematic #__layout::before { display:none }. */
+html[data-theme='nanohive'] #nh-ambient-bg {
   content: '';
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: -1;
-  background-image: var(--nh-cinematic-cover, none);
-  background-size: cover;
-  background-position: center;
-  filter: blur(60px) brightness(var(--nh-cinematic-brightness, 0.55)) saturate(1.5);
-  transform: scale(1.12);
+  z-index: -2;
+  background-color: var(--nh-canvas);
+  background-image:
+    radial-gradient(circle at 80% 0%, var(--nh-amber-shadow) 0%, transparent 70%),
+    radial-gradient(circle at 20% 100%, rgba(var(--nh-bg-rgb), 1) 0%, var(--nh-canvas) 80%);
   pointer-events: none;
+  opacity: 1;
+  transition: opacity 1.6s ease;
 }
 
-/* body::after: ambient gradient overlay — sharp, on top of the blurred cover.
-   Painted after ::before so it composites above the cinematic image. */
-html[data-theme='nanohive'] body::after {
-  content: '';
+/* #nh-home-bg: the actual cinematic cover layer, driven by page context (see
+   layouts/default.vue) — item page = its own cover, series detail = first book's
+   cover, home = active hero-carousel slide cover, other library/settings pages =
+   the cached home cover. Two .nh-bg-layer children crossfade between covers.
+   NH source: core.js lines 443-450, enhancements.js setHomeBg()/manageCinematic(). */
+html[data-theme='nanohive'] #nh-home-bg {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: -10%;
+  left: -10%;
+  right: -10%;
+  bottom: -10%;
   z-index: -1;
-  background-image:
-    radial-gradient(circle at 80% 0%, rgba(224, 194, 122, 0.22) 0%, transparent 65%),
-    radial-gradient(circle at 20% 100%, rgba(24, 21, 18, 0.70) 0%, transparent 75%);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+html[data-theme='nanohive'] #nh-home-bg .nh-bg-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(55px) brightness(0.45) saturate(1.35);
+  opacity: 0;
+  transition: opacity 2.8s ease;
+  will-change: opacity, transform;
+  animation: nh-breathe 20s ease-in-out infinite alternate;
+}
+@keyframes nh-breathe {
+  0% { transform: scale(1.0); }
+  100% { transform: scale(1.2); }
+}
+html[data-theme='nanohive'] #nh-home-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), 0.5) 0%, rgba(var(--nh-bg-rgb), 0.8) 55%, rgb(var(--nh-bg-rgb)) 100%);
+}
+/* Item / series-detail pages: lighter blur brightness + softer gradient (NH: body.nh-cinematic-item) */
+html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item .nh-bg-layer {
+  filter: blur(55px) brightness(0.62) saturate(1.3);
+}
+html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item::after {
+  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), 0.3) 0%, rgba(var(--nh-bg-rgb), 0.6) 55%, rgb(var(--nh-bg-rgb)) 100%);
 }
 
 /* Make the layout wrapper transparent so the body gradient shows through */
 html[data-theme='nanohive'] .layout-wrapper {
   background: transparent !important;
+}
+
+/* Colorize Logo setting — recolors the logo silhouette with the accent colour via a
+   CSS mask, matching NH source's .nh-logo-colorized::before (core.js lines 169-178) */
+html[data-theme='nanohive'] .nh-logo-mask {
+  background-color: var(--nh-amber);
+  -webkit-mask: var(--nh-logo-url) no-repeat center / contain;
+  mask: var(--nh-logo-url) no-repeat center / contain;
 }
 
 /* With the floating pill, extend content to full height so book covers are
@@ -80,15 +155,10 @@ html[data-theme='nanohive'] #bookshelf {
 /* ============ FROSTED APPBAR ============ */
 /* Glass morphism on the appbar — semi-transparent with blur over the ambient gradient */
 html[data-theme='nanohive'] #nh-appbar-wrapper {
-  background-color: rgba(24, 21, 18, var(--nh-appbar-opacity, 0.70)) !important;
+  background-color: rgba(var(--nh-bg-rgb), var(--nh-appbar-opacity, 0.45)) !important;
   backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
   -webkit-backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
-}
-
-/* ============ SIDE DRAWER ============ */
-html[data-theme='nanohive'] #nh-side-drawer {
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ============ ACCENT COLOR OVERRIDES ============ */
@@ -96,56 +166,97 @@ html[data-theme='nanohive'] #nh-side-drawer {
    NH uses amber #e0c27a, so we override the generated utility classes here. */
 html[data-theme='nanohive'] .text-accent,
 html[data-theme='nanohive'] .text-yellow-400 {
-  color: #e0c27a !important;
+  color: var(--nh-amber) !important;
 }
 
 html[data-theme='nanohive'] .bg-accent,
 html[data-theme='nanohive'] .bg-yellow-400 {
-  background-color: #e0c27a !important;
+  background-color: var(--nh-amber) !important;
   color: #1a1610 !important;
 }
 
 html[data-theme='nanohive'] .border-accent,
 html[data-theme='nanohive'] .border-yellow-400 {
-  border-color: #e0c27a !important;
+  border-color: var(--nh-amber) !important;
 }
 
-/* Success uses a lighter amber so "active/connected" states remain distinct from
-   decorative accent amber (#e0c27a) at a glance */
+/* NH source: core.js lines 60-62, 78-79, 574 — success/info/accent all resolve to
+   the exact same --color-info/--color-success/--color-accent : var(--nh-amber).
+   An earlier pass invented a separate lighter "#f0d898" for success/info to keep
+   them visually distinct from decorative amber — that distinction doesn't exist
+   in source, removed here to match exactly. */
 html[data-theme='nanohive'] .text-success {
-  color: #f0d898 !important;
+  color: var(--nh-amber) !important;
 }
 
 html[data-theme='nanohive'] .bg-success {
-  background-color: #f0d898 !important;
+  background-color: var(--nh-amber) !important;
   color: #1a1610 !important;
 }
 
 html[data-theme='nanohive'] .text-info {
-  color: #f0d898 !important;
+  color: var(--nh-amber) !important;
 }
 
 html[data-theme='nanohive'] .bg-info {
-  background-color: #f0d898 !important;
+  background-color: var(--nh-amber) !important;
   color: #1a1610 !important;
 }
 
+html[data-theme='nanohive'] .text-yellow-300 {
+  color: var(--nh-amber-hover) !important;
+}
+
+/* ============ GLOBAL SURFACE & TEXT COLOR OVERRIDES ============ */
+/* NH source: core.js lines 69-77. These are the base Tailwind utility classes used
+   throughout the app (settings rows, modals, buttons, panels) — without this, every
+   screen that doesn't have its own dedicated NH rule (account, stats, every modal)
+   falls back to stock ABS's dark theme instead of NH's warm palette. This was the
+   single biggest gap found in the source-parity audit. */
+html[data-theme='nanohive'] .bg-bg {
+  background-color: var(--nh-canvas) !important;
+}
+
+html[data-theme='nanohive'] .bg-primary,
+html[data-theme='nanohive'] .bg-fg {
+  background-color: var(--nh-raised) !important;
+}
+
+html[data-theme='nanohive'] .text-gray-400 {
+  color: var(--nh-muted-2) !important;
+}
+
+html[data-theme='nanohive'] .text-gray-300 {
+  color: var(--nh-text-3) !important;
+}
+
+html[data-theme='nanohive'] .text-gray-200,
+html[data-theme='nanohive'] .text-gray-100,
+html[data-theme='nanohive'] .text-gray-50 {
+  color: var(--nh-text-2) !important;
+}
+
 /* ============ DISPLAY FONT ============ */
-/* Spectral serif for headings — loaded dynamically by the theme toggle */
+/* Serif display font for headings — driven by the Main Font setting (falls back
+   to Spectral, matching NH source's :root --nh-serif default). !important is
+   required: Tailwind utility classes like .font-sans (class selector, higher
+   specificity than a bare element selector) otherwise win over this and silently
+   keep some headings in the stock sans font — confirmed on the collection page's
+   <h1 class="font-sans">. */
 html[data-theme='nanohive'] h1,
 html[data-theme='nanohive'] h2,
 html[data-theme='nanohive'] h3 {
-  font-family: 'Spectral', Georgia, serif;
+  font-family: var(--nh-serif) !important;
 }
 
 /* ============ SCROLLBARS ============ */
 html[data-theme='nanohive'] ::-webkit-scrollbar-thumb {
-  background: #e0c27a !important;
+  background: var(--nh-amber) !important;
   border-radius: 4px;
 }
 
 html[data-theme='nanohive'] ::-webkit-scrollbar-thumb:hover {
-  background: #eccf91 !important;
+  background: var(--nh-amber-hover) !important;
 }
 
 /* ============ BOOK DETAIL PAGE ============ */
@@ -162,22 +273,295 @@ html[data-theme='nanohive'] #item-page > div:first-child::after {
   left: 0;
   right: 0;
   height: 72px;
-  background: linear-gradient(to bottom, transparent, #181512);
+  background: linear-gradient(to bottom, transparent, var(--nh-canvas));
   pointer-events: none;
   z-index: 5;
 }
 
+/* Finished badge on the item page's own cover — NH source: book-details.js
+   #nh-finished-badge (lines 111-123), values ported exactly. Distinct from the
+   shelf-card badge (.nh-finished-badge) — bigger, top-right, its own id. */
+html[data-theme='nanohive'] #nh-item-finished-badge {
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(20, 17, 13, 0.35);
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+html[data-theme='nanohive'] #nh-item-finished-badge .material-symbols {
+  font-size: 26px;
+  color: var(--nh-amber);
+  font-variation-settings: 'wght' 700;
+  text-shadow: 0 0 10px var(--nh-amber-shadow);
+}
+
+/* App-wide button shape — components/ui/Btn.vue (the ui-btn used for Play, Read,
+   Download, Submit, Create, and dozens more across the app) had ZERO NH coverage
+   and uses Tailwind's rounded-md (6px), sharper than every other rounded surface
+   in the theme (14px cards, 12px covers, 20px modals/mini-player). No literal NH
+   source selector matches this app's own .btn class (that's specific to this
+   codebase, not the web client's .abs-btn), so this is a reasoned extension of
+   NH's soft-rounded language rather than a direct port — matches book-details.js's
+   own action-button radius (12px) as the closest real reference point. */
+html[data-theme='nanohive'] .btn {
+  border-radius: 12px !important;
+}
+html[data-theme='nanohive'] .btn::before {
+  border-radius: 12px !important;
+}
+
+/* Icon-only buttons (components/ui/IconBtn.vue) — a LITERAL class-name match to
+   source (book-details.js #item-page-wrapper .icon-btn), not just an analog, and
+   had zero coverage: still Tailwind's rounded-md (6px) with a stock border-gray-600
+   border instead of source's 12px radius + hairline border. Source's 48x48 fixed
+   size isn't ported — this component's own h-9/w-9 (36px) sizing is used in many
+   more contexts across the app than the item-detail page alone, and resizing it
+   globally risks breaking layouts elsewhere; radius/color are the real gap. */
+html[data-theme='nanohive'] .icon-btn {
+  border-radius: 12px !important;
+}
+html[data-theme='nanohive'] .icon-btn::before {
+  border-radius: 12px !important;
+}
+html[data-theme='nanohive'] .icon-btn.border-gray-600 {
+  border-color: var(--nh-hairline-lit) !important;
+}
+html[data-theme='nanohive'] .icon-btn .material-symbols {
+  color: var(--nh-text-2) !important;
+}
+
+/* Chapters/Tracks tables (ChaptersTable.vue, TracksTable.vue) — a literal
+   class-name match to book-details.js's .tracksTable rule (lines 305-361),
+   ported exactly. Previously had ZERO coverage: found by actually opening these
+   two files while checking table components, not assumed absent the way the
+   collection table (a real gap-check that correctly found no <table> there) was. */
+html[data-theme='nanohive'] .tracksTable {
+  background: rgba(0, 0, 0, 0.2) !important;
+  width: 100% !important;
+  border: none !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin-top: 16px !important;
+}
+html[data-theme='nanohive'] .tracksTable tr,
+html[data-theme='nanohive'] .tracksTable thead,
+html[data-theme='nanohive'] .tracksTable tbody,
+html[data-theme='nanohive'] .tracksTable tr:nth-child(even),
+html[data-theme='nanohive'] .tracksTable tr:nth-child(odd) {
+  background-color: transparent !important;
+}
+html[data-theme='nanohive'] .tracksTable th {
+  text-transform: uppercase !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.1em !important;
+  color: var(--nh-muted-2) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding: 16px 12px !important;
+  text-align: left;
+  background-color: transparent !important;
+  font-weight: 600 !important;
+}
+html[data-theme='nanohive'] .tracksTable td {
+  padding: 16px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+  color: var(--nh-text-2) !important;
+  background-color: transparent !important;
+  font-size: 0.95rem !important;
+}
+html[data-theme='nanohive'] .tracksTable tr:last-child td {
+  border-bottom: none !important;
+}
+html[data-theme='nanohive'] .tracksTable tr:hover td {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+html[data-theme='nanohive'] .tracksTable .font-mono {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace !important;
+  font-size: 0.9rem !important;
+  color: var(--nh-muted) !important;
+}
+@media (max-width: 640px) {
+  html[data-theme='nanohive'] .tracksTable th {
+    font-size: 0.65rem !important;
+    padding: 10px 8px !important;
+  }
+  html[data-theme='nanohive'] .tracksTable td {
+    font-size: 0.82rem !important;
+    padding: 10px 8px !important;
+  }
+}
+
+/* The section header bar ABOVE each table (ChaptersTable.vue/TracksTable.vue's own
+   "Chapters"/"Audio Tracks" bar with the count pill) currently uses rounded-t-md/
+   rounded-md (6px) while the table below it now has 18px — mismatched corners on
+   what reads as one continuous panel. bg-primary/count-pill color already correct
+   via tailwind.css; this just aligns the radius. Scoped with :has() to only the
+   bar that actually precedes a .tracksTable — a bare div.bg-primary.rounded-md
+   selector was tried first and would have also matched AuthorCard.vue (same
+   class combo, unrelated component), overriding its own 16px radius fix. */
+html[data-theme='nanohive'] div.bg-primary:has(+ table.tracksTable),
+html[data-theme='nanohive'] div.bg-primary:has(+ div > table.tracksTable) {
+  border-radius: 18px !important;
+}
+
+/* Disabled playback-speed button text (PlaybackSpeedModal.vue) — hardcoded #777,
+   a plain medium gray unrelated to the theme. */
+html[data-theme='nanohive'] button.icon-num-btn:disabled span {
+  color: var(--nh-muted-2) !important;
+}
+
+/* Same #777 pattern, found separately in IconBtn.vue's own disabled-state style
+   (this app's shared icon-button component, used far more broadly than the
+   playback-speed modal alone — caught by re-running the hex-color grep with a
+   pattern that also matches 3-digit shorthand, which the first pass missed). */
+html[data-theme='nanohive'] button.icon-btn:disabled span {
+  color: var(--nh-muted-2) !important;
+}
+
+/* Read-only input/textarea state — the same hardcoded #aaa/#444 pattern already
+   fixed on TextareaInput.vue exists separately on MultiSelect.vue's <input>. */
+html[data-theme='nanohive'] input:read-only {
+  color: var(--nh-muted) !important;
+  background-color: var(--nh-raised) !important;
+}
+
+/* No-cover placeholder title/author text — hardcoded rgb(247 223 187) in both
+   BookCover.vue and LazyBookCard.vue (identical value, two separate files).
+   Already a warm cream in the right family, but fixed so it tracks the live
+   base theme/accent instead of staying frozen regardless of settings. */
+html[data-theme='nanohive'] [style*="color: rgb(247 223 187)"] {
+  color: var(--nh-text-1) !important;
+}
+
+/* Series-name placeholder cover (GroupCover.vue's createSeriesNameCover fallback,
+   used when a series has no valid book covers) — JS-set inline
+   backgroundColor: '#111', a near-black unrelated to the theme's actual raised
+   surface color. */
+html[data-theme='nanohive'] [style*="background-color: rgb(17, 17, 17)"] {
+  background-color: var(--nh-raised) !important;
+}
+
+/* Series-position / book-count badges on book covers (LazyBookCard.vue) —
+   hardcoded #78350f and #cd9d49dd inline styles (both already an amber-ish brown,
+   but fixed regardless of the accentColor setting). Tied to the live amber var. */
+html[data-theme='nanohive'] [style*="background-color: #78350f"] {
+  background-color: rgba(var(--nh-amber-rgb), 0.75) !important;
+}
+html[data-theme='nanohive'] [style*="background-color: #cd9d49dd"] {
+  background-color: rgba(var(--nh-amber-rgb), 0.85) !important;
+}
+
+/* Download progress ring (components/widgets/CircleProgress.vue, used by the
+   appbar's DownloadProgressIndicator) — hardcoded orange stroke (#fb8c00),
+   unrelated to any theme. Recolored to amber to match every other "in-progress/
+   active" indicator in the app. */
+html[data-theme='nanohive'] .progressbar__svg-circle {
+  stroke: var(--nh-amber) !important;
+}
+
+/* Loading indicator dots (components/ui/LoadingIndicator.vue) — shown during
+   nearly every async action app-wide; hardcoded bg-green-500 (verified: only file
+   in the app using that class, no collision risk recoloring it globally). */
+html[data-theme='nanohive'] .bg-green-500 {
+  background-color: var(--nh-amber) !important;
+}
+
+/* Dropdown / context menus (components/ui/Dropdown.vue, DropdownMenu.vue,
+   MultiSelect.vue) — all three use rounded/rounded-md/rounded-b-md (4-6px),
+   sharper than every other panel-like surface in the theme; core.js's own
+   dropdown/context-menu surface uses 14px. Colors (bg-primary/border-border/
+   text-fg) are already correct via tailwind.css. */
+html[data-theme='nanohive'] .rounded-b-md,
+html[data-theme='nanohive'] ul[role='listbox'].rounded-md {
+  border-radius: 14px !important;
+}
+
+/* "Mark as read" episode button (components/ui/ReadIconBtn.vue) — hardcoded
+   fill="rgb(63, 181, 68)" (green) as an SVG presentation attribute, not a CSS
+   class, so the checkbox fix above can't reach it. Same "success/complete"
+   affordance family as the checkbox checkmark and shelf finished-badge — same
+   amber treatment applied. A CSS fill declaration overrides an SVG presentation
+   attribute in the cascade, so this works despite the inline value. */
+html[data-theme='nanohive'] .icon-btn svg[fill='rgb(63, 181, 68)'] {
+  fill: var(--nh-amber) !important;
+}
+
+/* Text inputs — components/ui/TextInput.vue defaults to rounded-sm (2px), far
+   sharper than source's ~10-11px input radius (core.js line 165, NH settings
+   panel inputs). The component takes a `rounded` prop per-instance, so this
+   can't be fixed at the component level without touching every call site;
+   overridden generically here instead. */
+html[data-theme='nanohive'] input.border-border {
+  border-radius: 10px !important;
+  border-color: var(--nh-hairline-lit) !important;
+}
+html[data-theme='nanohive'] input.border-border:focus {
+  border-color: var(--nh-amber) !important;
+}
+
+/* Textareas (components/ui/TextareaInput.vue) — same sharp-radius issue as text
+   inputs, plus a hardcoded flat gray (#444/#aaa) read-only state completely
+   unrelated to any theme, replaced with NH's raised/muted tones. */
+html[data-theme='nanohive'] textarea.border-border {
+  border-radius: 10px !important;
+  border-color: var(--nh-hairline-lit) !important;
+}
+html[data-theme='nanohive'] textarea:read-only {
+  color: var(--nh-muted) !important;
+  background-color: var(--nh-raised) !important;
+}
+
+/* Checkboxes (components/ui/Checkbox.vue) — app-specific element with no NH web-
+   client counterpart (ABS's own checkboxes there aren't part of what NH themes),
+   so this is a reasoned extension, not a port. Checked all 4 real usages in this
+   app: none override checkColor, so the checkmark renders stock green-500
+   everywhere it appears (episode-select lists, podcast auto-download, RSS feed
+   settings) — recolored to amber to match every other "selected/active" affordance
+   in the theme. border-gray-600 (2 of 4 usages) is similarly un-themed. */
+html[data-theme='nanohive'] .text-green-500 {
+  color: var(--nh-amber) !important;
+}
+html[data-theme='nanohive'] .border-gray-600 {
+  border-color: var(--nh-hairline-lit) !important;
+}
+
+/* Toggle switches (components/ui/ToggleSwitch.vue) — colors already correct via
+   existing fixes (onColor defaults to 'success' -> amber via the global .bg-success
+   rule; offColor defaults to 'primary' -> NH raised via tailwind.css). Shape is
+   already an appropriate rounded-full pill. Only the outer border was un-themed. */
+html[data-theme='nanohive'] .border-gray-400 {
+  border-color: var(--nh-hairline-lit) !important;
+}
+
+/* Goodreads search-link button, next to Play/Read. NH source: enhancements.js
+   injectGoodreads() styling hooks (core.js lines 409-410). */
+html[data-theme='nanohive'] .nh-goodreads-btn {
+  text-decoration: none !important;
+}
+html[data-theme='nanohive'] .nh-goodreads-btn img {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 6px !important;
+  display: block !important;
+}
+
 /* Title in Spectral serif */
 html[data-theme='nanohive'] #item-page h1 {
-  font-family: 'Spectral', Georgia, serif !important;
+  font-family: var(--nh-serif) !important;
   letter-spacing: -0.01em;
 }
 
 /* All metadata links (author, series, narrator, genre, tag) in amber */
 html[data-theme='nanohive'] #metadata a {
-  color: #e0c27a !important;
+  color: var(--nh-amber) !important;
   text-decoration: none !important;
-  border-bottom: 1px solid rgba(224, 194, 122, 0.25) !important;
+  border-bottom: 1px solid rgba(var(--nh-amber-rgb), 0.25) !important;
 }
 
 /* Metadata label rows — tighter caps, refined */
@@ -189,17 +573,16 @@ html[data-theme='nanohive'] #metadata .text-fg-muted {
 
 /* Description in Spectral for readability */
 html[data-theme='nanohive'] .default-style {
-  font-family: 'Spectral', Georgia, serif !important;
+  font-family: var(--nh-serif) !important;
   line-height: 1.75 !important;
 }
 
 /* ============ BOOK CARDS ============ */
-/* Amber micro-border + warm drop-shadow replaces the plain dark shadow.
-   14px radius matches NanoHive's signature rounded cover corners. */
+/* NH source: core.js line 329-330 — [id^="cover-area-"] { border-radius: 14px;
+   box-shadow: 0 10px 26px rgba(0,0,0,0.40); }. No amber micro-border exists in
+   source; an earlier pass invented one — removed here to match exactly. */
 html[data-theme='nanohive'] .box-shadow-book {
-  box-shadow:
-    0 0 0 1px rgba(224, 194, 122, 0.18),
-    0 8px 28px rgba(0, 0, 0, 0.60) !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4) !important;
   border-radius: 14px !important;
 }
 
@@ -209,11 +592,47 @@ html[data-theme='nanohive'] .box-shadow-book > .overflow-hidden {
   border-radius: 14px !important;
 }
 
+/* Alt-view title/author text under book covers. NH source styles this via
+   [cy-id="title"] (var(--nh-serif), var(--nh-text-2)) and [cy-id="subtitle"]/
+   [cy-id="line2"]/[cy-id="line3"] (var(--nh-muted-2)) — our LazyBookCard.vue has
+   no such hooks, so this is scoped to the alt-view title block specifically
+   (its .absolute.left-0.z-50.w-full wrapper) rather than a bare "p" selector,
+   which would otherwise also catch the series-position badge text. */
+html[data-theme='nanohive'] [id^="book-card-"] > .absolute.left-0.z-50 p:not(.text-fg-muted) {
+  font-family: var(--nh-serif) !important;
+  font-weight: 500;
+  color: var(--nh-text-2) !important;
+}
+html[data-theme='nanohive'] [id^="book-card-"] > .absolute.left-0.z-50 .text-fg-muted {
+  color: var(--nh-muted-2) !important;
+}
+
 /* Thicker progress bar with rounded bottom corners to match cover radius */
 html[data-theme='nanohive'] .box-shadow-progressbar {
   height: 3px !important;
   border-radius: 0 0 14px 14px !important;
   box-shadow: none !important;
+}
+
+/* Finished-book checkmark badge — NH source: core.js lines 340-348, values ported exactly */
+html[data-theme='nanohive'] .nh-finished-badge {
+  bottom: 0.375em;
+  left: 0.375em;
+  width: 1.35em;
+  height: 1.35em;
+  border-radius: 50%;
+  background: rgba(16, 13, 10, 0.72);
+  color: var(--nh-amber);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+html[data-theme='nanohive'] .nh-finished-badge .material-symbols {
+  font-weight: 700;
+  font-size: 0.78em;
+  line-height: 1;
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24;
 }
 
 /* ============ BOOKSHELF ROWS & DIVIDERS ============ */
@@ -234,52 +653,215 @@ html[data-theme='nanohive'] .bookshelfDivider {
 /* ============ SHELF LABELS ============ */
 /* Default (non-alt) view: the placard badge at the bottom of each shelf row */
 html[data-theme='nanohive'] .shinyBlack {
-  background: rgba(24, 21, 18, 0.82) !important;
+  background: rgba(var(--nh-bg-rgb), 0.82) !important;
   background-image: none !important;
-  border-color: rgba(224, 194, 122, 0.28) !important;
+  border-color: rgba(var(--nh-amber-rgb), 0.28) !important;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 
 html[data-theme='nanohive'] .categoryPlacard p {
-  color: #e0c27a !important;
+  color: var(--nh-amber) !important;
   font-size: 0.6rem !important;
   letter-spacing: 0.1em !important;
 }
 
 /* Alt view: larger heading above each shelf row */
 html[data-theme='nanohive'] .shelf-label-alt p {
-  font-family: 'Spectral', Georgia, serif !important;
-  color: #e0c27a !important;
+  font-family: var(--nh-serif) !important;
+  color: var(--nh-amber) !important;
   letter-spacing: 0.04em;
 }
 
 /* ============ BOOKSHELF NAV BAR (Home / Library / Series tabs) ============ */
 html[data-theme='nanohive'] #bookshelf-navbar {
   box-shadow: none !important;
-  border-bottom: 1px solid rgba(56, 54, 51, 0.7);
+  background: rgba(var(--nh-bg-rgb), calc(var(--nh-appbar-opacity) * 0.90)) !important;
+  backdrop-filter: blur(var(--nh-appbar-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--nh-appbar-blur)) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
 }
 
-/* Active tab: amber text + amber underline indicator */
-html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary {
+html[data-theme='nanohive'] #bookshelf-navbar a {
+  position: relative !important;
   background-color: transparent !important;
-  border-bottom: 2px solid #e0c27a;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
 }
 
-html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary p {
-  color: #e0c27a !important;
+/* Active tab — amber icon + text */
+html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary {
+  color: var(--nh-amber) !important;
+}
+
+/* Amber top-of-tab indicator bar */
+html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--nh-amber);
+  border-radius: 0 0 2px 2px;
+}
+
+/* Inactive tab — muted */
+html[data-theme='nanohive'] #bookshelf-navbar a.text-fg-muted {
+  color: var(--nh-muted) !important;
+}
+
+/* Text labels (NH stacked layout) */
+html[data-theme='nanohive'] #bookshelf-navbar .nh-nav-label {
+  font-family: var(--nh-serif) !important;
+  font-size: 0.65rem !important;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary .nh-nav-label {
+  color: var(--nh-amber) !important;
+  font-weight: 600 !important;
+}
+
+html[data-theme='nanohive'] #bookshelf-navbar a.text-fg-muted .nh-nav-label {
+  color: var(--nh-muted) !important;
+  font-weight: 400 !important;
+}
+
+/* Uniform icon size for stacked layout */
+html[data-theme='nanohive'] #bookshelf-navbar .abs-icons {
+  font-size: 1.15rem !important;
+}
+
+html[data-theme='nanohive'] #bookshelf-navbar .material-symbols {
+  font-size: 1.15rem !important;
+}
+
+/* Filled icon variant for active Material Symbols tabs */
+html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary .material-symbols {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
 }
 
 /* ============ BOOKSHELF TOOLBAR (count + sort/filter icons) ============ */
+/* NH source: core.js lines 190-209 (the "library/series page" toolbar variant —
+   opaque and frosted). Its other variant, the transparent scroll-hiding "home"
+   toolbar (lines 226-254), has no equivalent here: this toolbar component only
+   ever renders on library/series/collections/authors listing pages in this app
+   (home has no toolbar at all), so there's only one context to theme. */
 html[data-theme='nanohive'] #bookshelf-toolbar {
+  background-color: rgba(var(--nh-bg-rgb), var(--nh-appbar-opacity, 0.45)) !important;
+  backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
   box-shadow: none !important;
-  border-bottom: 1px solid rgba(56, 54, 51, 0.6);
+  border-bottom: 1px solid var(--nh-hairline-lit) !important;
+}
+
+/* Series detail page: the toolbar goes fully transparent since the new series
+   header replaces its usual content. NH source: core.js lines 695-701. */
+html[data-theme='nanohive'].nh-series-page #bookshelf-toolbar {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ============ SERIES DETAIL HEADER ============ */
+/* NH source: core.js lines 676-711, values ported exactly aside from padding-top
+   (NH's appbar/toolbar are fixed-overlay so need compensating padding; ours are
+   in-flow, so the equivalent isn't needed here). */
+html[data-theme='nanohive'] #nh-series-header {
+  padding: 16px 20px 10px;
+}
+html[data-theme='nanohive'] #nh-series-header .nh-sh-eyebrow {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--nh-amber);
+  opacity: 0.9;
+}
+html[data-theme='nanohive'] #nh-series-header h1 {
+  font-family: var(--nh-serif);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--nh-text-1);
+  margin: 4px 0 8px;
+  line-height: 1.12;
+}
+html[data-theme='nanohive'] #nh-series-header .nh-sh-author {
+  font-family: var(--nh-serif);
+  font-size: 1.05rem;
+  color: var(--nh-amber);
+  margin: 0 0 2px;
+}
+html[data-theme='nanohive'] #nh-series-header .nh-sh-stats {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 0.92rem;
+  color: var(--nh-muted-2);
+  margin: 0 0 12px;
+}
+html[data-theme='nanohive'] #nh-series-header .nh-sh-desc {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--nh-text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+@media (max-width: 640px) {
+  html[data-theme='nanohive'] #nh-series-header h1 {
+    font-size: 1.25rem;
+  }
+  html[data-theme='nanohive'] #nh-series-header .nh-sh-desc {
+    -webkit-line-clamp: 2;
+  }
+}
+/* Two-column layout on wide/tablet-landscape viewports */
+@media (min-width: 1024px) {
+  html[data-theme='nanohive'] .nh-series-cols {
+    display: flex !important;
+    align-items: stretch !important;
+  }
+  html[data-theme='nanohive'] #nh-series-header {
+    flex: 0 0 34%;
+    width: 34%;
+    max-width: 520px;
+    height: 100%;
+    overflow-y: auto;
+    padding: 24px 16px 32px 24px;
+    box-sizing: border-box;
+  }
+  html[data-theme='nanohive'] .nh-with-series-header {
+    height: 100% !important;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  html[data-theme='nanohive'] #nh-series-header h1 {
+    font-size: 2.2rem;
+  }
+  html[data-theme='nanohive'] #nh-series-header .nh-sh-author {
+    font-size: 1.25rem;
+  }
+  html[data-theme='nanohive'] #nh-series-header .nh-sh-stats {
+    font-size: 1.05rem;
+  }
+  html[data-theme='nanohive'] #nh-series-header .nh-sh-desc {
+    -webkit-line-clamp: 12;
+    font-size: 0.95rem;
+    max-width: 62ch;
+  }
 }
 
 /* ============ SEARCH PAGE ============ */
 /* Section headers: Books, Podcasts, Series, Authors … */
 html[data-theme='nanohive'] #nh-search-page p.font-semibold {
-  color: #e0c27a !important;
+  color: var(--nh-amber) !important;
   font-size: 0.68rem !important;
   letter-spacing: 0.09em !important;
   text-transform: uppercase;
@@ -288,62 +870,106 @@ html[data-theme='nanohive'] #nh-search-page p.font-semibold {
 /* Subtitle / author lines in result rows */
 html[data-theme='nanohive'] #nh-search-page .text-gray-200,
 html[data-theme='nanohive'] #nh-search-page .text-gray-300 {
-  color: #9a9085 !important;
+  color: var(--nh-muted) !important;
+}
+
+/* Result row titles — checked every *SearchCard.vue component (Item/Episode/
+   Series/Author/Narrator/Tag): each wraps its title in a *SearchCardContent div
+   with the title as the first "p.truncate" child, no exceptions. Previously had
+   zero styling (stock font/color) despite the page being marked "covered". */
+html[data-theme='nanohive'] #nh-search-page [class*="SearchCardContent"] p.truncate:first-child {
+  font-family: var(--nh-serif) !important;
+  color: var(--nh-text-1) !important;
 }
 
 /* ============ SERIES CARD STACKING ============ */
-/* Replace the side-by-side fan layout with a NanoHive 3D depth stack.
-   GroupCover.vue sets left/width via inline JS styles; !important overrides them.
-   nth-child(1) = first book = highest z-index = front cover. */
+/* NanoHive depth stack, ported exactly from core.js lines 359-380 (translate(x,x)
+   diagonal offsets, brightness 0.78/0.60, z-index 3/2/1, only 3 covers visible).
+   Our GroupCover.vue is a different component than the ABS web client NH's source
+   targets (no cy-id hooks) — it renders each cover as .box-shadow-book positioned
+   via inline left/width for its native horizontal "fan" layout; those are
+   overridden below so covers stack instead. nth-child(1) = first book = front.
+   Gated behind :not(.nh-stock-series) exactly like core.js — the settings system's
+   "Stacked Series Covers" toggle adds/removes that class on <html> (customSeriesCards). */
 
 /* Clear opaque bg and let shadow covers be visible; also fix collection cards */
-html[data-theme='nanohive'] [id^="series-card-"] > .overflow-hidden,
-html[data-theme='nanohive'] [id^="collection-card-"] > .overflow-hidden {
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="series-card-"] > .overflow-hidden,
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="collection-card-"] > .overflow-hidden {
   overflow: visible !important;
   background: transparent !important;
 }
 
 /* Suppress full-card shadow placeholder on both series and collection cards */
-html[data-theme='nanohive'] [id^="series-card-"] > .shadow-height,
-html[data-theme='nanohive'] [id^="collection-card-"] > .shadow-height {
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="series-card-"] > .shadow-height,
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="collection-card-"] > .shadow-height {
   box-shadow: none !important;
 }
 
-/* Force all covers to stack at left:0 width:100% — GroupCover.vue spreads them
-   sideways by default; we want NanoHive's depth-stack look (front cover fills
-   the card, subsequent covers peek below it via translateY). */
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book {
+/* Every cover fills the card (undo GroupCover.vue's inline fan-out left/width/height) */
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="group-cover-"] > .box-shadow-book {
   left: 0 !important;
+  top: 0 !important;
   width: 100% !important;
+  height: 100% !important;
   border-radius: 12px !important;
   overflow: hidden !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42) !important;
+  transition: filter 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-/* Covers 2–6: brightness and Y spread evenly from 0.89 down to 0.45 */
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(2) {
-  transform: translateY(6px) !important;
-  filter: brightness(0.89) !important;
+/* Front cover — no offset, full brightness, on top */
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="group-cover-"] > .box-shadow-book:nth-child(1) {
+  transform: translate(0, 0) !important;
+  z-index: 3 !important;
+  filter: none !important;
 }
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(3) {
-  transform: translateY(12px) !important;
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="group-cover-"] > .box-shadow-book:nth-child(2) {
+  transform: translate(12px, 12px) !important;
+  z-index: 2 !important;
   filter: brightness(0.78) !important;
 }
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(4) {
-  transform: translateY(19px) !important;
-  filter: brightness(0.67) !important;
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="group-cover-"] > .box-shadow-book:nth-child(3) {
+  transform: translate(24px, 24px) !important;
+  z-index: 1 !important;
+  filter: brightness(0.6) !important;
 }
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(5) {
-  transform: translateY(25px) !important;
-  filter: brightness(0.56) !important;
-}
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(6) {
-  transform: translateY(31px) !important;
-  filter: brightness(0.45) !important;
+/* NH only ever shows 3 covers in the stack; GroupCover.vue renders up to 6 */
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="group-cover-"] > .box-shadow-book:nth-child(n + 4) {
+  display: none !important;
 }
 
-/* Front cover — no offset, full brightness */
-html[data-theme='nanohive'] [id^="group-cover-"] > .box-shadow-book:nth-child(1) {
-  filter: none !important;
+/* Front cover darkens slightly on hover — a press affordance (core.js line 372) */
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="series-card-"]:hover [id^="group-cover-"] > .box-shadow-book:nth-child(1) {
+  filter: brightness(0.7) !important;
+}
+
+/* Series-level progress bar carries no information NH wants shown — hidden
+   entirely (core.js: [cy-id="seriesProgressBar"] { display: none !important; }) */
+html[data-theme='nanohive'] .nh-series-progressbar {
+  display: none !important;
+}
+
+/* Series length marker ("X books") — frosted white pill, bottom-left.
+   NH source: core.js lines 381-382, values ported exactly. */
+html[data-theme='nanohive'] .nh-series-length-marker {
+  left: 0.375em;
+  bottom: 0.375em;
+  background-color: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px) brightness(1.2) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) brightness(1.2) saturate(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border-radius: 999px;
+  min-width: 1.7em;
+  text-align: center;
+  padding: 0.12em 0.45em;
+}
+html[data-theme='nanohive'] .nh-series-length-marker p {
+  color: #000;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: clamp(8px, 1.5vw, 12.5px);
+  line-height: 1.4;
 }
 
 /* ============ TOOLBAR ICON BUTTONS ============ */
@@ -355,14 +981,25 @@ html[data-theme='nanohive'] #bookshelf-toolbar .material-symbols {
 }
 
 /* ============ MODAL / BOTTOM-SHEET FROSTED GLASS ============ */
-/* The modal overlay gets a light blur so the page behind it stays legible */
+/* Backdrop scrim — NH source: core.js line 478, values ported exactly.
+   Our Modal.vue's own bg-primary/opacity-75 class supplied the color before this
+   (a warm --nh-raised tint); this !important override replaces it with source's
+   near-black, barely-blurred scrim so all modals get the same backdrop NH uses. */
 html[data-theme='nanohive'] .modal-bg {
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background-color: rgba(14, 11, 7, 0.55) !important;
+  backdrop-filter: blur(2px) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
 }
 
-/* The inner content panel: frosted warm dark instead of flat bg-primary */
-html[data-theme='nanohive'] .modal-bg .bg-primary.rounded-lg {
+/* The inner content panel: frosted warm dark instead of flat bg-primary.
+   Checked every modal in components/modals/ for this exact structural pattern
+   (bg-*.rounded-lg list/selection panel) — most use bg-primary and were already
+   covered, but ChaptersModal.vue, LibrariesModal.vue, and
+   PodcastEpisodesFeedModal.vue use bg-secondary/bg-bg instead and fell through
+   this selector entirely until now. */
+html[data-theme='nanohive'] .modal-bg .bg-primary.rounded-lg,
+html[data-theme='nanohive'] .modal-bg .bg-secondary.rounded-lg,
+html[data-theme='nanohive'] .modal-bg .bg-bg.rounded-lg {
   background-color: rgba(34, 30, 26, 0.94) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
@@ -372,15 +1009,26 @@ html[data-theme='nanohive'] .modal-bg .bg-primary.rounded-lg {
 
 /* Amber check/sort indicator in list modals */
 html[data-theme='nanohive'] .modal-bg .text-yellow-300 {
-  color: #e0c27a !important;
+  color: var(--nh-amber) !important;
+}
+
+/* Modal content capped at an inline max-height:80vh — NH source: core.js line 482
+   (.modal [style*="max-height: 80vh"] { max-height: 90vh }). Confirmed two real
+   matches in this app by grepping for the literal inline style, not assumed:
+   BookmarksModal.vue and CustomHeadersModal.vue both cap their scrollable content
+   at exactly 80vh. Neither nests a second scroll region inside that container
+   (checked both fully), so NH's separate 60vh nested-scroll rule has no target
+   here and isn't ported. */
+html[data-theme='nanohive'] .modal [style*="max-height: 80vh"] {
+  max-height: 90vh !important;
 }
 
 /* ============ INTERACTIVE STATES ============ */
 /* Hover ring and focus ring use amber */
 html[data-theme='nanohive'] .focus\:ring-accent:focus,
 html[data-theme='nanohive'] .hover\:border-accent:hover {
-  --tw-ring-color: #e0c27a !important;
-  border-color: #e0c27a !important;
+  --tw-ring-color: var(--nh-amber) !important;
+  border-color: var(--nh-amber) !important;
 }
 
 /* ============ MINI PLAYER — FLOATING FROSTED PILL ============ */
@@ -388,7 +1036,7 @@ html[data-theme='nanohive'] .hover\:border-accent:hover {
    The inline backgroundColor (extracted cover color) is overridden here via
    !important — CSS !important outranks inline styles in the cascade. */
 html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerContent {
-  background-color: rgba(18, 15, 13, var(--nh-miniplayer-opacity, 0.45)) !important;
+  background-color: rgba(var(--nh-bg-rgb), var(--nh-miniplayer-opacity, 0.4)) !important;
   backdrop-filter: blur(var(--nh-miniplayer-blur, 28px)) saturate(160%) !important;
   -webkit-backdrop-filter: blur(var(--nh-miniplayer-blur, 28px)) saturate(160%) !important;
   border-radius: 20px !important;
@@ -418,10 +1066,82 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .title-author-text
   bottom: calc(96px + env(safe-area-inset-bottom)) !important;
 }
 
-/* Play button: amber-tinted circle instead of a random cover-colour circle */
-html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .play-btn {
-  background-color: rgba(224, 194, 122, 0.20) !important;
-  border: 1.5px solid rgba(224, 194, 122, 0.50) !important;
+/* Play button: amber-tinted circle instead of a random cover-colour circle, plus
+   NH source's actual glow treatment (core.js line 552: box-shadow only, doesn't
+   touch background — the tint fill is this app's own established design choice,
+   predating this audit; the glow is the missing piece ported on top of it).
+   Applies in both mini and fullscreen — AudioPlayer.vue is one shared component
+   for both, and the raw cover-extracted background looks equally out of place
+   in either state. */
+html[data-theme='nanohive'] #streamContainer .play-btn {
+  background-color: rgba(var(--nh-amber-rgb), 0.20) !important;
+  border: 1.5px solid rgba(var(--nh-amber-rgb), 0.50) !important;
+  box-shadow: 0 0 22px var(--nh-amber-shadow), 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Progress/scrubber track "played" portion: NO fix needed here — verified against
+   assets/tailwind.css, which already maps --color-track-cursor to 224 194 122
+   (this app's amber) under html[data-theme='nanohive']. That's what .bg-track-cursor
+   (the real class on both the played-track fill and the scrubber thumb, per
+   AudioPlayer.vue lines 107-109) resolves to already; it was never broken. One
+   related real gap: AudioPlayer.vue briefly toggles bg-yellow-300 (stock Tailwind
+   yellow, not the amber var) as a "seeking" pulse before reverting to bg-gray-200
+   — the only usage of that class in the app, fixed below. */
+html[data-theme='nanohive'] .bg-yellow-300 {
+  background-color: var(--nh-amber) !important;
+}
+
+/* Player text: NH source (core.js line 548) forces every piece of player text to
+   solid #ffffff + a heavy shadow, because the web client's player sits over an
+   arbitrary cover-extracted background and needs guaranteed contrast against any
+   color. Our .text-fg/.text-fg-muted already resolve to warm NH tones (#f4eee2/
+   #9a9085 via assets/tailwind.css's data-theme='nanohive' block) rather than the
+   web client's neutral gray defaults, so forcing pure white would fight the rest
+   of the app's palette — kept as-is, but the shadow (the actual contrast-safety
+   mechanism) is applied broadly here, covering every real text element in the
+   player: title, author, both timestamp pairs, speed indicator, sleep timer,
+   playback-direct label — not just the two spots touched previously. */
+html[data-theme='nanohive'] #streamContainer .title-text,
+html[data-theme='nanohive'] #streamContainer .author-text,
+html[data-theme='nanohive'] #streamContainer #playerTrack p,
+html[data-theme='nanohive'] #streamContainer .total-track p,
+html[data-theme='nanohive'] #streamContainer #playerContent span:not(.material-symbols),
+html[data-theme='nanohive'] #streamContainer #playerContent > div > p {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Title in the serif display font — NH source: core.js line 551
+   (#mediaPlayerContainer a[href*="/item/"], font-weight 500, font-size 1.15rem) */
+html[data-theme='nanohive'] #streamContainer .title-text {
+  font-family: var(--nh-serif) !important;
+  font-weight: 500 !important;
+}
+
+/* ============ EPISODE DETAIL PAGE ============ */
+/* Most of this page (bg-bg, bg-primary pills, success/primary buttons,
+   .default-style description) already inherits correct theming from the global
+   overrides above — it shares none of the #item-page structure the book detail
+   page uses, so this is the one gap that needed its own rule. */
+html[data-theme='nanohive'] .nh-episode-title {
+  font-family: var(--nh-serif) !important;
+  color: var(--nh-text-1) !important;
+}
+
+/* ============ READER CHROME ============ */
+/* No literal NH source counterpart (the ABS web client has no dedicated reader
+   chrome the way a native app does) — reasonable extension of the existing NH
+   language (amber accent, serif titles) to the reader's toolbar. The actual page
+   content stays untouched: reading-page colors are the ereader's own independent
+   theme system (Dark/Sepia/Light/etc.), which should stay separate from app chrome. */
+html[data-theme='nanohive'] #nh-reader-toolbar .nh-reader-title {
+  font-family: var(--nh-serif) !important;
+  color: var(--nh-text-1) !important;
+}
+html[data-theme='nanohive'] #nh-reader-toolbar button:hover .material-symbols {
+  color: var(--nh-amber) !important;
+}
+html[data-theme='nanohive'] #nh-reader-toolbar {
+  border-bottom: 1px solid var(--nh-hairline-lit) !important;
 }
 
 /* ============ SERIES & COLLECTION TITLE LABELS ============ */
@@ -437,8 +1157,8 @@ html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard > div {
 
 html[data-theme='nanohive'] [id^="series-card-"] .categoryPlacard p,
 html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard p {
-  color: #e0c27a !important;
-  font-family: 'Spectral', Georgia, serif !important;
+  color: var(--nh-amber) !important;
+  font-family: var(--nh-serif) !important;
   font-size: 0.78rem !important;
   letter-spacing: 0.02em !important;
 }
@@ -446,61 +1166,216 @@ html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard p {
 /* Alt-view categorized label (direct child p, no categoryPlacard wrapper) */
 html[data-theme='nanohive'] [id^="series-card-"] > .absolute.text-center > p,
 html[data-theme='nanohive'] [id^="collection-card-"] > .absolute.text-center > p {
-  color: #e0c27a !important;
-  font-family: 'Spectral', Georgia, serif !important;
+  color: var(--nh-amber) !important;
+  font-family: var(--nh-serif) !important;
 }
 
-/* ============ AUTHOR CARDS ============ */
+/* ============ RECENT SERIES SHELF ============ */
+/* NH source: enhancements.js injectRecentSeriesStyles() (lines 1756-1781), ported
+   with a fixed 140px card size (--nh-rs-cw) since our component has no equivalent
+   to source's DOM-measured "match the real book cover width" step. */
+html[data-theme='nanohive'] #nh-recent-series-row {
+  margin: 0 0 2.2rem;
+  box-sizing: border-box;
+  width: 100%;
+  --nh-rs-cw: 140px;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-heading {
+  font-family: var(--nh-serif) !important;
+  font-weight: 500;
+  font-size: 1.55rem;
+  letter-spacing: -0.01em;
+  color: var(--nh-text-1);
+  margin: 0 0 1rem;
+  padding-left: 20px;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: calc(var(--nh-rs-cw) * 0.076);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 20px 14px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-scroll::-webkit-scrollbar {
+  display: none;
+  height: 0;
+  width: 0;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-card {
+  flex: 0 0 auto;
+  width: calc(var(--nh-rs-cw) * 1.171);
+  text-decoration: none;
+  cursor: pointer;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-covers {
+  position: relative;
+  width: var(--nh-rs-cw);
+  height: var(--nh-rs-cw);
+  margin-bottom: 12px;
+  overflow: visible;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-cover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--nh-rs-cw);
+  height: var(--nh-rs-cw);
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--nh-raised);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-bg,
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-fg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: inherit;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-bg {
+  background-size: cover;
+  filter: blur(14px) brightness(0.85);
+  transform: scale(1.15);
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-fg {
+  background-size: contain;
+}
+html[data-theme='nanohive'].nh-covers-std #nh-recent-series-row .nh-rs-covers {
+  height: calc(var(--nh-rs-cw) * 1.6);
+}
+html[data-theme='nanohive'].nh-covers-std #nh-recent-series-row .nh-rs-cover {
+  height: calc(var(--nh-rs-cw) * 1.6);
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-cover.c1 {
+  transform: translate(0, 0);
+  z-index: 3;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-cover.c2 {
+  transform: translate(calc(var(--nh-rs-cw) * 0.086), calc(var(--nh-rs-cw) * 0.086));
+  z-index: 2;
+  filter: brightness(0.78);
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-cover.c3 {
+  transform: translate(calc(var(--nh-rs-cw) * 0.171), calc(var(--nh-rs-cw) * 0.171));
+  z-index: 1;
+  filter: brightness(0.6);
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-card:hover .nh-rs-cover.c1 {
+  filter: brightness(0.7);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-count {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px) brightness(1.2) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) brightness(1.2) saturate(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border-radius: 999px;
+  min-width: 1.7em;
+  text-align: center;
+  padding: 0.12em 0.45em;
+  color: #000;
+  font-weight: 700;
+  font-size: clamp(8px, calc(var(--nh-rs-cw) * 0.078), 12.5px);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-name {
+  font-family: var(--nh-serif) !important;
+  font-weight: 500;
+  color: var(--nh-text-2);
+  font-size: 1rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============ AUTHOR / NARRATOR CARDS ============ */
+/* NH source: core.js lines 403-406. Distinct from plain book covers — rounder
+   corners, softer shadow, hairline border, and a hover-lift. Higher specificity
+   (ID selector) than the generic .box-shadow-book rule, so it wins over it. */
+html[data-theme='nanohive'] [id^="author-card-"],
+html[data-theme='nanohive'] [id^="narrator-card-"] {
+  border-radius: 16px !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid var(--nh-hairline) !important;
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease !important;
+}
+html[data-theme='nanohive'] [id^="author-card-"]:hover,
+html[data-theme='nanohive'] [id^="narrator-card-"]:hover {
+  background-color: var(--nh-raised-hover) !important;
+  border-color: var(--nh-hairline-lit) !important;
+  transform: translateY(-3px) !important;
+}
+
 /* Warm cream for name, muted for book count — matches NH palette */
 html[data-theme='nanohive'] .box-shadow-book .bg-black p:first-child {
-  color: #f4eee2 !important;
+  color: var(--nh-text-1) !important;
 }
 html[data-theme='nanohive'] .box-shadow-book .bg-black p:last-child {
-  color: #9a9085 !important;
+  color: var(--nh-muted) !important;
 }
 
 /* ============ HERO CAROUSEL ============ */
-/* Per-slide blurred background — brightness driven by --nh-carousel-bg-brightness */
+/* Per-slide blurred cover background. NH source: enhancements.js slideMarkup()
+   .nh-hero-bg — inset:-12%, filter: blur(60px) brightness(0.5) saturate(1.4). */
 html[data-theme='nanohive'] .nh-slide-bg {
-  filter: blur(24px) brightness(var(--nh-carousel-bg-brightness, 0.18));
+  inset: -12% !important;
+  filter: blur(60px) brightness(0.5) saturate(1.4);
 }
 
-/* Gradient overlay from cinematic into readable text area */
+/* Gradient overlay — NH source: enhancements.js slideMarkup(), 110deg diagonal
+   fade from opaque (text side) to transparent (cover side), using the live
+   base-theme background colour, not a hardcoded canvas literal. */
 html[data-theme='nanohive'] .nh-slide-gradient {
   background: linear-gradient(
-    to bottom,
-    rgba(24, 21, 18, 0.05) 0%,
-    rgba(24, 21, 18, 0.65) 75%,
-    rgba(24, 21, 18, var(--nh-carousel-gradient-bottom, 0.88)) 100%
+    110deg,
+    rgba(var(--nh-bg-rgb), 0.92) 0%,
+    rgba(var(--nh-bg-rgb), 0.62) 50%,
+    rgba(var(--nh-bg-rgb), 0.22) 100%
   );
 }
 
 /* ============ SIDE DRAWER ============ */
-/* Frosted glass panel instead of flat bg-bg */
+/* Frosted glass panel — NH source: core.js #nh-mobile-drawer (lines 587-595) uses a
+   two-stop gradient (0.98 -> 0.94), not a single flat opacity; ported here with the
+   same stops (--nh-drawer-opacity tunes the top stop, bottom stop trails 0.04 behind).
+   NH's drawer opens from the left (border-right); ours opens from the right (appbar
+   hamburger sits on the right), so border-left is the correct mirrored edge here. */
 html[data-theme='nanohive'] #nh-side-drawer {
-  background-color: rgba(22, 18, 15, var(--nh-drawer-opacity, 0.60)) !important;
-  backdrop-filter: blur(var(--nh-drawer-blur, 32px)) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(var(--nh-drawer-blur, 32px)) saturate(140%) !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-drawer-opacity, 0.96)) 0%, rgba(var(--nh-bg-rgb), calc(var(--nh-drawer-opacity, 0.96) - 0.04)) 100%) !important;
+  backdrop-filter: blur(var(--nh-drawer-blur, 24px)) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(var(--nh-drawer-blur, 24px)) saturate(140%) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
 }
 
 /* "Welcome, [name]" — Spectral serif with warm cream tone */
 html[data-theme='nanohive'] #nh-side-drawer .px-6 > p {
-  font-family: 'Spectral', Georgia, serif !important;
-  color: #f4eee2 !important;
+  font-family: var(--nh-serif) !important;
+  color: var(--nh-text-1) !important;
   font-size: 1.1rem !important;
   font-weight: 500;
 }
 
 /* Active nav item background — amber tint instead of default bg-bg-hover */
 html[data-theme='nanohive'] #nh-side-drawer [class*="bg-bg-hover"] {
-  background-color: rgba(224, 194, 122, 0.12) !important;
+  background-color: var(--nh-amber-tint) !important;
 }
 
 /* Active nav item: amber text + icon (links WITHOUT the muted class are active) */
 html[data-theme='nanohive'] #nh-side-drawer a:not(.text-fg-muted) {
-  color: #e0c27a !important;
+  color: var(--nh-amber) !important;
 }
 html[data-theme='nanohive'] #nh-side-drawer a:not(.text-fg-muted) .material-symbols {
-  color: #e0c27a !important;
+  color: var(--nh-amber) !important;
 }

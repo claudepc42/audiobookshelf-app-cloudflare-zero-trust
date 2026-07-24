@@ -2,7 +2,8 @@
   <div id="nh-appbar-wrapper" class="w-full h-16 bg-primary relative z-20">
     <div id="appbar" class="absolute top-0 left-0 w-full h-full flex items-center px-2">
       <nuxt-link v-show="!showBack" to="/" class="mr-3">
-        <img src="/Logo.png" class="h-10 w-10" />
+        <img v-if="!nhThemeActive || !nhColorizeLogo" :src="nhThemeActive ? nhLogoSrc : '/Logo.png'" :class="nhThemeActive ? 'h-9 w-9' : 'h-10 w-10'" />
+        <div v-else class="h-9 w-9 nh-logo-mask" :style="{ '--nh-logo-url': `url(${nhLogoSrc})` }" />
       </nuxt-link>
       <a v-if="showBack" @click="back" aria-label="Back" class="rounded-full h-10 w-10 flex items-center justify-center mr-2 cursor-pointer">
         <span class="material-symbols text-3xl text-fg">arrow_back</span>
@@ -27,6 +28,13 @@
         </span>
       </button>
 
+      <!-- NH source: enhancements.js injectGearButton() — gear icon next to the stats
+           link opens the customizations panel. Our appbar has no stats link, so this
+           sits next to search instead. -->
+      <nuxt-link v-if="user && nhThemeActive" class="mx-1.5 flex items-center h-10" to="/settings/nanohive" aria-label="Customizations">
+        <span class="material-symbols text-2xl leading-none">tune</span>
+      </nuxt-link>
+
       <nuxt-link v-if="user" class="mx-1.5 flex items-center h-10" to="/search" aria-label="Search">
         <span class="material-symbols text-2xl leading-none">search</span>
       </nuxt-link>
@@ -48,6 +56,18 @@ export default {
     }
   },
   computed: {
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
+    },
+    nhSettings() {
+      return this.$store.state.nhSettings
+    },
+    nhLogoSrc() {
+      return this.nhSettings.logoUrl || '/nh-logo.png'
+    },
+    nhColorizeLogo() {
+      return this.nhSettings.colorizeLogo
+    },
     isCastAvailable: {
       get() {
         return this.$store.state.isCastAvailable

@@ -9,7 +9,6 @@
         backgroundImage: `url(${coverSrc(slide)})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        transform: 'scale(1.12)',
         opacity: activeIndex === i ? 1 : 0,
         pointerEvents: 'none'
       }"
@@ -26,7 +25,7 @@
       :style="slideStyle(i)"
     >
       <!-- Amber label — small caps -->
-      <p class="text-xs font-semibold flex-shrink-0" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.13em">Pick up where you left off</p>
+      <p class="text-xs font-semibold flex-shrink-0" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.13em">Pick up where you left off</p>
 
       <!-- Main row: text LEFT, cover RIGHT -->
       <div class="flex gap-4 mt-2 flex-1 min-h-0" @click="openItem(slide)">
@@ -34,7 +33,7 @@
         <!-- Text column (left) -->
         <div class="flex-1 min-w-0 flex flex-col">
           <!-- Big Spectral title -->
-          <p class="leading-tight line-clamp-2 flex-shrink-0" style="font-family: 'Spectral', Georgia, serif; font-size: 1.70rem; font-weight: 700; color: #f4eee2; letter-spacing: -0.01em; margin-top: 4px">{{ itemTitle(slide) }}</p>
+          <p class="leading-tight line-clamp-2 flex-shrink-0" style="font-family: var(--nh-serif); font-size: 1.70rem; font-weight: 700; color: #f4eee2; letter-spacing: -0.01em; margin-top: 4px">{{ itemTitle(slide) }}</p>
           <!-- Author -->
           <p class="text-xs mt-1 truncate flex-shrink-0" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
 
@@ -54,7 +53,7 @@
           <!-- Progress -->
           <div class="flex-shrink-0">
             <div class="h-0.5 w-full rounded-full overflow-hidden mb-1" style="background: rgba(244,238,226,0.15)">
-              <div class="h-full rounded-full transition-all duration-300" style="background: #e0c27a" :style="{ width: itemProgress(slide) + '%' }" />
+              <div class="h-full rounded-full transition-all duration-300" style="background: var(--nh-amber)" :style="{ width: itemProgress(slide) + '%' }" />
             </div>
             <p class="text-xs mb-2" style="color: rgba(154,144,133,0.9)">{{ itemProgressLabel(slide) }}</p>
           </div>
@@ -62,7 +61,7 @@
           <!-- Small amber-outlined Continue pill -->
           <button
             class="flex items-center justify-center gap-1.5 rounded-xl font-semibold text-xs flex-shrink-0"
-            style="background: rgba(224,194,122,0.14); border: 1px solid rgba(224,194,122,0.50); color: #e0c27a; height: 38px; padding: 0 18px; align-self: flex-start"
+            style="background: rgba(var(--nh-amber-rgb), 0.14); border: 1px solid rgba(var(--nh-amber-rgb), 0.50); color: var(--nh-amber); height: 38px; padding: 0 18px; align-self: flex-start"
             @click.stop="continueItem(slide)"
           >
             <span class="material-symbols fill" style="font-size: 1.05rem">play_arrow</span>
@@ -89,7 +88,7 @@
           :style="{
             width: activeIndex === di ? '14px' : '5px',
             height: '5px',
-            background: activeIndex === di ? '#e0c27a' : 'rgba(154,144,133,0.45)'
+            background: activeIndex === di ? 'var(--nh-amber)' : 'rgba(154,144,133,0.45)'
           }"
           @click.stop="goTo(di)"
         />
@@ -104,6 +103,12 @@ export default {
     slides: {
       type: Array,
       default: () => []
+    },
+    // NH source: enhancements.js carouselTiming setting — seconds between
+    // auto-advance slides, 0 disables it entirely.
+    advanceSeconds: {
+      type: Number,
+      default: 15
     }
   },
   data() {
@@ -130,9 +135,19 @@ export default {
     slides(newVal) {
       if (this.activeIndex >= newVal.length) this.activeIndex = 0
       this.restartTimer()
+      this.publishActiveCover()
+    },
+    activeIndex() {
+      this.publishActiveCover()
     }
   },
   methods: {
+    publishActiveCover() {
+      const slide = this.slides[this.activeIndex]
+      if (!slide) return
+      const url = this.coverSrc(slide)
+      if (url) this.$store.commit('setNhHomeCoverUrl', url)
+    },
     slideStyle(i) {
       const isActive = this.activeIndex === i
       const transition = this.isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s'
@@ -219,13 +234,15 @@ export default {
     },
     restartTimer() {},
     checkAutoAdvance() {
+      if (!this.advanceSeconds || this.advanceSeconds <= 0) return
       if (this.slides.length <= 1 || this.isDragging) return
+      const intervalMs = this.advanceSeconds * 1000
       const now = Date.now()
       if (this.firstTouchTime) {
         if (now - this.firstTouchTime < 30000) return
-        if (now - this.lastUserTouchTime < 15000) return
+        if (now - this.lastUserTouchTime < intervalMs) return
       }
-      if (now - this.lastAdvanceTime < 15000) return
+      if (now - this.lastAdvanceTime < intervalMs) return
       this.activeIndex = (this.activeIndex + 1) % this.slides.length
       this.lastAdvanceTime = now
       this.firstTouchTime = 0
@@ -306,6 +323,7 @@ export default {
   mounted() {
     this.lastAdvanceTime = Date.now()
     this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
+    this.publishActiveCover()
   },
   beforeDestroy() {
     clearInterval(this.advanceInterval)

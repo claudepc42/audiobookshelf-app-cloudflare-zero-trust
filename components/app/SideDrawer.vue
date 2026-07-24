@@ -156,11 +156,15 @@ export default {
           text: this.$strings.HeaderAccount,
           to: '/account'
         })
-        items.push({
-          icon: 'equalizer',
-          text: this.$strings.ButtonUserStats,
-          to: '/stats'
-        })
+        if (!this.nhThemeActive || !this.nhSettings.hideRailStats) {
+          // NH source (enhancements.js RAIL_ICONS, line 993) remaps stats to
+          // 'bar_chart'; stock theme keeps ABS's native 'equalizer'.
+          items.push({
+            icon: this.nhThemeActive ? 'bar_chart' : 'equalizer',
+            text: this.$strings.ButtonUserStats,
+            to: '/stats'
+          })
+        }
       }
 
       if (this.$platform !== 'ios') {
@@ -183,6 +187,14 @@ export default {
         text: this.$strings.HeaderSettings,
         to: '/settings'
       })
+
+      if (this.nhThemeActive) {
+        items.push({
+          icon: 'tune',
+          text: 'Customizations',
+          to: '/settings/nanohive'
+        })
+      }
 
       items.push({
         icon: 'bug_report',
@@ -220,6 +232,9 @@ export default {
     },
     nhThemeActive() {
       return this.$store.state.nhThemeActive
+    },
+    nhSettings() {
+      return this.$store.state.nhSettings
     }
   },
   methods: {
@@ -302,7 +317,8 @@ export default {
           delete document.documentElement.dataset.theme
         }
       }
-      await this.$localStore.setNhSettings({ active: newVal })
+      const savedSettings = (await this.$localStore.getNhSettings()) || {}
+      await this.$localStore.setNhSettings({ ...savedSettings, active: newVal })
     },
     _loadNhFont() {
       if (document.getElementById('nh-spectral-font')) return

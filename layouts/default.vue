@@ -1,5 +1,9 @@
 <template>
   <div class="w-full layout-wrapper bg-bg">
+    <div v-if="nhThemeActive" id="nh-ambient-bg" :style="{ opacity: nhCinematicCoverUrl ? 0 : 1 }" />
+    <div v-if="nhThemeActive" id="nh-home-bg" :class="{ 'nh-cinematic-item': nhCinematicMode === 'item' }" :style="{ opacity: nhCinematicCoverUrl ? 1 : 0 }">
+      <div v-for="(layer, i) in nhBgLayers" :key="i" class="nh-bg-layer" :style="{ backgroundImage: layer.url ? `url(${layer.url})` : 'none', opacity: i === nhBgActiveIdx ? 1 : 0 }" />
+    </div>
     <app-appbar />
     <div id="content" class="overflow-hidden relative" :class="isPlayerOpen ? 'playerOpen' : ''">
       <Nuxt :key="currentLang" />
@@ -20,6 +24,7 @@
 import { CapacitorHttp } from '@capacitor/core'
 import { AbsLogger } from '@/plugins/capacitor'
 import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
+import { NH_BASE_THEMES } from '@/store/index'
 
 export default {
   data() {
@@ -35,19 +40,32 @@ export default {
       cfRefreshInProgress: false,
       showUpdatePrompt: false,
       updateLatestTag: '',
-      updateLatestUrl: ''
+      updateLatestUrl: '',
+      // Cinematic background crossfade: two layers, ping-ponged so the incoming
+      // cover fades in over the outgoing one. Mirrors NH source's setHomeBg()
+      // (enhancements.js) rather than a single swapped background-image.
+      nhBgLayers: [{ url: null }, { url: null }],
+      nhBgActiveIdx: -1
     }
   },
   watch: {
-    cinematicCoverSrc: {
+    nhCinematicCoverUrl: {
       immediate: true,
       handler(val) {
-        if (val) {
-          document.documentElement.style.setProperty('--nh-cinematic-cover', `url("${val}")`)
-        } else {
-          document.documentElement.style.removeProperty('--nh-cinematic-cover')
-        }
+        this.setNhBg(val)
       }
+    },
+    nhSettings: {
+      immediate: true,
+      handler(val) {
+        this.applyNhCustomizations(val)
+      }
+    },
+    'nhStoreHomeCoverUrl'(val) {
+      if (!val) return
+      try {
+        localStorage.setItem('nh-home-bg-url', val)
+      } catch (e) {}
     },
     networkConnected: {
       handler(newVal, oldVal) {
@@ -135,21 +153,50 @@ export default {
     currentPlaybackSession() {
       return this.$store.state.currentPlaybackSession
     },
-    cinematicCoverSrc() {
+    nhStoreHomeCoverUrl() {
+      return this.$store.state.nhHomeCoverUrl
+    },
+    nhSettings() {
+      return this.$store.state.nhSettings
+    },
+    // Page-context cinematic mode, ported from enhancements.js manageCinematic():
+    // item detail + series detail get the darker "item" treatment, home + the
+    // remaining library/settings pages get the lighter "home" treatment reusing
+    // the last-known home cover. Any other route (connect, downloads, logs, etc.)
+    // has no NH equivalent, so the cinematic layer stays off.
+    nhCinematicMode() {
       if (!this.nhThemeActive) return null
-      const session = this.currentPlaybackSession
-      if (session?.libraryItemId) {
-        return this.$store.getters['globals/getLibraryItemCoverSrcById'](session.libraryItemId)
-      }
-      // Fallback: most recently listened item from the user's media progress
-      const mediaProgress = this.$store.state.user.user?.mediaProgress
-      if (mediaProgress?.length) {
-        const recent = [...mediaProgress].sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0))[0]
-        if (recent?.libraryItemId) {
-          return this.$store.getters['globals/getLibraryItemCoverSrcById'](recent.libraryItemId)
-        }
-      }
+      const name = this.$route.name || ''
+      if (name.startsWith('item-id')) return 'item'
+      if (name === 'bookshelf-series-id') return 'item'
+      if (name === 'bookshelf') return 'home'
+      if (name.startsWith('bookshelf-') || name === 'settings' || name === 'account' || name === 'stats') return 'home'
       return null
+    },
+    nhCinematicCoverUrl() {
+      const mode = this.nhCinematicMode
+      if (!mode) return null
+
+      if (mode === 'item') {
+        const name = this.$route.name || ''
+        if (name === 'bookshelf-series-id') {
+          // Series detail → first book's cover (NH: enhancements.js manageCinematic() isSeriesDetail branch)
+          const series = this.$store.state.globals.series
+          const firstBook = series?.books?.[0]
+          if (firstBook) return this.$store.getters['globals/getLibraryItemCoverSrc'](firstBook)
+          return this.nhStoreHomeCoverUrl
+        }
+        // Item detail → its own cover (NH: itemPage branch)
+        const itemId = this.$route.params?.id
+        if (itemId && !itemId.startsWith('local')) {
+          return this.$store.getters['globals/getLibraryItemCoverSrcById'](itemId)
+        }
+        return this.nhStoreHomeCoverUrl
+      }
+
+      // 'home' mode: active hero-carousel slide cover (published by HeroCarousel.vue),
+      // or the cached last-known one on library sub-pages/settings (NH: getHomeBgUrl())
+      return this.nhStoreHomeCoverUrl
     }
   },
   methods: {
@@ -500,9 +547,82 @@ export default {
       console.log('Changed lang', code)
       this.currentLang = code
       document.documentElement.lang = code
+    },
+    setNhBg(url) {
+      if (!url) return
+      if (this.nhBgLayers[this.nhBgActiveIdx]?.url === url) return
+      const nextIdx = this.nhBgActiveIdx === 0 ? 1 : 0
+      this.$set(this.nhBgLayers, nextIdx, { url })
+      this.nhBgActiveIdx = nextIdx
+    },
+    // Ported from enhancements.js applySettings() (lines 101-129): resolves the
+    // active base theme + accent colour into the same CSS custom properties
+    // core.js declares on :root, plus the font-family/scale vars. Setting them as
+    // inline styles on <html> lets them override nh-theme.css's static defaults
+    // without duplicating the theme file's selectors.
+    applyNhCustomizations(settings) {
+      if (!settings) return
+      const theme = NH_BASE_THEMES[settings.baseTheme] || NH_BASE_THEMES.warm
+      const accent = settings.accentColor || '#e0c27a'
+      const root = document.documentElement.style
+
+      root.setProperty('--nh-canvas', theme.canvas)
+      root.setProperty('--nh-rail', theme.rail)
+      root.setProperty('--nh-raised', theme.raised)
+      root.setProperty('--nh-bg-rgb', theme.rgb)
+      root.setProperty('--nh-amber', accent)
+      root.setProperty('--nh-amber-hover', accent + 'ee')
+      root.setProperty('--nh-amber-rgb', this.hexToRgbTriplet(accent))
+      root.setProperty('--nh-amber-shadow', this.hexToRgba(accent, 0.3))
+      root.setProperty('--nh-amber-tint', this.hexToRgba(accent, 0.12))
+      root.setProperty('--nh-serif', `"${settings.mainFont || 'Merriweather'}", "Spectral", Georgia, serif`)
+      root.setProperty('--nh-font-scale', settings.fontScale || 1)
+
+      if (settings.mainFont && settings.mainFont.toLowerCase() !== 'spectral') {
+        let link = document.getElementById('nh-custom-font-link')
+        if (!link) {
+          link = document.createElement('link')
+          link.id = 'nh-custom-font-link'
+          link.rel = 'stylesheet'
+          document.head.appendChild(link)
+        }
+        const fontUrl = `https://fonts.googleapis.com/css2?family=${settings.mainFont.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`
+        if (link.href !== fontUrl) link.href = fontUrl
+      }
+
+      document.documentElement.classList.toggle('nh-stock-series', settings.customSeriesCards === false)
+    },
+    // NH source: enhancements.js hexToRgba() (lines 89-95)
+    hexToRgba(hex, alpha) {
+      if (!hex || typeof hex !== 'string') hex = '#e0c27a'
+      const r = parseInt(hex.slice(1, 3), 16) || 224
+      const g = parseInt(hex.slice(3, 5), 16) || 194
+      const b = parseInt(hex.slice(5, 7), 16) || 122
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    },
+    // Raw "r, g, b" triplet (no NH source equivalent by this name — NH only ever
+    // needs pre-baked rgba() strings at fixed alphas; our CSS also has decorative
+    // amber-tinted borders/backgrounds at other alphas, so this lets those respect
+    // the user's accentColor setting the same way --nh-bg-rgb does for the theme).
+    hexToRgbTriplet(hex) {
+      if (!hex || typeof hex !== 'string') hex = '#e0c27a'
+      const r = parseInt(hex.slice(1, 3), 16) || 224
+      const g = parseInt(hex.slice(3, 5), 16) || 194
+      const b = parseInt(hex.slice(5, 7), 16) || 122
+      return `${r}, ${g}, ${b}`
     }
   },
   async mounted() {
+    // Restore the last-known home cover so library sub-pages/settings have a
+    // cinematic background immediately, before the hero carousel (re)publishes
+    // it. Mirrors NH source's localStorage.getItem('nh-home-bg') cache.
+    if (!this.$store.state.nhHomeCoverUrl) {
+      try {
+        const cached = localStorage.getItem('nh-home-bg-url')
+        if (cached) this.$store.commit('setNhHomeCoverUrl', cached)
+      } catch (e) {}
+    }
+
     this.$eventBus.$on('change-lang', this.changeLanguage)
     this.$eventBus.$on('open-nh-dev-panel', () => { this.showNhDevPanel = true })
     document.addEventListener('visibilitychange', this.visibilityChanged)

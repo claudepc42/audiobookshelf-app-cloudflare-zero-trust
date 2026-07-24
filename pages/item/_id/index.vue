@@ -14,7 +14,11 @@
       </div>
       <div class="relative" @click="showFullscreenCover = true">
         <covers-book-cover :library-item="libraryItem" :width="coverWidth" :book-cover-aspect-ratio="bookCoverAspectRatio" no-bg raw />
-        <div v-if="!isPodcast" class="absolute bottom-0 left-0 h-1 z-10 box-shadow-progressbar" :class="userIsFinished ? 'bg-success' : 'bg-yellow-400'" :style="{ width: coverWidth * progressPercent + 'px' }"></div>
+        <div v-if="!isPodcast && !(nhThemeActive && userIsFinished)" class="absolute bottom-0 left-0 h-1 z-10 box-shadow-progressbar" :class="userIsFinished ? 'bg-success' : 'bg-yellow-400'" :style="{ width: coverWidth * progressPercent + 'px' }"></div>
+        <!-- NH source: book-details.js #nh-finished-badge (lines 109-123) -->
+        <div v-if="nhThemeActive && !isPodcast && userIsFinished" id="nh-item-finished-badge" class="absolute z-10 flex items-center justify-center">
+          <span class="material-symbols">check</span>
+        </div>
       </div>
     </div>
 
@@ -65,6 +69,10 @@
             <ui-btn color="primary" class="flex items-center justify-center mx-1" :padding-x="2" @click="moreButtonPress">
               <span class="material-symbols text-2xl">more_vert</span>
             </ui-btn>
+            <!-- NH source: enhancements.js injectGoodreads() (lines 1645-1685) -->
+            <a v-if="nhThemeActive && !isPodcast" :href="goodreadsUrl" target="_blank" rel="noopener" title="Find on Goodreads" class="nh-goodreads-btn flex items-center justify-center mx-1">
+              <img src="https://cdn.aptoide.com/imgs/8/0/0/800221239eae4d986d53aaeba991e771_icon.png" alt="Goodreads" />
+            </a>
           </div>
           <ui-btn v-else-if="isMissing" color="error" :padding-x="4" small class="mt-4 flex items-center justify-center w-full" @click="clickMissingButton">
             <span class="material-symbols">error</span>
@@ -84,7 +92,46 @@
         </div>
 
         <!-- metadata -->
+        <!-- NH source: book-details.js metadata reordering (lines 494-515) — fixed
+             order Narrator, Genre, Publish Year, Duration, Publisher, Size, Language,
+             then Tag last. Author/Type/Series aren't part of NH's own metadata grid
+             (they sit near the title in the ABS web client NH targets), so they're
+             kept together in an unmatched-field position, after the ranked fields and
+             before Tags — the same place NH's own fallback order lands anything it
+             doesn't explicitly recognize. Publisher/Size/Language were missing from
+             this app's metadata grid entirely and are added here. -->
         <div id="metadata" class="grid gap-2 my-2" style>
+          <div v-if="narrators?.length" class="text-fg-muted uppercase text-sm">{{ $strings.LabelNarrators }}</div>
+          <div v-if="narrators?.length" class="text-sm">
+            <template v-for="(narrator, index) in narrators">
+              <nuxt-link :key="narrator" :to="`/bookshelf/library?filter=narrators.${$encode(narrator)}`" class="underline whitespace-nowrap">{{ narrator }}</nuxt-link
+              ><span :key="index" v-if="index < narrators.length - 1">, </span>
+            </template>
+          </div>
+
+          <div v-if="genres.length" class="text-fg-muted uppercase text-sm">{{ $strings.LabelGenres }}</div>
+          <div v-if="genres.length" class="text-sm">
+            <template v-for="(genre, index) in genres">
+              <nuxt-link :key="genre" :to="`/bookshelf/library?filter=genres.${$encode(genre)}`" class="underline whitespace-nowrap">{{ genre }}</nuxt-link
+              ><span :key="index" v-if="index < genres.length - 1">, </span>
+            </template>
+          </div>
+
+          <div v-if="publishedYear" class="text-fg-muted uppercase text-sm">{{ $strings.LabelPublishYear }}</div>
+          <div v-if="publishedYear" class="text-sm">{{ publishedYear }}</div>
+
+          <div v-if="numTracks" class="text-fg-muted uppercase text-sm">{{ $strings.LabelDuration }}</div>
+          <div v-if="numTracks" class="text-sm">{{ $elapsedPretty(duration) }}</div>
+
+          <div v-if="publisher" class="text-fg-muted uppercase text-sm">Publisher</div>
+          <div v-if="publisher" class="text-sm">{{ publisher }}</div>
+
+          <div v-if="itemSize" class="text-fg-muted uppercase text-sm">{{ $strings.LabelSize }}</div>
+          <div v-if="itemSize" class="text-sm">{{ $bytesPretty(itemSize) }}</div>
+
+          <div v-if="language" class="text-fg-muted uppercase text-sm">{{ $strings.LabelLanguage }}</div>
+          <div v-if="language" class="text-sm">{{ language }}</div>
+
           <div v-if="podcastAuthor || bookAuthors?.length" class="text-fg-muted uppercase text-sm">{{ $strings.LabelAuthor }}</div>
           <div v-if="podcastAuthor" class="text-sm">{{ podcastAuthor }}</div>
           <div v-else-if="bookAuthors?.length" class="text-sm">
@@ -105,25 +152,6 @@
             </template>
           </div>
 
-          <div v-if="numTracks" class="text-fg-muted uppercase text-sm">{{ $strings.LabelDuration }}</div>
-          <div v-if="numTracks" class="text-sm">{{ $elapsedPretty(duration) }}</div>
-
-          <div v-if="narrators?.length" class="text-fg-muted uppercase text-sm">{{ $strings.LabelNarrators }}</div>
-          <div v-if="narrators?.length" class="text-sm">
-            <template v-for="(narrator, index) in narrators">
-              <nuxt-link :key="narrator" :to="`/bookshelf/library?filter=narrators.${$encode(narrator)}`" class="underline whitespace-nowrap">{{ narrator }}</nuxt-link
-              ><span :key="index" v-if="index < narrators.length - 1">, </span>
-            </template>
-          </div>
-
-          <div v-if="genres.length" class="text-fg-muted uppercase text-sm">{{ $strings.LabelGenres }}</div>
-          <div v-if="genres.length" class="text-sm">
-            <template v-for="(genre, index) in genres">
-              <nuxt-link :key="genre" :to="`/bookshelf/library?filter=genres.${$encode(genre)}`" class="underline whitespace-nowrap">{{ genre }}</nuxt-link
-              ><span :key="index" v-if="index < genres.length - 1">, </span>
-            </template>
-          </div>
-
           <div v-if="tags.length" class="text-fg-muted uppercase text-sm">{{ $strings.LabelTags }}</div>
           <div v-if="tags.length" class="text-sm">
             <template v-for="(tag, index) in tags">
@@ -131,9 +159,6 @@
               ><span :key="index" v-if="index < tags.length - 1">, </span>
             </template>
           </div>
-
-          <div v-if="publishedYear" class="text-fg-muted uppercase text-sm">{{ $strings.LabelPublishYear }}</div>
-          <div v-if="publishedYear" class="text-sm">{{ publishedYear }}</div>
         </div>
 
         <div v-if="description" class="w-full py-2">
@@ -326,6 +351,23 @@ export default {
     },
     publishedYear() {
       return this.mediaMetadata.publishedYear
+    },
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
+    },
+    goodreadsUrl() {
+      const authorNames = this.podcastAuthor || this.bookAuthors?.map((a) => a.name).join(', ') || ''
+      const q = [this.title, this.subtitle, authorNames].filter(Boolean).join(' ')
+      return 'https://www.goodreads.com/search?q=' + encodeURIComponent(q)
+    },
+    publisher() {
+      return this.mediaMetadata.publisher
+    },
+    language() {
+      return this.mediaMetadata.language
+    },
+    itemSize() {
+      return this.libraryItem?.size || 0
     },
     podcastType() {
       return this.mediaMetadata.type
