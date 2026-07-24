@@ -177,7 +177,8 @@ export const actions = {
       url: `${serverAddress}/auth/refresh`,
       headers: {
         'Content-Type': 'application/json',
-        'x-refresh-token': refreshToken
+        'x-refresh-token': refreshToken,
+        ...state.serverConnectionConfig?.customHeaders
       },
       data: {}
     })
