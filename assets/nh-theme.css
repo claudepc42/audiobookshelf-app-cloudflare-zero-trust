@@ -103,6 +103,13 @@ html[data-theme='nanohive'] #nh-home-bg .nh-bg-layer {
   filter: blur(55px) brightness(0.45) saturate(1.35);
   opacity: 0;
   transition: opacity 2.8s ease;
+}
+/* Breathing animation and its GPU compositing layer are only live while the
+   background is actually visible — found by Greptile: with these unconditional,
+   two divs sat permanently GPU-composited and animating on every route with no
+   cinematic background (connect, downloads, etc.), a sustained cost on
+   lower-end devices for zero visible benefit. */
+html[data-theme='nanohive'] #nh-home-bg.nh-bg-visible .nh-bg-layer {
   will-change: opacity, transform;
   animation: nh-breathe 20s ease-in-out infinite alternate;
 }
@@ -435,7 +442,7 @@ html[data-theme='nanohive'] input:read-only {
    BookCover.vue and LazyBookCard.vue (identical value, two separate files).
    Already a warm cream in the right family, but fixed so it tracks the live
    base theme/accent instead of staying frozen regardless of settings. */
-html[data-theme='nanohive'] [style*="color: rgb(247 223 187)"] {
+html[data-theme='nanohive'] [style*="color: rgb(247, 223, 187)"] {
   color: var(--nh-text-1) !important;
 }
 
@@ -450,10 +457,10 @@ html[data-theme='nanohive'] [style*="background-color: rgb(17, 17, 17)"] {
 /* Series-position / book-count badges on book covers (LazyBookCard.vue) —
    hardcoded #78350f and #cd9d49dd inline styles (both already an amber-ish brown,
    but fixed regardless of the accentColor setting). Tied to the live amber var. */
-html[data-theme='nanohive'] [style*="background-color: #78350f"] {
+html[data-theme='nanohive'] [style*="background-color: rgb(120, 53, 15)"] {
   background-color: rgba(var(--nh-amber-rgb), 0.75) !important;
 }
-html[data-theme='nanohive'] [style*="background-color: #cd9d49dd"] {
+html[data-theme='nanohive'] [style*="background-color: rgba(205, 157, 73"] {
   background-color: rgba(var(--nh-amber-rgb), 0.85) !important;
 }
 
