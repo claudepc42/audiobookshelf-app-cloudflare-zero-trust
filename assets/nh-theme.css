@@ -106,8 +106,10 @@ html[data-theme='nanohive'] #nh-home-bg .nh-bg-layer {
      instead of leaving it recognizably blurred — confirmed via device
      diagnostics (real cover URL + correct opacity, just visually washed
      out). Scaled down for a phone-width viewport; brightness/saturate
-     unchanged from source. */
-  filter: blur(26px) brightness(0.45) saturate(1.35);
+     unchanged from source. Exposed as CSS vars (defaults match the values
+     above) so the NH UI Tuner dev panel can adjust them live on-device
+     instead of needing another build/install cycle per guess. */
+  filter: blur(var(--nh-cine-blur, 26px)) brightness(var(--nh-cine-brightness, 0.45)) saturate(var(--nh-cine-saturate, 1.35));
   opacity: 0;
   transition: opacity 2.8s ease;
 }
@@ -129,7 +131,7 @@ html[data-theme='nanohive'] #nh-home-bg::after {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), 0.5) 0%, rgba(var(--nh-bg-rgb), 0.8) 55%, rgb(var(--nh-bg-rgb)) 100%);
+  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.5)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.8)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 1)) 100%);
 }
 /* Item / series-detail pages: lighter blur brightness + softer gradient (NH: body.nh-cinematic-item) */
 html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item .nh-bg-layer {

@@ -92,11 +92,21 @@
 
 <script>
 // Defaults match NH source exactly (core.js): appbar/player rgba(--nh-bg-rgb,0.45/0.4)
-// blur(28px), mobile drawer rgba(--nh-bg-rgb,0.98..0.94) blur(24px). The cinematic
-// background and hero-carousel slide vars are no longer tunable here — they're
-// hardcoded in nh-theme.css to NH's fixed values (blur(55px) brightness(0.45/0.62)
-// saturate(1.35/1.3), and blur(60px) brightness(0.5) saturate(1.4) respectively).
+// blur(28px), mobile drawer rgba(--nh-bg-rgb,0.98..0.94) blur(24px).
+//
+// Cinematic Background group's defaults match nh-theme.css's #nh-home-bg rules
+// (blur/brightness/saturate already scaled down from NH source's desktop-tuned
+// blur(55px) to blur(26px) for a phone viewport — see the comment there). Added
+// here so the actual visible result can be tuned live on-device instead of a
+// build/install cycle per guess while chasing the "cinematic bg barely visible
+// on phone screens" issue.
 const CONTROLS = [
+  { group: 'Cinematic Background', prop: '--nh-cine-blur', label: 'Blur', default: 26, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Cinematic Background', prop: '--nh-cine-brightness', label: 'Brightness', default: 0.45, min: 0, max: 1.5, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-saturate', label: 'Saturate', default: 1.35, min: 0, max: 3, step: 0.05, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-top', label: 'Gradient Top', default: 0.5, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.8, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-bottom', label: 'Gradient Bottom', default: 1, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.45, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Appbar', prop: '--nh-appbar-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0.96, min: 0, max: 1, step: 0.01, unit: '' },

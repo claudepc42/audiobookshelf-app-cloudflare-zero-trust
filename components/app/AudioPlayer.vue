@@ -69,8 +69,9 @@
 
       <div id="playerControls" class="absolute right-0 bottom-0 mx-auto" style="max-width: 414px">
         <div class="flex items-center max-w-full" :class="playerSettings.lockUi ? 'justify-center' : 'justify-between'">
-          <!-- Speed indicator — mini player only, taps into speed modal -->
-          <span v-show="!showFullscreen && !playerSettings.lockUi" class="font-mono text-fg-muted cursor-pointer" style="font-size: 0.78rem; min-width: 32px; text-align: center" @click.stop="$emit('selectPlaybackSpeed')">{{ currentPlaybackRate }}x</span>
+          <!-- Bookmark — mini player only, mirrors the fullscreen bookmark button -->
+          <span v-show="!showFullscreen && !playerSettings.lockUi && !isPodcast && serverLibraryItemId && socketConnected" class="material-symbols text-fg-muted cursor-pointer" :class="{ fill: bookmarks.length }" style="font-size: 1.35rem; min-width: 32px; text-align: center" @click.stop="$emit('showBookmarks')">bookmark</span>
+          <span v-show="!showFullscreen && !playerSettings.lockUi && (isPodcast || !serverLibraryItemId || !socketConnected)" class="material-symbols text-fg text-opacity-0" style="font-size: 1.35rem; min-width: 32px; text-align: center">bookmark</span>
           <span v-show="showFullscreen && !playerSettings.lockUi" class="material-symbols next-icon text-fg cursor-pointer" :class="showLoadingState ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpChapterStart">first_page</span>
           <div v-show="!playerSettings.lockUi" class="jump-icon text-fg cursor-pointer flex flex-col items-center" :class="showLoadingState ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpBackwards">
             <span class="material-symbols text-3xl leading-none">replay</span>
