@@ -578,10 +578,16 @@ export default {
         const homeBg = document.getElementById('nh-home-bg')
         const ambientBg = document.getElementById('nh-ambient-bg')
         const layers = homeBg ? Array.from(homeBg.querySelectorAll('.nh-bg-layer')) : []
+        // Field order matters: the log-export masking regex (https?:\/\/\S+)
+        // is greedy and eats everything up to the first whitespace, so any
+        // field placed after a URL with no space in between (e.g. a
+        // comma/bracket) gets silently swallowed too. Keep every URL-bearing
+        // field last, with a space before it, so filter/opacity always
+        // survive export intact.
         const layerInfo = layers
           .map((el, i) => {
             const cs = getComputedStyle(el)
-            return `layer${i}[opacity=${cs.opacity},bgImage=${cs.backgroundImage.slice(0, 90)},filter=${cs.filter}]`
+            return `layer${i}[opacity=${cs.opacity},filter=${cs.filter}, hasImage=${cs.backgroundImage !== 'none'}]`
           })
           .join(' ')
         const rootCs = getComputedStyle(document.documentElement)
@@ -592,7 +598,7 @@ export default {
             `ambientBg[exists=${!!ambientBg},opacity=${ambientBg ? getComputedStyle(ambientBg).opacity : 'N/A'}] ` +
             `${layerInfo} ` +
             `vars[--nh-bg-rgb=${rootCs.getPropertyValue('--nh-bg-rgb')},--nh-canvas=${rootCs.getPropertyValue('--nh-canvas')}] ` +
-            `nhBgActiveIdx=${this.nhBgActiveIdx} nhBgLayers=${JSON.stringify(this.nhBgLayers)}`
+            `nhBgActiveIdx=${this.nhBgActiveIdx}`
         })
       } catch (e) {
         AbsLogger.error({ tag: 'nh-diag', message: `logNhBgDomSnapshot failed: ${e.message}` })

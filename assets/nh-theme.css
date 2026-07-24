@@ -141,8 +141,15 @@ html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item::after {
   background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), 0.3) 0%, rgba(var(--nh-bg-rgb), 0.6) 55%, rgb(var(--nh-bg-rgb)) 100%);
 }
 
-/* Make the layout wrapper transparent so the body gradient shows through */
-html[data-theme='nanohive'] .layout-wrapper {
+/* Make the layout wrapper transparent so the body gradient shows through.
+   This element also carries the generic .bg-bg utility class (<div class="
+   w-full layout-wrapper bg-bg">), and the later, broader global .bg-bg fix
+   below (GLOBAL SURFACE & TEXT COLOR OVERRIDES) paints an opaque canvas
+   color with equal !important specificity — same specificity + later in
+   the file wins, so that rule was silently overriding this one and
+   blocking the entire cinematic background system regardless of any of
+   its own settings. Compound selector here to reliably out-specify it. */
+html[data-theme='nanohive'] .layout-wrapper.bg-bg {
   background: transparent !important;
 }
 
