@@ -316,7 +316,7 @@ export default {
       return !!this.userProgress?.isFinished
     },
     nhThemeActive() {
-      return this.$store.state.nhThemeActive
+      return this.store.state.nhThemeActive
     },
     showError() {
       return this.isMissing || this.isInvalid

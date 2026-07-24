@@ -192,7 +192,7 @@ export default {
         items.push({
           icon: 'tune',
           text: 'Customizations',
-          to: '/settings/nanohive'
+          to: '/settings-nanohive'
         })
       }
 

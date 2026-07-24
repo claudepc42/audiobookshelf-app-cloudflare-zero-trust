@@ -899,11 +899,18 @@ html[data-theme='nanohive'] #nh-search-page [class*="SearchCardContent"] p.trunc
    Gated behind :not(.nh-stock-series) exactly like core.js — the settings system's
    "Stacked Series Covers" toggle adds/removes that class on <html> (customSeriesCards). */
 
-/* Clear opaque bg and let shadow covers be visible; also fix collection cards */
-html[data-theme='nanohive']:not(.nh-stock-series) [id^="series-card-"] > .overflow-hidden,
-html[data-theme='nanohive']:not(.nh-stock-series) [id^="collection-card-"] > .overflow-hidden {
+/* Clear opaque bg and let the diagonal cover stack spill past the card
+   silhouette. Series-only — collection-card's .overflow-hidden is the div
+   that clips CollectionCover's two side-by-side covers to rounded corners;
+   setting overflow:visible here undid that clip and left square corners. */
+html[data-theme='nanohive']:not(.nh-stock-series) [id^="series-card-"] > .overflow-hidden {
   overflow: visible !important;
   background: transparent !important;
+}
+
+/* Collection cards keep their clip, just with the theme's card radius */
+html[data-theme='nanohive'] [id^="collection-card-"] > .overflow-hidden {
+  border-radius: 14px !important;
 }
 
 /* Suppress full-card shadow placeholder on both series and collection cards */
@@ -1061,6 +1068,14 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerContent > d
   background: transparent !important;
 }
 
+/* Stock's 35px bottom clearance under the track was tuned for a flush-to-edge
+   bar; the floating pill already gets its own clearance from the screen edge
+   via #playerContent's bottom offset above, so that 35px reads as dead space
+   inside the pill itself. Tighten it so the controls/track fill the pill. */
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerTrack {
+  bottom: 12px !important;
+}
+
 /* Book cover thumbnail — rounder corners, and shifted up to stay inside the raised pill.
    Original bottom: 68px; pill moved up 20px so cover moves up by the same amount. */
 html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .cover-wrapper {
@@ -1168,6 +1183,10 @@ html[data-theme='nanohive'] [id^="collection-card-"] .categoryPlacard p {
   font-family: var(--nh-serif) !important;
   font-size: 0.78rem !important;
   letter-spacing: 0.02em !important;
+  /* Plain text with no pill backdrop needs its own contrast guarantee —
+     bright covers (and, for series, the diagonal cover-stack spilling past
+     the card's own bounds) can otherwise sit right behind the title. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.6) !important;
 }
 
 /* Alt-view categorized label (direct child p, no categoryPlacard wrapper) */
@@ -1175,6 +1194,15 @@ html[data-theme='nanohive'] [id^="series-card-"] > .absolute.text-center > p,
 html[data-theme='nanohive'] [id^="collection-card-"] > .absolute.text-center > p {
   color: var(--nh-amber) !important;
   font-family: var(--nh-serif) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Series cards' diagonal cover stack (nth-child translate 12px/24px above)
+   extends past the card's own frame, crowding the title directly beneath
+   it — give series titles extra clearance that collection cards (no stack)
+   don't need. */
+html[data-theme='nanohive'] [id^="series-card-"] .categoryPlacard {
+  bottom: -1.75rem !important;
 }
 
 /* ============ RECENT SERIES SHELF ============ */
@@ -1221,7 +1249,11 @@ html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-covers {
   position: relative;
   width: var(--nh-rs-cw);
   height: var(--nh-rs-cw);
-  margin-bottom: 12px;
+  /* The deepest stacked cover (.c3) translates down calc(cw * 0.171) — ~24px
+     at the default 140px card size — past this container's own bottom edge,
+     since overflow:visible doesn't grow the box. Margin needs to clear that
+     offset plus real breathing room, not just pad the container's own edge. */
+  margin-bottom: 32px;
   overflow: visible;
 }
 html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-cover {
