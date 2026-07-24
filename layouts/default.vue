@@ -52,7 +52,14 @@ export default {
     nhCinematicCoverUrl: {
       immediate: true,
       handler(val) {
+        // TEMP DIAGNOSTIC (remove once cinematic bg bug is found) — go to
+        // Settings > Logs to copy/share this after reproducing.
+        AbsLogger.info({
+          tag: 'nh-diag',
+          message: `nhCinematicCoverUrl changed -> ${val || '(null)'} | mode=${this.nhCinematicMode} route=${this.$route?.name} nhThemeActive=${this.nhThemeActive} storeUrl=${this.nhStoreHomeCoverUrl || '(null)'}`
+        })
         this.setNhBg(val)
+        this.$nextTick(() => this.logNhBgDomSnapshot())
       }
     },
     nhSettings: {
@@ -549,11 +556,47 @@ export default {
       document.documentElement.lang = code
     },
     setNhBg(url) {
-      if (!url) return
-      if (this.nhBgLayers[this.nhBgActiveIdx]?.url === url) return
+      if (!url) {
+        AbsLogger.info({ tag: 'nh-diag', message: 'setNhBg: no-op, url is falsy' })
+        return
+      }
+      if (this.nhBgLayers[this.nhBgActiveIdx]?.url === url) {
+        AbsLogger.info({ tag: 'nh-diag', message: `setNhBg: no-op, url already active at idx ${this.nhBgActiveIdx}` })
+        return
+      }
       const nextIdx = this.nhBgActiveIdx === 0 ? 1 : 0
       this.$set(this.nhBgLayers, nextIdx, { url })
       this.nhBgActiveIdx = nextIdx
+      AbsLogger.info({ tag: 'nh-diag', message: `setNhBg: applied url to layer ${nextIdx}, nhBgActiveIdx now ${this.nhBgActiveIdx}` })
+    },
+    // TEMP DIAGNOSTIC (remove once cinematic bg bug is found) — reads the
+    // actual rendered DOM/computed-style state after Vue's next render, so
+    // it reflects what the browser really did, not just our JS-side beliefs
+    // about it.
+    logNhBgDomSnapshot() {
+      try {
+        const homeBg = document.getElementById('nh-home-bg')
+        const ambientBg = document.getElementById('nh-ambient-bg')
+        const layers = homeBg ? Array.from(homeBg.querySelectorAll('.nh-bg-layer')) : []
+        const layerInfo = layers
+          .map((el, i) => {
+            const cs = getComputedStyle(el)
+            return `layer${i}[opacity=${cs.opacity},bgImage=${cs.backgroundImage.slice(0, 90)},filter=${cs.filter}]`
+          })
+          .join(' ')
+        const rootCs = getComputedStyle(document.documentElement)
+        AbsLogger.info({
+          tag: 'nh-diag',
+          message:
+            `DOM snapshot: homeBg[exists=${!!homeBg},opacity=${homeBg ? getComputedStyle(homeBg).opacity : 'N/A'},class=${homeBg?.className || 'N/A'}] ` +
+            `ambientBg[exists=${!!ambientBg},opacity=${ambientBg ? getComputedStyle(ambientBg).opacity : 'N/A'}] ` +
+            `${layerInfo} ` +
+            `vars[--nh-bg-rgb=${rootCs.getPropertyValue('--nh-bg-rgb')},--nh-canvas=${rootCs.getPropertyValue('--nh-canvas')}] ` +
+            `nhBgActiveIdx=${this.nhBgActiveIdx} nhBgLayers=${JSON.stringify(this.nhBgLayers)}`
+        })
+      } catch (e) {
+        AbsLogger.error({ tag: 'nh-diag', message: `logNhBgDomSnapshot failed: ${e.message}` })
+      }
     },
     // Ported from enhancements.js applySettings() (lines 101-129): resolves the
     // active base theme + accent colour into the same CSS custom properties
@@ -613,6 +656,12 @@ export default {
     }
   },
   async mounted() {
+    // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
+    AbsLogger.info({
+      tag: 'nh-diag',
+      message: `layout mounted: nhThemeActive=${this.nhThemeActive} route=${this.$route?.name} platform=${this.$platform} cachedUrl=${(() => { try { return localStorage.getItem('nh-home-bg-url') || '(none)' } catch (e) { return '(error)' } })()}`
+    })
+
     // Restore the last-known home cover so library sub-pages/settings have a
     // cinematic background immediately, before the hero carousel (re)publishes
     // it. Mirrors NH source's localStorage.getItem('nh-home-bg') cache.
