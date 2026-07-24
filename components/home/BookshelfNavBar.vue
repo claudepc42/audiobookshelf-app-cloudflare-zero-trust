@@ -1,10 +1,18 @@
 <template>
-  <div class="w-full h-9 bg-bg relative">
+  <div class="w-full bg-bg relative" :style="nhThemeActive ? 'height:56px' : 'height:36px'">
     <div id="bookshelf-navbar" class="absolute z-10 top-0 left-0 w-full h-full flex bg-secondary">
       <nuxt-link v-for="item in items" :key="item.to" :to="item.to" class="h-full flex-grow flex items-center justify-center" :class="routeName === item.routeName ? 'bg-primary' : 'text-fg-muted'">
-        <p v-if="routeName === item.routeName" class="text-sm font-semibold">{{ item.text }}</p>
-        <span v-else-if="item.iconPack === 'abs-icons'" class="abs-icons" :class="`icon-${item.icon} ${item.iconClass || ''}`"></span>
-        <span v-else :class="`${item.iconPack} ${item.iconClass || ''}`">{{ item.icon }}</span>
+        <!-- NH theme: material-symbols icons matching NanoHive server, with label -->
+        <template v-if="nhThemeActive">
+          <span class="material-symbols text-xl">{{ nhIconMap[item.routeName] || item.icon }}</span>
+          <span class="nh-nav-label">{{ item.text }}</span>
+        </template>
+        <!-- Default theme: active = text only, inactive = icon only -->
+        <template v-else>
+          <p v-if="routeName === item.routeName" class="text-sm font-semibold">{{ item.text }}</p>
+          <span v-else-if="item.iconPack === 'abs-icons'" class="abs-icons" :class="`icon-${item.icon} ${item.iconClass || ''}`"></span>
+          <span v-else :class="`${item.iconPack} ${item.iconClass || ''}`">{{ item.icon }}</span>
+        </template>
       </nuxt-link>
     </div>
   </div>
@@ -13,9 +21,33 @@
 <script>
 export default {
   data() {
-    return {}
+    return {
+      // NH source of truth for these is enhancements.js's RAIL_ICONS remap table
+      // (line 987), NOT ABS's native SideRail.vue — NH overrides the stock icons.
+      // /library/[^/]+$ (library root) -> home, /bookshelf$ (library listing) ->
+      // menu_book (superseding ABS's own per-library custom icon), /series ->
+      // layers, /collections -> collections_bookmark, /authors -> groups.
+      // playlists/latest/add-podcast have no RAIL_ICONS entry — no source to
+      // check against, left as our own reasonable choices.
+      nhIconMap: {
+        bookshelf: 'home',
+        'bookshelf-library': 'menu_book',
+        'bookshelf-series': 'layers',
+        'bookshelf-collections': 'collections_bookmark',
+        'bookshelf-authors': 'groups',
+        'bookshelf-playlists': 'queue_music',
+        'bookshelf-latest': 'schedule',
+        'bookshelf-add-podcast': 'podcasts'
+      }
+    }
   },
   computed: {
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
+    },
+    nhSettings() {
+      return this.$store.state.nhSettings
+    },
     currentLibrary() {
       return this.$store.getters['libraries/getCurrentLibrary']
     },
@@ -122,6 +154,17 @@ export default {
           iconClass: 'text-2xl',
           text: this.$strings.ButtonPlaylists
         })
+      }
+
+      // NH settings: Sidebar Menus visibility toggles (NH source: enhancements.js
+      // hideRailSeries/hideRailCollections/hideRailAuthors — applied here since
+      // this nav bar is our equivalent of NH's left rail)
+      if (this.nhThemeActive) {
+        const hiddenRouteNames = new Set()
+        if (this.nhSettings.hideRailSeries) hiddenRouteNames.add('bookshelf-series')
+        if (this.nhSettings.hideRailCollections) hiddenRouteNames.add('bookshelf-collections')
+        if (this.nhSettings.hideRailAuthors) hiddenRouteNames.add('bookshelf-authors')
+        if (hiddenRouteNames.size) items = items.filter((item) => !hiddenRouteNames.has(item.routeName))
       }
 
       return items

@@ -283,6 +283,9 @@ export default ({ store, app }, inject) => {
 
   // NanoHive theme — overrides the stock theme if the user previously activated it
   app.$localStore?.getNhSettings()?.then((nhSettings) => {
+    // Persisted customizations (accent colour, base theme, font, etc.) load regardless
+    // of whether NH is currently active, so they're ready the instant the user toggles it on.
+    if (nhSettings) store.commit('setNhSettings', nhSettings)
     if (nhSettings?.active) {
       store.commit('setNhThemeActive', true)
       document.documentElement.dataset.theme = 'nanohive'

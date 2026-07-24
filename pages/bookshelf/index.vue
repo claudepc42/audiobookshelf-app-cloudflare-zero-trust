@@ -11,10 +11,11 @@
 
     <div class="w-full" :class="{ 'py-6': altViewEnabled }">
       <div v-if="nhThemeActive && !currentLibraryIsPodcast" id="nh-welcome" class="px-5 pt-6 pb-3">
-        <p class="text-xs font-semibold tracking-widest" style="color: #e0c27a; text-transform: uppercase; letter-spacing: 0.12em">{{ greetingLine }}</p>
-        <h2 class="mt-1 text-2xl font-medium leading-tight" style="font-family: 'Spectral', Georgia, serif; color: #f4eee2">Welcome back, {{ username }}</h2>
+        <p class="text-xs font-semibold tracking-widest" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.12em">{{ greetingLine }}</p>
+        <h2 class="mt-1 text-2xl font-medium leading-tight" style="font-family: var(--nh-serif); color: var(--nh-text-1)">Welcome back, {{ username }}</h2>
       </div>
-      <nh-hero-carousel v-if="nhThemeActive && !currentLibraryIsPodcast" :slides="continueListeningItems" />
+      <nh-hero-carousel v-if="nhThemeActive && !currentLibraryIsPodcast && nhSettings.showHeroCarousel" :slides="continueListeningItems" :advance-seconds="nhSettings.carouselTiming" />
+      <nh-recent-series-shelf v-if="showRecentSeriesShelf" />
       <template v-for="(shelf, index) in displayShelves">
         <bookshelf-shelf :key="shelf.id" :label="getShelfLabel(shelf)" :entities="shelf.entities" :type="shelf.type" :style="{ zIndex: displayShelves.length - index }" />
       </template>
@@ -121,6 +122,14 @@ export default {
     nhThemeActive() {
       return this.$store.state.nhThemeActive
     },
+    nhSettings() {
+      return this.$store.state.nhSettings
+    },
+    // NH source: enhancements.js manageRecentSeries() gate (line 1832) — shown
+    // whenever the custom shelf is enabled and not stock-series/explicitly hidden.
+    showRecentSeriesShelf() {
+      return this.nhThemeActive && !this.currentLibraryIsPodcast && this.nhSettings.showCustomRecentSeries && this.nhSettings.customSeriesCards !== false && !this.nhSettings.hideHomeRecentSeries
+    },
     username() {
       return this.$store.state.user.user?.username || ''
     },
@@ -132,9 +141,34 @@ export default {
     },
     displayShelves() {
       if (!this.nhThemeActive) return this.shelves
-      return this.shelves.filter((s) => s.id !== 'continue-listening')
+
+      // NH source: enhancements.js continueReadingMode — 'combine' folds the
+      // continue-listening shelf into the hero carousel (default), 'separate'
+      // keeps it as its own shelf, 'hidden' drops it entirely.
+      let list = this.nhSettings.continueReadingMode === 'separate' ? this.shelves : this.shelves.filter((s) => s.id !== 'continue-listening')
+
+      // NH source: enhancements.js applySettings() shelf title matching (lines 204-210).
+      // Recent Series: hidden whenever hideHomeRecentSeries is set, OR whenever the
+      // synthetic expanded shelf is showing in its place (showCustomRecentSeries &&
+      // customSeriesCards !== false) — same combined condition as source, so the
+      // native and custom shelves never both render at once.
+      const s = this.nhSettings
+      const hideRecentSeries = s.hideHomeRecentSeries || (s.showCustomRecentSeries && s.customSeriesCards !== false)
+      list = list.filter((shelf) => {
+        const title = (this.getShelfLabel(shelf) || '').toLowerCase()
+        if (s.hideHomeRecentlyAdded && title.includes('recently added')) return false
+        if (hideRecentSeries && title.includes('recent series')) return false
+        if (s.hideHomeContinueSeries && title.includes('continue series')) return false
+        if (s.hideHomeListenAgain && title.includes('listen again')) return false
+        if (s.hideHomeDiscover && title.includes('discover')) return false
+        if (s.hideHomeNewAuthors && title.includes('authors')) return false
+        return true
+      })
+
+      return list
     },
     continueListeningItems() {
+      if (this.nhThemeActive && this.nhSettings.continueReadingMode !== 'combine') return []
       const shelf = this.shelves.find((s) => s.id === 'continue-listening')
       if (!shelf) return []
       return shelf.entities.slice(0, 8)

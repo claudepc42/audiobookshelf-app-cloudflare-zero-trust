@@ -1,5 +1,8 @@
 <template>
-  <bookshelf-lazy-bookshelf page="series-books" :series-id="seriesId" v-on:downloadSeriesClick="downloadSeriesClick" />
+  <div class="w-full h-full" :class="{ 'nh-series-cols': nhThemeActive }">
+    <nh-series-header v-if="nhThemeActive" :series-id="seriesId" :library-id="series.libraryId" />
+    <bookshelf-lazy-bookshelf :class="{ 'nh-with-series-header': nhThemeActive }" page="series-books" :series-id="seriesId" v-on:downloadSeriesClick="downloadSeriesClick" />
+  </div>
 </template>
 
 <script>
@@ -37,6 +40,9 @@ export default {
   computed: {
     isIos() {
       return this.$platform === 'ios'
+    },
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
     }
   },
   methods: {
