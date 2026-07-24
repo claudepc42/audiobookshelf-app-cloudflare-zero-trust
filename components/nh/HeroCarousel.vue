@@ -1,5 +1,6 @@
 <template>
-  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full overflow-hidden" style="min-height: 370px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+  <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full">
+  <div class="relative w-full overflow-hidden" style="min-height: 370px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
     <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
@@ -79,20 +80,43 @@
         />
       </div>
 
-      <!-- Dot indicators -->
-      <div v-if="slides.length > 1" class="flex justify-center items-center gap-1.5 mt-3 flex-shrink-0">
-        <div
+    </div>
+  </div>
+
+    <!-- Nav row: arrows + dots. NH source: enhancements.js lines 1410-1420 —
+         a sibling of the slide track (#nh-hero-nav next to #nh-hero-viewport),
+         not nested inside a slide, so it stays put while slides transform. -->
+    <div v-if="slides.length > 1" class="relative z-20 flex items-center justify-center flex-shrink-0" style="gap: 18px; margin-top: 22px">
+      <button
+        type="button"
+        class="flex items-center justify-center rounded-full"
+        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); width: 40px; height: 40px"
+        @click.stop="prev"
+      >
+        <span class="material-symbols" style="font-size: 1.5rem; color: #d8cfc2">chevron_left</span>
+      </button>
+      <div class="flex items-center" style="gap: 10px">
+        <button
           v-for="(_, di) in slides"
           :key="`dot-${di}`"
-          class="rounded-full transition-all duration-300 cursor-pointer"
+          type="button"
+          class="rounded-full transition-all duration-300"
           :style="{
-            width: activeIndex === di ? '14px' : '5px',
-            height: '5px',
-            background: activeIndex === di ? 'var(--nh-amber)' : 'rgba(154,144,133,0.45)'
+            width: activeIndex === di ? '24px' : '8px',
+            height: '8px',
+            background: activeIndex === di ? 'var(--nh-amber)' : 'rgba(255,255,255,0.2)'
           }"
           @click.stop="goTo(di)"
         />
       </div>
+      <button
+        type="button"
+        class="flex items-center justify-center rounded-full"
+        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); width: 40px; height: 40px"
+        @click.stop="next"
+      >
+        <span class="material-symbols" style="font-size: 1.5rem; color: #d8cfc2">chevron_right</span>
+      </button>
     </div>
   </div>
 </template>
@@ -149,13 +173,7 @@ export default {
       if (url) this.$store.commit('setNhHomeCoverUrl', url)
     },
     slideStyle(i) {
-      const isActive = this.activeIndex === i
       const transition = this.isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s'
-
-      if (!isActive && !this.isDragging) {
-        return { opacity: 0, pointerEvents: 'none', transform: 'translateX(0)', transition }
-      }
-
       const diff = i - this.activeIndex
       const px = this.isDragging ? this.dragOffset : 0
 
@@ -232,7 +250,15 @@ export default {
       this.activeIndex = (this.activeIndex - 1 + this.slides.length) % this.slides.length
       this.restartTimer()
     },
-    restartTimer() {},
+    restartTimer() {
+      // Manual navigation (arrows/dots — mouse clicks, not touch) doesn't
+      // touch the touch-based idle tracking below, so without this a manual
+      // click could be immediately followed by an unrelated auto-advance
+      // tick landing right after it.
+      this.lastAdvanceTime = Date.now()
+      this.firstTouchTime = 0
+      this.lastUserTouchTime = 0
+    },
     checkAutoAdvance() {
       if (!this.advanceSeconds || this.advanceSeconds <= 0) return
       if (this.slides.length <= 1 || this.isDragging) return
