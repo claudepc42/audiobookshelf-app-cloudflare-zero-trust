@@ -59,13 +59,16 @@ export default {
       }
       const key = `${libId}:${this.recentSeriesCount}`
       if (key === this.lastKey) return
-      this.lastKey = key
 
       const res = await this.$nativeHttp.get(`/api/libraries/${libId}/series?sort=addedAt&desc=1&limit=${this.recentSeriesCount}&page=0`).catch(() => null)
       if (!res || !res.results) {
+        // Don't set lastKey on failure — leaves the guard open so the next
+        // mount/navigation/settings change can retry instead of silently
+        // leaving the shelf empty until libId or recentSeriesCount changes.
         this.series = []
         return
       }
+      this.lastKey = key
       this.series = res.results.map((s) => {
         const books = s.books || []
         return {

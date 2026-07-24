@@ -1,7 +1,7 @@
 <template>
   <div class="w-full layout-wrapper bg-bg">
     <div v-if="nhThemeActive" id="nh-ambient-bg" :style="{ opacity: nhCinematicCoverUrl ? 0 : 1 }" />
-    <div v-if="nhThemeActive" id="nh-home-bg" :class="{ 'nh-cinematic-item': nhCinematicMode === 'item' }" :style="{ opacity: nhCinematicCoverUrl ? 1 : 0 }">
+    <div v-if="nhThemeActive" id="nh-home-bg" :class="{ 'nh-cinematic-item': nhCinematicMode === 'item', 'nh-bg-visible': !!nhCinematicCoverUrl }" :style="{ opacity: nhCinematicCoverUrl ? 1 : 0 }">
       <div v-for="(layer, i) in nhBgLayers" :key="i" class="nh-bg-layer" :style="{ backgroundImage: layer.url ? `url(${layer.url})` : 'none', opacity: i === nhBgActiveIdx ? 1 : 0 }" />
     </div>
     <app-appbar />
