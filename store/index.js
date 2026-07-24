@@ -173,8 +173,11 @@ export const actions = {
       console.log('Network status changed', status.connected, status.connectionType)
       commit('setNetworkStatus', status)
       // Re-probe LAN vs remote endpoint when Wi-Fi connects so routing switches dynamically
-      // without requiring an app restart or manual reconnect.
-      if (status.connected && status.connectionType === 'wifi') {
+      // without requiring an app restart or manual reconnect. Skip when there's no server
+      // connection to resolve against — a null serverConnectionConfig still reaches the
+      // Kotlin side and resets effectiveAddress to "", harmless but wasteful on every
+      // Wi-Fi connect while logged out (Greptile, PR #4).
+      if (status.connected && status.connectionType === 'wifi' && state.user.serverConnectionConfig) {
         AbsDatabase.resolveEndpoint().catch((err) => {
           console.warn('[store] resolveEndpoint failed on Wi-Fi connect', err)
         })
