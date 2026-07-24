@@ -91,3 +91,6 @@ sw.*
 
 /resources/
 /android/app/release/
+# Local-only working docs
+CUSTOM_HEADERS_DESIGN_DOC.md
+NANOHIVE_PARITY_AUDIT.md
