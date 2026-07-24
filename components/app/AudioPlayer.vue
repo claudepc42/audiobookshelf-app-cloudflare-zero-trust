@@ -945,7 +945,7 @@ export default {
       const coverHeight = this.fullscreenBookCoverWidth * this.bookCoverAspectRatio
       const coverImageWidthCollapsed = 46 / this.bookCoverAspectRatio
       const titleAuthorLeftOffsetCollapsed = 30 + coverImageWidthCollapsed
-      const titleAuthorWidthCollapsed = this.windowWidth - 128 - titleAuthorLeftOffsetCollapsed - 10
+      const titleAuthorWidthCollapsed = this.windowWidth - 210 - titleAuthorLeftOffsetCollapsed - 10
 
       document.documentElement.style.setProperty('--cover-image-width', this.fullscreenBookCoverWidth + 'px')
       document.documentElement.style.setProperty('--cover-image-height', coverHeight + 'px')
@@ -1099,8 +1099,8 @@ export default {
 #playerControls {
   transition: all 0.15s cubic-bezier(0.39, 0.575, 0.565, 1);
   transition-property: width, bottom;
-  width: 128px;
-  padding-right: 24px;
+  width: 210px;
+  padding-right: 16px;
   bottom: 70px;
 }
 #playerControls .jump-icon {

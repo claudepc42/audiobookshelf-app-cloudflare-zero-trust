@@ -13,6 +13,10 @@
 
         <!-- No progress shown for collapsed series or podcasts in library -->
         <div v-if="!isPodcast && !collapsedSeries" class="absolute bottom-0 left-0 h-1 shadow-sm max-w-full z-10 rounded-b" :class="itemIsFinished ? 'bg-success' : 'bg-yellow-400'" :style="{ width: coverWidth * userProgressPercent + 'px' }"></div>
+
+        <div v-if="localLibraryItem || isLocal" class="absolute top-0 right-0 z-20 p-0.5">
+          <span class="material-symbols text-base text-success">download_done</span>
+        </div>
       </div>
       <div class="flex-grow pl-2" :class="showPlayButton ? 'pr-12' : 'pr-2'">
         <p class="whitespace-normal line-clamp-2" :style="{ fontSize: 0.8 * sizeMultiplier + 'rem' }">
@@ -38,10 +42,6 @@
             </svg>
           </div>
         </button>
-      </div>
-
-      <div v-if="localLibraryItem || isLocal" class="absolute top-0 right-0 z-20" :style="{ top: 0.375 * sizeMultiplier + 'rem', right: 0.375 * sizeMultiplier + 'rem', padding: `${0.1 * sizeMultiplier}rem ${0.25 * sizeMultiplier}rem` }">
-        <span class="material-symbols text-2xl text-success">download_done</span>
       </div>
     </div>
   </div>

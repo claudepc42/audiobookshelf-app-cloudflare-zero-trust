@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-full px-4 py-8 overflow-y-auto">
     <!-- NanoHive customizations -->
-    <div v-if="nhThemeActive" class="flex items-center py-3 cursor-pointer" @click="$router.push('/settings/nanohive')">
+    <div v-if="nhThemeActive" class="flex items-center py-3 cursor-pointer" @click="$router.push('/settings-nanohive')">
       <span class="material-symbols text-xl" style="color: var(--nh-amber)">tune</span>
       <p class="pl-4 flex-1" style="color: var(--nh-amber)">NanoHive Customizations</p>
       <span class="material-symbols text-xl text-fg-muted">chevron_right</span>

@@ -31,7 +31,7 @@
       <!-- NH source: enhancements.js injectGearButton() — gear icon next to the stats
            link opens the customizations panel. Our appbar has no stats link, so this
            sits next to search instead. -->
-      <nuxt-link v-if="user && nhThemeActive" class="mx-1.5 flex items-center h-10" to="/settings/nanohive" aria-label="Customizations">
+      <nuxt-link v-if="user && nhThemeActive" class="mx-1.5 flex items-center h-10" to="/settings-nanohive" aria-label="Customizations">
         <span class="material-symbols text-2xl leading-none">tune</span>
       </nuxt-link>
 
