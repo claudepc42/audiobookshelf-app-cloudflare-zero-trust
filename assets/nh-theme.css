@@ -1079,7 +1079,7 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerTrack {
 /* Book cover thumbnail — rounder corners, and shifted up to stay inside the raised pill.
    Original bottom: 68px; pill moved up 20px so cover moves up by the same amount. */
 html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .cover-wrapper {
-  border-radius: 10px !important;
+  border-radius: 12px !important;
   bottom: calc(88px + env(safe-area-inset-bottom)) !important;
 }
 
@@ -1210,7 +1210,12 @@ html[data-theme='nanohive'] [id^="series-card-"] .categoryPlacard {
    with a fixed 140px card size (--nh-rs-cw) since our component has no equivalent
    to source's DOM-measured "match the real book cover width" step. */
 html[data-theme='nanohive'] #nh-recent-series-row {
-  margin: 0 0 2.2rem;
+  /* Every native shelf row (Shelf.vue) supplies its own 16px top spacing
+     (px-5 pb-3 pt-4 on the label) and none of its own bottom margin, so
+     adjacent shelves land 16px apart. Adding a bottom margin here on top
+     of that stacked an extra ~35px, making the gap before the next shelf
+     roughly 3x every other shelf-to-shelf gap. */
+  margin: 0;
   box-sizing: border-box;
   width: 100%;
   --nh-rs-cw: 140px;

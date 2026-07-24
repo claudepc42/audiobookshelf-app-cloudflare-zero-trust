@@ -59,7 +59,10 @@
     </div>
 
     <div class="py-3 flex items-center">
-      <p class="pr-4 flex-1" style="color: #d8cfc2">Font Size</p>
+      <div class="pr-4 flex-1">
+        <p style="color: #d8cfc2">Font Size Scale</p>
+        <p class="text-xs" style="color: #9a9085">1.0 = default size. Range 0.8&ndash;1.3.</p>
+      </div>
       <ui-text-input type="number" :value="settings.fontScale" step="0.05" min="0.8" max="1.3" style="width: 90px" @input="updateSetting('fontScale', Number($event) || 1)" />
     </div>
 
@@ -228,7 +231,26 @@ export default {
       this.$store.commit('setNhSetting', { key, value })
       const saved = (await this.$localStore.getNhSettings()) || {}
       await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
+    },
+    // The app-wide font link (layouts/default.vue) only ever loads the
+    // currently-active mainFont, so every other button in this picker fell
+    // back to the default font until clicked (which swaps that single link's
+    // href). Preload every font's webface here so all previews render in
+    // their real typeface immediately, not just the selected one.
+    preloadFontPreviews() {
+      const families = this.googleFonts.filter((f) => f.toLowerCase() !== 'spectral').map((f) => `family=${f.replace(/ /g, '+')}:wght@400;500;600;700`)
+      let link = document.getElementById('nh-font-preview-preload')
+      if (!link) {
+        link = document.createElement('link')
+        link.id = 'nh-font-preview-preload'
+        link.rel = 'stylesheet'
+        document.head.appendChild(link)
+      }
+      link.href = `https://fonts.googleapis.com/css2?${families.join('&')}&display=swap`
     }
+  },
+  mounted() {
+    this.preloadFontPreviews()
   }
 }
 </script>
