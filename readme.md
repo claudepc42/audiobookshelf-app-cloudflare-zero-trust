@@ -3,7 +3,7 @@
 ![Latest release](https://img.shields.io/github/v/release/claudepc42/audiobookshelf-app-cloudflare-zero-trust?label=version&color=orange) ![Build](https://img.shields.io/github/actions/workflow/status/claudepc42/audiobookshelf-app-cloudflare-zero-trust/build.yml?branch=master&label=build) ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white) ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white) ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
 > **This is an unofficial patched build of the [Audiobookshelf Android app](https://github.com/advplyr/audiobookshelf-app).**
-> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and reliable auto-connect on cold start.
+> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and reliable auto-connect on cold start. It also includes a native port of the **[NanoHive](https://github.com/rodzalendo/nanohive-abs-theme)** theme, toggleable per-user — see [NanoHive Theme](#nanohive-theme) below.
 >
 > **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust/releases/latest)**
 >
@@ -13,19 +13,38 @@
 
 ---
 
+<table>
+<tr>
+<td valign="top">
+
 ## Contents
 
-- [What's patched](#whats-patched)
-  1. [Cloudflare Zero Trust WebView SSO](#1-cloudflare-zero-trust-webview-sso)
-  2. [Custom HTTP headers (service tokens / advanced)](#2-custom-http-headers-service-tokens--advanced)
-  3. [Auto-connect on cold start](#3-auto-connect-on-cold-start)
-  4. [Automatic CF session expiry detection & refresh](#4-automatic-cf-session-expiry-detection--refresh)
-  5. [LAN address auto-routing](#5-lan-address-auto-routing-home-network-fast-lane)
-  6. [Security hardening](#6-security-hardening)
-  7. [In-app update checker](#7-in-app-update-checker)
-- [Installing](#installing)
-- [Upstream](#upstream)
-- [Contributing](#contributing)
+<ul>
+<li><a href="#whats-patched">What's patched</a>
+  <ol>
+    <li><a href="#1-cloudflare-zero-trust-webview-sso">Cloudflare Zero Trust WebView SSO</a></li>
+    <li><a href="#2-custom-http-headers-service-tokens--advanced">Custom HTTP headers (service tokens / advanced)</a></li>
+    <li><a href="#3-auto-connect-on-cold-start">Auto-connect on cold start</a></li>
+    <li><a href="#4-automatic-cf-session-expiry-detection--refresh">Automatic CF session expiry detection & refresh</a></li>
+    <li><a href="#5-lan-address-auto-routing-home-network-fast-lane">LAN address auto-routing</a></li>
+    <li><a href="#6-security-hardening">Security hardening</a></li>
+    <li><a href="#7-in-app-update-checker">In-app update checker</a></li>
+  </ol>
+</li>
+<li><a href="#nanohive-theme">NanoHive Theme</a></li>
+<li><a href="#installing">Installing</a></li>
+<li><a href="#upstream">Upstream</a></li>
+<li><a href="#contributing">Contributing</a></li>
+</ul>
+
+</td>
+<td valign="top" width="300">
+
+<img src="screenshots/nanohive/home-nanohive-contents.png" width="280" alt="Home screen with NanoHive theme, Trans Galactic Insurance">
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -36,6 +55,8 @@
 When you enter a server address and tap **Submit**, the app automatically detects if your server is behind Cloudflare Zero Trust. If detected, an in-app WebView opens, you log in with your Cloudflare identity (Google, Microsoft, GitHub, etc.), and the app captures and stores the session automatically. No manual token entry required.
 
 You can also tap **Login with Cloudflare** below the Submit button to trigger this manually. If your session ever expires, the app detects it and reopens the WebView for a fresh login on its own — see §4.
+
+Session tokens are encrypted at rest, not stored in plaintext — see [Security hardening](#6-security-hardening) below for details.
 
 ### 2. Custom HTTP headers (service tokens / advanced)
 
@@ -52,6 +73,8 @@ Cloudflare sessions expire on a schedule set by your CF Access admin. When that 
 You can also trigger a refresh manually anytime: side menu (hamburger icon) → **Refresh Cloudflare Login**.
 
 ### 5. LAN address auto-routing (home network fast lane)
+
+<p align="center"><img src="screenshots/nanohive/server-connect-cloudflare-lan.png" width="320" alt="Server connect screen showing Server address, LAN address, Custom Headers, and Login with Cloudflare"></p>
 
 When adding or editing a server, an optional **LAN address** field appears below the main server address. Enter your server's local IP (e.g. `http://192.168.1.100:13378`).
 
@@ -70,6 +93,42 @@ Your Cloudflare session and any custom header tokens are encrypted at rest, and 
 ### 7. In-app update checker
 
 The app checks GitHub for a newer stable release shortly after launch (at most once every 5 days). If one's available, a small dismissible card appears — open the release notes, silence it until the next version, or close it for now. Can be turned off entirely in **Settings → CF Zero Trust**.
+
+---
+
+## NanoHive Theme
+
+<p align="center">
+  <img src="screenshots/nanohive/home-nanohive.png" width="240" alt="Home screen with NanoHive theme">
+  <img src="screenshots/nanohive/home-stock.png" width="240" alt="Home screen, stock theme">
+  <img src="screenshots/nanohive/home-nanohive-2.png" width="240" alt="Home screen with NanoHive theme, different book">
+</p>
+
+This build includes a native Android port of **[NanoHive](https://github.com/rodzalendo/nanohive-abs-theme)**, a theme for Audiobookshelf created by **[rodzalendo](https://github.com/rodzalendo)**, MIT licensed. All credit for the original design, color palette, and feature concepts belongs to rodzalendo — this is a port, not original design work. Go try NanoHive on your own server — it looks great.
+
+NanoHive normally ships as a reverse proxy that themes the Audiobookshelf **web client**; by its own README, "the ABS mobile apps render natively and are unaffected." Since a mobile app can't be reverse-proxied and themed with injected CSS the way a browser can, this fork ports the same look and feature set natively into the Android app's own UI — each component checked against NanoHive's actual source.
+
+Toggle it on or off anytime from the side menu (hamburger icon → **NanoHive** switch, near the bottom).
+
+### What's included
+
+- 12 base color themes, a full accent-color picker, and 16 selectable fonts — all live in an in-app customization panel (side menu → **Customizations**), no server-side config needed
+- A "Pick up where you left off" hero carousel on the home screen — swipeable, with auto-advance
+- An expanded **Recent Series** shelf (stock Audiobookshelf caps this shelf at a handful of items)
+- Cinematic blurred-cover backgrounds behind the home, item detail, and series detail screens
+- Diagonal stacked-cover art for series and collections, with a book-count badge
+- Restyled mini player, with touched-up fullscreen player and reader toolbar
+- Finished-book badges, reordered metadata, and a Goodreads search link on the item detail page
+- Per-user toggles for which home shelves and side-menu entries are shown
+
+<p align="center">
+  <img src="screenshots/nanohive/drawer-nanohive-on.png" width="240" alt="Side menu open over the series grid, NanoHive on">
+  <img src="screenshots/nanohive/drawer-nanohive-off.png" width="240" alt="Side menu open over the series grid, NanoHive off">
+</p>
+
+<p align="center">
+  <img src="screenshots/nanohive/nanohive-customizations.png" width="240" alt="NanoHive Customizations settings panel">
+</p>
 
 ---
 
