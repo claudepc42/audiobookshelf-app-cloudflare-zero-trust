@@ -9,8 +9,8 @@
       <p class="pl-4">{{ $strings.MessageLoadingServerData }}</p>
     </div>
 
-    <div class="w-full" :class="{ 'py-6': altViewEnabled }">
-      <div v-if="nhThemeActive && !currentLibraryIsPodcast" id="nh-welcome" class="px-5 pt-6 pb-3">
+    <div class="w-full" :class="{ 'py-3': altViewEnabled }">
+      <div v-if="nhThemeActive && !currentLibraryIsPodcast" id="nh-welcome" class="px-5 pt-4 pb-3">
         <p class="text-xs font-semibold tracking-widest" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.12em">{{ greetingLine }}</p>
         <h2 class="mt-1 text-2xl font-medium leading-tight" style="font-family: var(--nh-serif); color: var(--nh-text-1)">Welcome back, {{ username }}</h2>
       </div>
