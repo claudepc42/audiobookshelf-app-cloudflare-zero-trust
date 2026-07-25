@@ -11,7 +11,7 @@
 
     <div class="w-full" :class="{ 'pb-3': altViewEnabled }">
       <div v-if="nhThemeActive && !currentLibraryIsPodcast" id="nh-welcome" class="px-5 pb-3" style="padding-top: 15px">
-        <p class="text-xs font-semibold tracking-widest" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.12em">{{ greetingLine }}</p>
+        <p class="text-xs tracking-widest" style="color: var(--nh-muted-2); text-transform: uppercase; letter-spacing: 0.12em">{{ greetingLine }}</p>
         <h2 class="mt-1 text-2xl font-medium leading-tight" style="font-family: var(--nh-serif); color: var(--nh-text-1)">Welcome back, {{ username }}</h2>
       </div>
       <nh-hero-carousel v-if="nhThemeActive && !currentLibraryIsPodcast && nhSettings.showHeroCarousel" :slides="continueListeningItems" :advance-seconds="nhSettings.carouselTiming" />

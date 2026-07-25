@@ -1,6 +1,6 @@
 <template>
   <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full">
-  <div class="relative w-full overflow-hidden" :style="{ minHeight: cardHeight + 'px' }" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+  <div class="relative w-full overflow-hidden" style="min-height: 310px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
     <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
@@ -29,12 +29,16 @@
       <p class="text-xs font-semibold flex-shrink-0" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.13em">Pick up where you left off</p>
 
       <!-- Main row: text LEFT, cover RIGHT -->
-      <div class="flex gap-4 mt-2 flex-1 min-h-0" :ref="`mainRow-${slide.id}`" @click="openItem(slide)">
+      <div class="flex gap-4 mt-2 flex-1 min-h-0" @click="openItem(slide)">
 
         <!-- Text column (left) -->
         <div class="flex-1 min-w-0 flex flex-col">
-          <!-- Big Spectral title -->
-          <p class="leading-tight line-clamp-2 flex-shrink-0" style="font-family: var(--nh-serif); font-size: 1.70rem; font-weight: 700; color: #f4eee2; letter-spacing: -0.01em; margin-top: 4px">{{ itemTitle(slide) }}</p>
+          <!-- Big Spectral title — min-height reserves the full 2-line-clamp
+               height (2.5em = leading-tight's 1.25 * 2 lines) so a 1-line
+               title leaves blank space below it instead of pulling the rest
+               of the card upward. Keeps every card the same fixed shape
+               regardless of title/description length. -->
+          <p class="leading-tight line-clamp-2 flex-shrink-0" style="font-family: var(--nh-serif); font-size: 1.70rem; font-weight: 700; color: #f4eee2; letter-spacing: -0.01em; margin-top: 4px; min-height: 2.5em">{{ itemTitle(slide) }}</p>
           <!-- Author -->
           <p class="text-xs mt-1 truncate flex-shrink-0" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
 
@@ -45,8 +49,12 @@
             <span class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemGenre(slide) }}</span>
           </div>
 
-          <!-- Description -->
-          <p v-if="itemDescription(slide)" class="text-xs mt-2 line-clamp-3 leading-relaxed flex-shrink-0" style="color: rgba(154,144,133,0.80)">{{ itemDescription(slide) }}</p>
+          <!-- Description — min-height reserves the full 3-line-clamp height
+               (4.875em = leading-relaxed's 1.625 * 3 lines) for the same
+               reason as the title above. Reserved even when there's no
+               description at all, so Continue/the bar land in the same spot
+               either way instead of the card losing its shape. -->
+          <p class="text-xs mt-2 line-clamp-3 leading-relaxed flex-shrink-0" style="color: rgba(154,144,133,0.80); min-height: 4.875em">{{ itemDescription(slide) }}</p>
 
           <!-- Continue + progress bar, sharing one row. The row is widened via
                calc() by exactly (gap-4 + cover width) so its right edge lands
@@ -57,7 +65,7 @@
                with align-items:flex-end bottom-aligning it to Continue using
                real rendered heights, not estimated ones. margin-top is one
                description line-height (12px * 1.625) below the description. -->
-          <div class="flex items-end flex-shrink-0" style="margin-top: 19.5px; width: calc(100% + 144px)" :ref="`continueRow-${slide.id}`">
+          <div class="flex items-end flex-shrink-0" style="margin-top: 19.5px; width: calc(100% + 144px)">
             <button
               class="flex items-center justify-center gap-1.5 rounded-xl font-semibold text-xs flex-shrink-0"
               style="background: rgba(var(--nh-amber-rgb), 0.14); border: 1px solid rgba(var(--nh-amber-rgb), 0.50); color: var(--nh-amber); height: 38px; padding: 0 18px"
@@ -67,7 +75,7 @@
               Continue
             </button>
             <div class="flex-1" />
-            <div class="flex-shrink-0" style="width: calc(100% - 144px)" :ref="`barUnit-${slide.id}`">
+            <div class="flex-shrink-0" style="width: calc(100% - 144px)">
               <div class="h-0.5 w-full rounded-full overflow-hidden mb-1" style="background: rgba(244,238,226,0.15)">
                 <div class="h-full rounded-full transition-all duration-300" style="background: var(--nh-amber)" :style="{ width: itemProgress(slide) + '%' }" />
               </div>
@@ -78,14 +86,16 @@
         </div>
 
         <!-- Cover (right) — fixed width, natural height via aspect ratio.
-             marginTop is measured dynamically (not a fixed guess) so its
-             bottom edge sits a fixed 10px above the progress bar regardless
-             of how tall the content above it renders — descriptions vary in
-             length (or are absent entirely), so this can't be a constant. -->
+             margin-top is a fixed constant now that title/description reserve
+             fixed heights above (see those comments) — every slide's content
+             stack is the same height regardless of actual text length, so
+             the cover's position relative to the bar is fixed too: computed
+             for the reserved stack (label+gap+title+author+pills+description
+             +gap+Continue) so the cover's bottom lands 10px above the bar. -->
         <img
           :src="coverSrc(slide)"
           class="object-cover flex-shrink-0"
-          :style="{ width: '128px', height: '205px', borderRadius: '14px', boxShadow: '0 14px 44px rgba(0,0,0,0.72)', alignSelf: 'flex-start', marginTop: (coverOffsets[slide.id] !== undefined ? coverOffsets[slide.id] : 4) + 'px' }"
+          style="width: 128px; height: 205px; border-radius: 14px; box-shadow: 0 14px 44px rgba(0,0,0,0.72); align-self: flex-start; margin-top: 7px"
           :alt="itemTitle(slide)"
           loading="lazy"
         />
@@ -172,14 +182,7 @@ export default {
       firstTouchTime: 0,
       lastUserTouchTime: 0,
       lastAdvanceTime: 0,
-      advanceInterval: null,
-      // Measured (not guessed) per-slide cover margin-top, keyed by slide id —
-      // see measureLayout(). Falls back to 4px (the original value) until the
-      // first measurement pass completes.
-      coverOffsets: {},
-      // Measured card height, replacing a fixed guess — content height varies
-      // per slide (descriptions differ in length, or are absent entirely).
-      cardHeight: 300
+      advanceInterval: null
     }
   },
   watch: {
@@ -187,11 +190,9 @@ export default {
       if (this.activeIndex >= newVal.length) this.activeIndex = 0
       this.restartTimer()
       this.publishActiveCover()
-      this.measureLayout()
     },
     activeIndex() {
       this.publishActiveCover()
-      this.measureLayout()
     }
   },
   methods: {
@@ -206,47 +207,6 @@ export default {
       // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
       AbsLogger.info({ tag: 'nh-diag', message: `HeroCarousel.publishActiveCover: index=${this.activeIndex} title=${this.itemTitle(slide)} url=${url || '(empty)'}` })
       if (url) this.$store.commit('setNhHomeCoverUrl', url)
-    },
-    // Measures actual rendered positions (not estimates) to place the cover
-    // and size the card correctly regardless of how tall each slide's content
-    // stack happens to be — descriptions vary in length or are absent
-    // entirely, so a fixed guess would drift out of alignment per book.
-    measureLayout() {
-      this.$nextTick(() => {
-        this.slides.forEach((slide) => {
-          const mainRow = this.$refs[`mainRow-${slide.id}`]?.[0]
-          const barUnit = this.$refs[`barUnit-${slide.id}`]?.[0]
-          if (!mainRow || !barUnit) return
-
-          const rowRect = mainRow.getBoundingClientRect()
-          const barRect = barUnit.getBoundingClientRect()
-          const barTopRelative = barRect.top - rowRect.top
-
-          // Gap: 20% taller than the rendered height of a digit glyph in the
-          // progress label (e.g. the "1" in "1 hr 28 min left") — measured
-          // off that text element's own line box rather than a font-metrics
-          // guess, since the label's actual font/rendering is what matters.
-          const digitHeight = barRect.height > 0 ? barUnit.querySelector('p')?.getBoundingClientRect().height * 0.7 || 8.4 : 8.4
-          const gap = digitHeight * 1.2
-
-          const coverHeight = 205
-          const marginTop = Math.max(0, barTopRelative - gap - coverHeight)
-          this.$set(this.coverOffsets, slide.id, marginTop)
-        })
-
-        // Card height: measured off the active slide's actual content
-        // bottom (the Continue/progress row), not guessed, plus the card's
-        // own bottom padding (20px, pb-5) to match the top padding.
-        const activeSlide = this.slides[this.activeIndex]
-        if (!activeSlide) return
-        const outer = this.$el?.querySelector('.overflow-hidden')
-        const continueRow = this.$refs[`continueRow-${activeSlide.id}`]?.[0]
-        if (!outer || !continueRow) return
-        const outerRect = outer.getBoundingClientRect()
-        const rowRect2 = continueRow.getBoundingClientRect()
-        const contentBottom = rowRect2.bottom - outerRect.top
-        this.cardHeight = Math.round(contentBottom + 20)
-      })
     },
     slideStyle(i) {
       const diff = i - this.activeIndex
@@ -455,10 +415,6 @@ export default {
     // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
     AbsLogger.info({ tag: 'nh-diag', message: `HeroCarousel mounted: slides.length=${this.slides.length} activeIndex=${this.activeIndex}` })
     this.publishActiveCover()
-    this.measureLayout()
-    // Custom serif font (title) can still be loading at first mount and
-    // reflow once it swaps in — re-measure shortly after to catch that.
-    setTimeout(() => this.measureLayout(), 500)
   },
   beforeDestroy() {
     clearInterval(this.advanceInterval)
