@@ -104,7 +104,7 @@ The app checks GitHub for a newer stable release shortly after launch (at most o
   <img src="screenshots/nanohive/home-stock.png" width="240" alt="Home screen, stock theme">
 </p>
 
-This build includes a native Android port of **[NanoHive](https://github.com/rodzalendo/nanohive-abs-theme)**, a theme for Audiobookshelf created by **[rodzalendo](https://github.com/rodzalendo)**, MIT licensed. All credit for the original design, color palette, and feature concepts belongs to rodzalendo — this is a port, not original design work. Go try NanoHive on your own server — it looks great.
+This build includes the start to a native Android port of **[NanoHive](https://github.com/rodzalendo/nanohive-abs-theme)**, a theme for Audiobookshelf created by **[rodzalendo](https://github.com/rodzalendo)**, MIT licensed. All credit for the original design, color palette, and feature concepts belongs to rodzalendo — this is a port, not original design work. Go try NanoHive on your own server — it looks great.
 
 NanoHive normally ships as a reverse proxy that themes the Audiobookshelf **web client**; by its own README, "the ABS mobile apps render natively and are unaffected." Since a mobile app can't be reverse-proxied and themed with injected CSS the way a browser can, this fork ports the same look and feature set natively into the Android app's own UI — each component checked against NanoHive's actual source.
 
