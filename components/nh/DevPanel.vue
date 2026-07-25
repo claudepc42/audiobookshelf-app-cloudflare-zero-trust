@@ -91,31 +91,28 @@
 </template>
 
 <script>
-// Defaults match NH source exactly (core.js): appbar/player rgba(--nh-bg-rgb,0.45/0.4)
-// blur(28px), mobile drawer rgba(--nh-bg-rgb,0.98..0.94) blur(24px).
-//
-// Cinematic Background group's defaults match nh-theme.css's #nh-home-bg rules
-// (blur/brightness/saturate already scaled down from NH source's desktop-tuned
-// blur(55px) to blur(26px) for a phone viewport — see the comment there). Added
-// here so the actual visible result can be tuned live on-device instead of a
-// build/install cycle per guess while chasing the "cinematic bg barely visible
-// on phone screens" issue.
+// Defaults tuned live on-device 2026-07-25 and set as the new baseline
+// (originally matched NH source exactly: appbar/player rgba(--nh-bg-rgb,
+// 0.45/0.4) blur(28px), mobile drawer rgba(--nh-bg-rgb,0.98..0.94)
+// blur(24px); cinematic background originally blur(55px) brightness(0.45)
+// saturate(1.35), gradient 0.5/0.8/1.0 — ported directly from NH's
+// desktop-tuned source before being tuned for a phone viewport).
 const CONTROLS = [
-  { group: 'Cinematic Background', prop: '--nh-cine-blur', label: 'Blur', default: 26, min: 0, max: 60, step: 1, unit: 'px' },
-  { group: 'Cinematic Background', prop: '--nh-cine-brightness', label: 'Brightness', default: 0.45, min: 0, max: 1.5, step: 0.01, unit: '' },
-  { group: 'Cinematic Background', prop: '--nh-cine-saturate', label: 'Saturate', default: 1.35, min: 0, max: 3, step: 0.05, unit: '' },
-  { group: 'Cinematic Background', prop: '--nh-cine-grad-top', label: 'Gradient Top', default: 0.5, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-blur', label: 'Blur', default: 12, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Cinematic Background', prop: '--nh-cine-brightness', label: 'Brightness', default: 1.08, min: 0, max: 1.5, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-saturate', label: 'Saturate', default: 1.9, min: 0, max: 3, step: 0.05, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-top', label: 'Gradient Top', default: 0.77, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.8, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-grad-bottom', label: 'Gradient Bottom', default: 1, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.45, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Appbar', prop: '--nh-appbar-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
-  { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0.96, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Drawer', prop: '--nh-drawer-blur', label: 'Blur', default: 24, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.41, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Appbar', prop: '--nh-appbar-blur', label: 'Blur', default: 48, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Drawer', prop: '--nh-drawer-blur', label: 'Blur', default: 13, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Mini Player', prop: '--nh-miniplayer-opacity', label: 'Opacity', default: 0.4, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Mini Player', prop: '--nh-miniplayer-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' }
 ]
 
-const panelState = { bgOpacity: 0.97, scrimOpacity: 0.55, blur: 0 }
+const panelState = { bgOpacity: 0.56, scrimOpacity: 0.56, blur: 21 }
 
 export default {
   data() {

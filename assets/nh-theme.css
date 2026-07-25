@@ -38,15 +38,27 @@ html[data-theme='nanohive'] {
   --nh-icon-base: #a89f94;
   --nh-hairline: rgba(255, 255, 255, 0.06);
   --nh-hairline-lit: rgba(255, 255, 255, 0.14);
-  /* NH UI Tuner defaults — overridden live by DevPanel.vue. Values match NH source
-     exactly (core.js: appbar/player rgba(--nh-bg-rgb,0.45/0.4) blur(28px) saturate(150%);
-     mobile drawer rgba(--nh-bg-rgb,0.98/0.94) blur(24px) saturate(140%)). */
-  --nh-appbar-opacity: 0.45;
-  --nh-appbar-blur: 28px;
-  --nh-drawer-opacity: 0.96;
-  --nh-drawer-blur: 24px;
+  /* NH UI Tuner defaults — overridden live by DevPanel.vue. Originally matched
+     NH source exactly (core.js: appbar/player rgba(--nh-bg-rgb,0.45/0.4)
+     blur(28px) saturate(150%); mobile drawer rgba(--nh-bg-rgb,0.98/0.94)
+     blur(24px) saturate(140%)); tuned live on-device and set as the new
+     baseline 2026-07-25. */
+  --nh-appbar-opacity: 0.41;
+  --nh-appbar-blur: 48px;
+  --nh-drawer-opacity: 0;
+  --nh-drawer-blur: 13px;
   --nh-miniplayer-opacity: 0.4;
   --nh-miniplayer-blur: 28px;
+  /* Cinematic background — tuned live on-device 2026-07-25 after the .bg-bg
+     visibility bug was fixed (was previously invisible regardless of value).
+     Originally blur(55px) brightness(0.45) saturate(1.35), gradient
+     0.5/0.8/1.0 — ported directly from NH's desktop-tuned source. */
+  --nh-cine-blur: 12px;
+  --nh-cine-brightness: 1.08;
+  --nh-cine-saturate: 1.9;
+  --nh-cine-grad-top: 0.77;
+  --nh-cine-grad-mid: 0.8;
+  --nh-cine-grad-bottom: 1;
 }
 
 /* NH source: core.js line 67 — global font-size scaling driven by the fontScale setting */
@@ -109,7 +121,7 @@ html[data-theme='nanohive'] #nh-home-bg .nh-bg-layer {
      unchanged from source. Exposed as CSS vars (defaults match the values
      above) so the NH UI Tuner dev panel can adjust them live on-device
      instead of needing another build/install cycle per guess. */
-  filter: blur(var(--nh-cine-blur, 26px)) brightness(var(--nh-cine-brightness, 0.45)) saturate(var(--nh-cine-saturate, 1.35));
+  filter: blur(var(--nh-cine-blur, 12px)) brightness(var(--nh-cine-brightness, 1.08)) saturate(var(--nh-cine-saturate, 1.9));
   opacity: 0;
   transition: opacity 2.8s ease;
 }
@@ -131,7 +143,7 @@ html[data-theme='nanohive'] #nh-home-bg::after {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.5)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.8)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 1)) 100%);
+  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.77)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.8)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 1)) 100%);
 }
 /* Item / series-detail pages: lighter blur brightness + softer gradient (NH: body.nh-cinematic-item) */
 html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item .nh-bg-layer {
