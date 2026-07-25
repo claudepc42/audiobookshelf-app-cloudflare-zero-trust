@@ -38,9 +38,9 @@
 </ul>
 
 </td>
-<td valign="top" width="300">
+<td valign="top" width="355">
 
-<img src="screenshots/nanohive/home-nanohive-contents.png" width="280" alt="Home screen with NanoHive theme, Trans Galactic Insurance">
+<img src="screenshots/nanohive/home-nanohive-contents.png" width="335" alt="Home screen with NanoHive theme, Trans Galactic Insurance">
 
 </td>
 </tr>
