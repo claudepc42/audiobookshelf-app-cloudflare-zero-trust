@@ -1092,16 +1092,31 @@ html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerTrack {
   bottom: 12px !important;
 }
 
-/* Book cover thumbnail — rounder corners, and shifted up to stay inside the raised pill.
-   Original bottom: 68px; pill moved up 20px so cover moves up by the same amount. */
-html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .cover-wrapper {
-  border-radius: 12px !important;
-  bottom: calc(88px + env(safe-area-inset-bottom)) !important;
+/* Stock's icon row sits 70px from the container's bottom edge while the
+   track above is now pinned at 12px, leaving a ~28px dead gap between the
+   two rows. Shrink the whole mini pill by 25px and pull the icon row/cover/
+   title down by the same amount so everything sits proportionally where it
+   did, but the pill itself is shorter and the icon row lands close to the
+   track instead of floating above a gap. */
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .playerContainer {
+  height: 95px !important;
+}
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) #playerControls {
+  bottom: 45px !important;
 }
 
-/* Title/author texts — shifted up to match pill offset (original bottom: 76px) */
+/* Book cover thumbnail — rounder corners, and shifted up to stay inside the raised pill.
+   Original bottom: 68px; pill moved up 20px so cover moves up by the same amount;
+   then pulled down another 25px to match the shorter pill above. */
+html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .cover-wrapper {
+  border-radius: 12px !important;
+  bottom: calc(63px + env(safe-area-inset-bottom)) !important;
+}
+
+/* Title/author texts — shifted up to match pill offset (original bottom: 76px),
+   then pulled down another 25px to match the shorter pill above. */
 html[data-theme='nanohive'] #streamContainer:not(.fullscreen) .title-author-texts {
-  bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+  bottom: calc(71px + env(safe-area-inset-bottom)) !important;
 }
 
 /* Play button: amber-tinted circle instead of a random cover-colour circle, plus

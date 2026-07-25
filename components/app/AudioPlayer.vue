@@ -87,8 +87,10 @@
             <span class="material-symbols text-3xl leading-none">forward_media</span>
             <span v-if="showFullscreen" class="jump-label text-[10px] font-semibold leading-tight">{{ jumpForwardLabel }}</span>
           </div>
-          <!-- Sleep timer — mini player only -->
-          <span v-show="!showFullscreen && !playerSettings.lockUi" class="text-fg-muted cursor-pointer" style="font-size: 1.35rem; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center" @click.stop="$emit('showSleepTimer')">
+          <!-- Sleep timer — mini player only. v-if (not v-show): the fullscreen
+               view already has its own sleep icon in the bottom row, and this
+               one was showing up there too despite the showFullscreen guard. -->
+          <span v-if="!showFullscreen && !playerSettings.lockUi" class="text-fg-muted cursor-pointer" style="font-size: 1.35rem; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center" @click.stop="$emit('showSleepTimer')">
             <svg v-if="!sleepTimerRunning" xmlns="http://www.w3.org/2000/svg" style="width: 1.2rem; height: 1.2rem" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
             <p v-else class="text-success" style="font-size: 0.72rem; font-family: monospace">{{ sleepTimeRemainingPretty }}</p>
           </span>
