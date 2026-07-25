@@ -99,9 +99,9 @@ The app checks GitHub for a newer stable release shortly after launch (at most o
 ## NanoHive Theme
 
 <p align="center">
+  <img src="screenshots/nanohive/home-nanohive-2.png" width="240" alt="Home screen with NanoHive theme, different book">
   <img src="screenshots/nanohive/home-nanohive.png" width="240" alt="Home screen with NanoHive theme">
   <img src="screenshots/nanohive/home-stock.png" width="240" alt="Home screen, stock theme">
-  <img src="screenshots/nanohive/home-nanohive-2.png" width="240" alt="Home screen with NanoHive theme, different book">
 </p>
 
 This build includes a native Android port of **[NanoHive](https://github.com/rodzalendo/nanohive-abs-theme)**, a theme for Audiobookshelf created by **[rodzalendo](https://github.com/rodzalendo)**, MIT licensed. All credit for the original design, color palette, and feature concepts belongs to rodzalendo — this is a port, not original design work. Go try NanoHive on your own server — it looks great.
