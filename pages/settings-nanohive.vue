@@ -87,6 +87,13 @@
     </div>
 
     <div class="flex items-center py-2">
+      <div class="w-10 flex justify-center" @click="updateSetting('greetingUsesAccent', !settings.greetingUsesAccent)">
+        <ui-toggle-switch :value="settings.greetingUsesAccent" @input="updateSetting('greetingUsesAccent', $event)" />
+      </div>
+      <p class="pl-4" style="color: #d8cfc2">Greeting Label Uses Accent Color</p>
+    </div>
+
+    <div class="flex items-center py-2">
       <div class="w-10 flex justify-center" @click="updateSetting('showCustomRecentSeries', !settings.showCustomRecentSeries)">
         <ui-toggle-switch :value="settings.showCustomRecentSeries" @input="updateSetting('showCustomRecentSeries', $event)" />
       </div>

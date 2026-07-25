@@ -30,7 +30,11 @@ export const NH_SETTINGS_DEFAULTS = {
   hideHomeNewAuthors: false,
   hideHomeRecentSeries: false,
   showCustomRecentSeries: true,
-  recentSeriesCount: 12
+  recentSeriesCount: 12,
+  // NH source uses a muted gray (--nh-muted-2) for the home greeting label
+  // ("FRIDAY - GOOD EVENING"); default true keeps it on the accent color
+  // instead, matching the app's existing look before this toggle was added.
+  greetingUsesAccent: true
 }
 
 // NH source: enhancements.js baseThemes (lines 67-80)
