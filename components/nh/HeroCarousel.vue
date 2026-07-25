@@ -1,6 +1,6 @@
 <template>
   <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full">
-  <div class="relative w-full overflow-hidden" style="min-height: 370px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+  <div class="relative w-full overflow-hidden" style="min-height: 300px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
     <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
@@ -22,7 +22,7 @@
     <div
       v-for="(slide, i) in slides"
       :key="`content-${slide.id}`"
-      class="absolute inset-0 z-20 flex flex-col px-5 pt-5 pb-4"
+      class="absolute inset-0 z-20 flex flex-col px-5 pt-5 pb-5"
       :style="slideStyle(i)"
     >
       <!-- Amber label — small caps -->
@@ -42,32 +42,30 @@
           <div class="flex flex-wrap gap-1.5 mt-2 flex-shrink-0">
             <span v-if="itemDuration(slide)" class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemDuration(slide) }}</span>
             <span v-if="itemNarrator(slide)" class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">Narrated by {{ itemNarrator(slide) }}</span>
-            <span class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">Audiobook</span>
+            <span class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemGenre(slide) }}</span>
           </div>
 
           <!-- Description -->
           <p v-if="itemDescription(slide)" class="text-xs mt-2 line-clamp-3 leading-relaxed flex-shrink-0" style="color: rgba(154,144,133,0.80)">{{ itemDescription(slide) }}</p>
 
-          <!-- Spacer -->
-          <div class="flex-1 min-h-0" />
-
-          <!-- Progress -->
-          <div class="flex-shrink-0">
-            <div class="h-0.5 w-full rounded-full overflow-hidden mb-1" style="background: rgba(244,238,226,0.15)">
-              <div class="h-full rounded-full transition-all duration-300" style="background: var(--nh-amber)" :style="{ width: itemProgress(slide) + '%' }" />
-            </div>
-            <p class="text-xs mb-2" style="color: rgba(154,144,133,0.9)">{{ itemProgressLabel(slide) }}</p>
+          <!-- Progress bar — tight to the description instead of pushed to the
+               bottom of the card by a flex spacer -->
+          <div class="h-0.5 w-full rounded-full overflow-hidden flex-shrink-0" style="background: rgba(244,238,226,0.15); margin-top: 14px">
+            <div class="h-full rounded-full transition-all duration-300" style="background: var(--nh-amber)" :style="{ width: itemProgress(slide) + '%' }" />
           </div>
 
-          <!-- Small amber-outlined Continue pill -->
-          <button
-            class="flex items-center justify-center gap-1.5 rounded-xl font-semibold text-xs flex-shrink-0"
-            style="background: rgba(var(--nh-amber-rgb), 0.14); border: 1px solid rgba(var(--nh-amber-rgb), 0.50); color: var(--nh-amber); height: 38px; padding: 0 18px; align-self: flex-start"
-            @click.stop="continueItem(slide)"
-          >
-            <span class="material-symbols fill" style="font-size: 1.05rem">play_arrow</span>
-            Continue
-          </button>
+          <!-- Continue (left) + progress text (right) sharing one row -->
+          <div class="flex items-center justify-between flex-shrink-0" style="margin-top: 10px">
+            <button
+              class="flex items-center justify-center gap-1.5 rounded-xl font-semibold text-xs"
+              style="background: rgba(var(--nh-amber-rgb), 0.14); border: 1px solid rgba(var(--nh-amber-rgb), 0.50); color: var(--nh-amber); height: 38px; padding: 0 18px"
+              @click.stop="continueItem(slide)"
+            >
+              <span class="material-symbols fill" style="font-size: 1.05rem">play_arrow</span>
+              Continue
+            </button>
+            <p class="text-xs" style="color: rgba(154,144,133,0.9)">{{ itemProgressLabel(slide) }}</p>
+          </div>
         </div>
 
         <!-- Cover (right) — fixed width, natural height via aspect ratio -->
@@ -86,7 +84,7 @@
     <!-- Nav row: arrows + dots. NH source: enhancements.js lines 1410-1420 —
          a sibling of the slide track (#nh-hero-nav next to #nh-hero-viewport),
          not nested inside a slide, so it stays put while slides transform. -->
-    <div v-if="slides.length > 1" class="relative z-20 flex items-center justify-center flex-shrink-0" style="gap: 18px; margin-top: 22px">
+    <div v-if="slides.length > 1" class="relative z-20 flex items-center justify-center flex-shrink-0" style="gap: 18px; margin-top: 10px; margin-bottom: 24px">
       <button
         type="button"
         class="flex items-center justify-center rounded-full"
@@ -244,6 +242,11 @@ export default {
       const narrators = item.media?.metadata?.narrators
       if (narrators?.length) return narrators[0]
       return item.media?.metadata?.narrator || ''
+    },
+    itemGenre(item) {
+      const genres = item.media?.metadata?.genres
+      if (genres?.length) return genres[0]
+      return item.mediaType === 'podcast' ? 'Podcast' : 'Audiobook'
     },
     itemProgress(item) {
       const prog = this._getProgress(item)
