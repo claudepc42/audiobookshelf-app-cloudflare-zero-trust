@@ -64,6 +64,25 @@ export default {
         this.applyNhCustomizations(val)
       }
     },
+    // Keeps html[data-theme] in sync with the actual nhThemeActive state,
+    // including on initial app load — SideDrawer.vue's toggle only ever set
+    // this attribute in response to a manual click, so a fresh install (where
+    // nhThemeActive now defaults to true) never got it set at all, silently
+    // breaking every nh-theme.css rule scoped under html[data-theme='nanohive']
+    // (cinematic background, Recent Series, backdrop-filter chrome) while
+    // anything using inline var(--nh-*) kept working. Only handles turning it
+    // on here — turning off still needs the async previousTheme lookup that
+    // SideDrawer.vue's toggle and NanohiveCompatModal.vue already do correctly,
+    // and there's nothing to clean up on a fresh mount where it's already off.
+    nhThemeActive: {
+      immediate: true,
+      handler(val) {
+        if (val) {
+          document.documentElement.dataset.theme = 'nanohive'
+          this._loadNhFont()
+        }
+      }
+    },
     'nhStoreHomeCoverUrl'(val) {
       if (!val) return
       try {
@@ -203,6 +222,16 @@ export default {
     }
   },
   methods: {
+    // Mirrors SideDrawer.vue's private _loadNhFont() exactly — needed here too
+    // since the nhThemeActive watcher above now also triggers the "on" path.
+    _loadNhFont() {
+      if (document.getElementById('nh-spectral-font')) return
+      const link = document.createElement('link')
+      link.id = 'nh-spectral-font'
+      link.rel = 'stylesheet'
+      link.href = 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap'
+      document.head.appendChild(link)
+    },
     async checkForUpdates() {
       if (this.$platform !== 'android') return
       const enabled = localStorage.getItem('cfzt_update_checks_enabled')

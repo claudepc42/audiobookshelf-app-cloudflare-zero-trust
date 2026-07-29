@@ -3,6 +3,21 @@
 @tailwind utilities;
 
 @layer base {
+  /* Tailwind's Preflight resets <button> to -webkit-appearance:button (native
+     chrome kept, not stripped) — every button is expected to set its own
+     bg-* class if it needs one. Modern Chrome's native button look is subtle
+     enough that unstyled buttons often look fine by accident, but older
+     Android WebView (e.g. Chrome 53 on API 24) renders the native default as
+     an opaque light gray/white box — visible as a "white box over the icon"
+     on buttons that never got an explicit background class (hamburger menu,
+     several drawer/modal buttons, etc.). A bare element selector here is
+     lower specificity than any class selector, so this never overrides a
+     real bg-* class — it only fills the gap for buttons that never had one.
+     Not scoped to NanoHive; this is a stock-theme bug too. */
+  button {
+    background-color: transparent;
+  }
+
   :root {
     color: white;
     --color-bg: 56 56 56;
