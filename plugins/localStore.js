@@ -125,6 +125,26 @@ class LocalStorage {
     }
   }
 
+  // Records the app version the NanoHive compatibility warning was last shown for,
+  // so it only asks once per install and again after an update (new version string).
+  async setNhCompatWarnedVersion(version) {
+    try {
+      await Preferences.set({ key: 'nh-compat-warned-version', value: version })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set nh-compat-warned-version', error)
+    }
+  }
+
+  async getNhCompatWarnedVersion() {
+    try {
+      var obj = (await Preferences.get({ key: 'nh-compat-warned-version' })) || {}
+      return obj.value || null
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get nh-compat-warned-version', error)
+      return null
+    }
+  }
+
   async setLanguage(lang) {
     try {
       await Preferences.set({ key: 'lang', value: lang })

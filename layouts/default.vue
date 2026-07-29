@@ -17,6 +17,7 @@
     <nh-dev-panel v-if="showNhDevPanel" @close="showNhDevPanel = false" />
     <readers-reader />
     <app-update-prompt v-if="showUpdatePrompt" :latest-tag="updateLatestTag" :latest-url="updateLatestUrl" :is-player-open="isPlayerOpen" @dismiss="onUpdateDismiss" @silence="onUpdateSilence" @auto-hide="showUpdatePrompt = false" />
+    <modals-nanohive-compat-modal v-model="showNhCompatWarning" />
   </div>
 </template>
 
@@ -41,6 +42,8 @@ export default {
       showUpdatePrompt: false,
       updateLatestTag: '',
       updateLatestUrl: '',
+      showNhCompatWarning: false,
+      nhCompatCheckTimeouts: [],
       // Cinematic background crossfade: two layers, ping-ponged so the incoming
       // cover fades in over the outgoing one. Mirrors NH source's setHomeBg()
       // (enhancements.js) rather than a single swapped background-image.
@@ -556,53 +559,42 @@ export default {
       document.documentElement.lang = code
     },
     setNhBg(url) {
-      if (!url) {
-        AbsLogger.info({ tag: 'nh-diag', message: 'setNhBg: no-op, url is falsy' })
-        return
-      }
-      if (this.nhBgLayers[this.nhBgActiveIdx]?.url === url) {
-        AbsLogger.info({ tag: 'nh-diag', message: `setNhBg: no-op, url already active at idx ${this.nhBgActiveIdx}` })
-        return
-      }
+      if (!url) return
+      if (this.nhBgLayers[this.nhBgActiveIdx]?.url === url) return
       const nextIdx = this.nhBgActiveIdx === 0 ? 1 : 0
       this.$set(this.nhBgLayers, nextIdx, { url })
       this.nhBgActiveIdx = nextIdx
-      AbsLogger.info({ tag: 'nh-diag', message: `setNhBg: applied url to layer ${nextIdx}, nhBgActiveIdx now ${this.nhBgActiveIdx}` })
     },
-    // TEMP DIAGNOSTIC (remove once cinematic bg bug is found) — reads the
-    // actual rendered DOM/computed-style state after Vue's next render, so
-    // it reflects what the browser really did, not just our JS-side beliefs
-    // about it.
-    logNhBgDomSnapshot() {
-      try {
+    // True if the cinematic background is either not attempting to show anything
+    // right now (nothing to check), or is actually rendering correctly. False
+    // means NanoHive's blur/backdrop-filter effects aren't working on this device
+    // — either the WebView doesn't support the CSS at all, or a cover was set but
+    // never actually painted (some other silent failure).
+    isNhCinematicWorking() {
+      const supportsBlur = CSS.supports('backdrop-filter', 'blur(1px)') || CSS.supports('-webkit-backdrop-filter', 'blur(1px)')
+      if (!supportsBlur) return false
+
+      if (this.nhCinematicCoverUrl) {
         const homeBg = document.getElementById('nh-home-bg')
-        const ambientBg = document.getElementById('nh-ambient-bg')
-        const layers = homeBg ? Array.from(homeBg.querySelectorAll('.nh-bg-layer')) : []
-        // Field order matters: the log-export masking regex (https?:\/\/\S+)
-        // is greedy and eats everything up to the first whitespace, so any
-        // field placed after a URL with no space in between (e.g. a
-        // comma/bracket) gets silently swallowed too. Keep every URL-bearing
-        // field last, with a space before it, so filter/opacity always
-        // survive export intact.
-        const layerInfo = layers
-          .map((el, i) => {
-            const cs = getComputedStyle(el)
-            return `layer${i}[opacity=${cs.opacity},filter=${cs.filter}, hasImage=${cs.backgroundImage !== 'none'}]`
-          })
-          .join(' ')
-        const rootCs = getComputedStyle(document.documentElement)
-        AbsLogger.info({
-          tag: 'nh-diag',
-          message:
-            `DOM snapshot: homeBg[exists=${!!homeBg},opacity=${homeBg ? getComputedStyle(homeBg).opacity : 'N/A'},class=${homeBg?.className || 'N/A'}] ` +
-            `ambientBg[exists=${!!ambientBg},opacity=${ambientBg ? getComputedStyle(ambientBg).opacity : 'N/A'}] ` +
-            `${layerInfo} ` +
-            `vars[--nh-bg-rgb=${rootCs.getPropertyValue('--nh-bg-rgb')},--nh-canvas=${rootCs.getPropertyValue('--nh-canvas')}] ` +
-            `nhBgActiveIdx=${this.nhBgActiveIdx}`
-        })
-      } catch (e) {
-        AbsLogger.error({ tag: 'nh-diag', message: `logNhBgDomSnapshot failed: ${e.message}` })
+        if (!homeBg) return false
+        const activeLayer = homeBg.querySelectorAll('.nh-bg-layer')[this.nhBgActiveIdx]
+        if (!activeLayer) return false
+        const layerCs = getComputedStyle(activeLayer)
+        if (layerCs.backgroundImage === 'none') return false
+        if (parseFloat(getComputedStyle(homeBg).opacity) < 0.5) return false
       }
+      return true
+    },
+    // Scheduled twice (15s, 60s after mount) rather than once, so a cinematic
+    // background that just hasn't loaded a cover yet by the first check gets a
+    // second chance before we conclude anything's actually broken.
+    async checkNhCompatAndWarn() {
+      if (!this.nhThemeActive || this.showNhCompatWarning) return
+      const warnedVersion = await this.$localStore.getNhCompatWarnedVersion()
+      if (warnedVersion === this.$config.cfztVersion) return
+      if (this.isNhCinematicWorking()) return
+      this.showNhCompatWarning = true
+      await this.$localStore.setNhCompatWarnedVersion(this.$config.cfztVersion)
     },
     // Ported from enhancements.js applySettings() (lines 101-129): resolves the
     // active base theme + accent colour into the same CSS custom properties
@@ -662,12 +654,6 @@ export default {
     }
   },
   async mounted() {
-    // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
-    AbsLogger.info({
-      tag: 'nh-diag',
-      message: `layout mounted: nhThemeActive=${this.nhThemeActive} route=${this.$route?.name} platform=${this.$platform} cachedUrl=${(() => { try { return localStorage.getItem('nh-home-bg-url') || '(none)' } catch (e) { return '(error)' } })()}`
-    })
-
     // Restore the last-known home cover so library sub-pages/settings have a
     // cinematic background immediately, before the hero carousel (re)publishes
     // it. Mirrors NH source's localStorage.getItem('nh-home-bg') cache.
@@ -717,6 +703,9 @@ export default {
       AbsLogger.info({ tag: 'default', message: 'mounted: fully initialized' })
       this.$eventBus.$emit('abs-ui-ready')
       this.checkForUpdates()
+
+      this.nhCompatCheckTimeouts.push(setTimeout(() => this.checkNhCompatAndWarn(), 15000))
+      this.nhCompatCheckTimeouts.push(setTimeout(() => this.checkNhCompatAndWarn(), 60000))
     }
   },
   beforeDestroy() {
@@ -726,6 +715,7 @@ export default {
     this.$socket.off('user_updated', this.userUpdated)
     this.$socket.off('user_media_progress_updated', this.userMediaProgressUpdated)
     if (this.cfSessionListener) this.cfSessionListener.remove()
+    this.nhCompatCheckTimeouts.forEach(clearTimeout)
   }
 }
 </script>
