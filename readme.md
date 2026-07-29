@@ -1,9 +1,9 @@
 # Audiobookshelf Mobile App — Cloudflare Zero Trust
 
-![Latest release](https://img.shields.io/github/v/release/claudepc42/audiobookshelf-app-cloudflare-zero-trust?label=version&color=orange) ![Build](https://img.shields.io/github/actions/workflow/status/claudepc42/audiobookshelf-app-cloudflare-zero-trust/build.yml?branch=master&label=build) ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white) ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white) ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
+![Latest release](https://img.shields.io/github/v/release/claudepc42/audiobookshelf-app-cloudflare-zero-trust?label=version&color=orange) ![Build](https://img.shields.io/github/actions/workflow/status/claudepc42/audiobookshelf-app-cloudflare-zero-trust/build.yml?branch=master&label=build) ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white) Base App:![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white) NanoHive Theme:![Android](https://img.shields.io/badge/Android-11.0%2B-3DDC84?logo=android&logoColor=white) ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
 > **This is an unofficial patched build of the [Audiobookshelf Android app](https://github.com/advplyr/audiobookshelf-app).**
-> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and reliable auto-connect on cold start. It also includes the start to a native port of the **[NanoHive](https://github.com/rodzalendo/nanohive-abs-theme)** theme, toggleable per-user — see [NanoHive Theme](#nanohive-theme) below.
+> It adds Cloudflare Zero Trust support — both WebView SSO login and manual service token headers — plus LAN address auto-routing for full local network speed at home, encrypted credential storage, and reliable auto-connect on cold start. It also includes the start to a native port of the **[NanoHive](https://github.com/rodzalendo/nanohive-abs-theme)** theme, toggleable per-user — see [NanoHive Theme](#nanohive-theme) below. If NanoHive isn't working just toggle off the setting in the Hamburger menu.
 >
 > **[⬇ Download the latest signed APK from Releases](https://github.com/claudepc42/audiobookshelf-app-cloudflare-zero-trust/releases/latest)**
 >
@@ -103,6 +103,8 @@ The app checks GitHub for a newer stable release shortly after launch (at most o
   <img src="screenshots/nanohive/home-nanohive.png" width="240" alt="Home screen with NanoHive theme">
   <img src="screenshots/nanohive/home-stock.png" width="240" alt="Home screen, stock theme">
 </p>
+
+If NanoHive isn't working just toggle off the setting in the Hamburger menu.
 
 This build includes the start to a native Android port of **[NanoHive](https://github.com/rodzalendo/nanohive-abs-theme)**, a theme for Audiobookshelf created by **[rodzalendo](https://github.com/rodzalendo)**, MIT licensed. All credit for the original design, color palette, and feature concepts belongs to rodzalendo — this is a port, not original design work. Go try NanoHive on your own server — it looks great.
 
