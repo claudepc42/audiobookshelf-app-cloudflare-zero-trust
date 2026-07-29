@@ -143,9 +143,6 @@
 </template>
 
 <script>
-// TEMP DIAGNOSTIC IMPORT (remove once cinematic bg bug is found)
-import { AbsLogger } from '@/plugins/capacitor'
-
 export default {
   props: {
     slides: {
@@ -198,14 +195,8 @@ export default {
   methods: {
     publishActiveCover() {
       const slide = this.slides[this.activeIndex]
-      if (!slide) {
-        // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
-        AbsLogger.info({ tag: 'nh-diag', message: `HeroCarousel.publishActiveCover: no slide at index ${this.activeIndex}, slides.length=${this.slides.length}` })
-        return
-      }
+      if (!slide) return
       const url = this.coverSrc(slide)
-      // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
-      AbsLogger.info({ tag: 'nh-diag', message: `HeroCarousel.publishActiveCover: index=${this.activeIndex} title=${this.itemTitle(slide)} url=${url || '(empty)'}` })
       if (url) this.$store.commit('setNhHomeCoverUrl', url)
     },
     slideStyle(i) {
@@ -412,8 +403,6 @@ export default {
   mounted() {
     this.lastAdvanceTime = Date.now()
     this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
-    // TEMP DIAGNOSTIC (remove once cinematic bg bug is found)
-    AbsLogger.info({ tag: 'nh-diag', message: `HeroCarousel mounted: slides.length=${this.slides.length} activeIndex=${this.activeIndex}` })
     this.publishActiveCover()
   },
   beforeDestroy() {

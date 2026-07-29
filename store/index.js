@@ -81,7 +81,7 @@ export const state = () => ({
   ereaderKeepProgress: false,
   ereaderFileId: null,
   showSideDrawer: false,
-  nhThemeActive: false,
+  nhThemeActive: true,
   nhHomeCoverUrl: null,
   nhSettings: { ...NH_SETTINGS_DEFAULTS },
   isNetworkListenerInit: false,

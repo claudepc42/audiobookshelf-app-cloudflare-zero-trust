@@ -55,14 +55,7 @@ export default {
     nhCinematicCoverUrl: {
       immediate: true,
       handler(val) {
-        // TEMP DIAGNOSTIC (remove once cinematic bg bug is found) — go to
-        // Settings > Logs to copy/share this after reproducing.
-        AbsLogger.info({
-          tag: 'nh-diag',
-          message: `nhCinematicCoverUrl changed -> ${val || '(null)'} | mode=${this.nhCinematicMode} route=${this.$route?.name} nhThemeActive=${this.nhThemeActive} storeUrl=${this.nhStoreHomeCoverUrl || '(null)'}`
-        })
         this.setNhBg(val)
-        this.$nextTick(() => this.logNhBgDomSnapshot())
       }
     },
     nhSettings: {
