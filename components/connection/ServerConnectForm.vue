@@ -1,5 +1,12 @@
 <template>
-  <div :class="showForm ? 'self-start mt-36' : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
+  <!-- short:mt-4 (max-height: 500px, tailwind.config.js — also what the
+       keyboard-open viewport falls under, verified ~405px) shrinks the
+       144px mt-36 resting-state spacing down to a small clearance instead,
+       so the form actually moves up toward the top as the keyboard opens
+       rather than keeping the same fixed offset regardless of how little
+       vertical room is left — mt-36 alone was the real reason Submit/the
+       Custom Headers/Cloudflare buttons ended up so far below the fold. -->
+  <div :class="showForm ? 'self-start mt-36 short:mt-4' : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
     <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
@@ -46,8 +53,8 @@
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
           <div class="flex justify-center mt-3 space-x-4">
-            <a class="text-fg-muted text-sm cursor-pointer" @click="addCustomHeaders">Custom Headers</a>
-            <a v-if="$platform === 'android'" class="text-fg-muted text-sm cursor-pointer" @click="openCfSsoLogin">Login with Cloudflare</a>
+            <a class="text-fg-muted text-sm cursor-pointer rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="addCustomHeaders">Add Custom Headers</a>
+            <a v-if="$platform === 'android'" class="text-fg-muted text-sm cursor-pointer rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="openCfSsoLogin">Login with Cloudflare</a>
           </div>
         </form>
         <!-- username/password and auth methods -->

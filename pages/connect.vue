@@ -1,6 +1,15 @@
 <template>
   <div class="w-full h-full">
-    <div class="relative flex items-center justify-center min-h-screen sm:pt-0">
+    <!-- overflow-y-auto: android:windowSoftInputMode="adjustResize" correctly
+         shrinks the viewport when the keyboard opens (verified: innerHeight
+         actually drops), but centered content taller than the shrunk
+         viewport just clipped equally top/bottom with no way to reach the
+         clipped part — this is the fallback for whatever's still too tall
+         to fit even after the anchoring in ServerConnectForm.vue (its own
+         "self-start mt-36" already overrides this container's items-center
+         for the add-server-form view specifically; see its short:mt-4
+         override for the actual "shift up as the keyboard opens" fix). -->
+    <div class="relative flex items-center justify-center min-h-screen overflow-y-auto sm:pt-0">
       <nuxt-link to="/" class="absolute top-2 left-2 z-20">
         <span class="material-symbols text-4xl">arrow_back</span>
       </nuxt-link>
