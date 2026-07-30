@@ -642,6 +642,16 @@ export default {
       root.setProperty('--nh-font-scale', settings.fontScale || 1)
       root.setProperty('--nh-drawer-font-scale', settings.drawerFontScale || 1)
 
+      // Re-apply any glass-effect values saved via the NH UI Glass Effect
+      // Tuner, so a Save there actually survives the next app launch instead
+      // of just being a same-session live preview (DevPanel.vue's sliders
+      // write straight to these same CSS vars for the live-preview part).
+      if (settings.nhGlassEffect?.cssVars) {
+        Object.entries(settings.nhGlassEffect.cssVars).forEach(([prop, val]) => {
+          root.setProperty(prop, String(val))
+        })
+      }
+
       if (settings.mainFont && settings.mainFont.toLowerCase() !== 'spectral') {
         let link = document.getElementById('nh-custom-font-link')
         if (!link) {

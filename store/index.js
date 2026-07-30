@@ -17,6 +17,17 @@ export const NH_SETTINGS_DEFAULTS = {
   // nav-item text only — lets it be tuned independently since it's often
   // the tightest-fitting text in the app (long labels in a narrow drawer).
   drawerFontScale: 1.0,
+  // Output of the NH UI Glass Effect Tuner (hamburger menu). nhGlassEffect is
+  // whichever snapshot (a slot, most recently) is currently active — restored
+  // on next launch. nhGlassEffectSlots holds up to 3 independently named
+  // snapshots so a user can A/B between saved looks by tapping between them.
+  // Both null/empty means nothing's been saved yet — DevPanel.vue's own
+  // hardcoded CONTROLS/panelState defaults apply instead. Snapshot shape:
+  // { cssVars: { '--nh-cine-blur': 12, ... }, panel: { bgOpacity, scrimOpacity, blur } }.
+  // Tuner adjustments preview live via direct CSS var writes regardless of
+  // these settings; they only decide what survives an app restart.
+  nhGlassEffect: null,
+  nhGlassEffectSlots: { slot1: null, slot2: null, slot3: null },
   carouselTiming: 15,
   logoUrl: '',
   colorizeLogo: false,

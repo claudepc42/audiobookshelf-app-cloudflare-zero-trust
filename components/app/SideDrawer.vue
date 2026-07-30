@@ -41,7 +41,7 @@
         </template>
       </div>
       <div class="absolute bottom-0 left-0 w-full py-6 px-6 text-fg">
-        <!-- NH UI Tuner (dev tool) -->
+        <!-- NH UI Glass Effect Tuner (dev tool) -->
         <button
           v-if="nhThemeActive"
           class="w-full flex items-center gap-2 rounded-xl mb-4 px-3"
@@ -49,7 +49,7 @@
           @click="openDevPanel"
         >
           <span class="material-symbols" style="font-size: 1rem">tune</span>
-          <span style="font-size: 0.8rem; font-weight: 600">NH UI Tuner</span>
+          <span style="font-size: 0.8rem; font-weight: 600">NH UI Glass Effect Tuner</span>
         </button>
         <!-- NanoHive / Stock UI toggle -->
         <div class="mb-4 flex items-center justify-between px-1">
