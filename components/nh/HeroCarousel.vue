@@ -18,10 +18,15 @@
     <!-- Gradient overlay -->
     <div class="nh-slide-gradient absolute inset-0 z-10 pointer-events-none" />
 
-    <!-- Slide content -->
+    <!-- Slide content. ref="slideEl" (same static name on every v-for
+         iteration) gives onTouchMove a plain array of the live DOM nodes so
+         it can write transform directly during a drag, bypassing Vue's
+         reactive :style binding entirely — see the drag methods below for
+         why. -->
     <div
       v-for="(slide, i) in slides"
       :key="`content-${slide.id}`"
+      ref="slideEl"
       class="absolute inset-0 z-20 flex flex-col px-5 pt-5 pb-5"
       :style="slideStyle(i)"
     >
@@ -174,15 +179,16 @@ export default {
   data() {
     return {
       activeIndex: 0,
-      // Drag state
-      dragStartX: null,
-      dragStartY: null,
-      dragOffset: 0,
+      // Drag state. Only isDragging/dragLocked/dragMoved live here — they
+      // change once or twice per gesture, so reactivity on them is free.
+      // dragStartX/dragOffset/etc. are deliberately NOT reactive (see
+      // created()) since they're written on every touchmove event; making
+      // them reactive data properties would trigger a full Vue re-render
+      // per pixel of finger movement (they're read inside slideStyle(),
+      // which is template-bound), which is what was causing the drag to
+      // feel laggy instead of tracking the finger 1:1.
       isDragging: false,
       dragLocked: null, // 'horizontal' | 'vertical' | null
-      dragVelocity: 0,
-      lastTouchX: null,
-      lastTouchTime: null,
       dragMoved: false,
       // Set on release to the drag's last offset (as % of card width) so the
       // settle transition can be timed to the distance actually remaining,
@@ -206,6 +212,26 @@ export default {
     activeIndex() {
       this.publishActiveCover()
     }
+  },
+  created() {
+    // Non-reactive drag-tracking state (see the comment in data() for why
+    // this lives outside it). rafId coalesces onTouchMove's raw DOM writes
+    // to the display's actual refresh rate instead of writing on every
+    // touch event, some of which can fire faster than the screen repaints.
+    this.dragStartX = null
+    this.dragStartY = null
+    this.dragOffset = 0
+    this.lastTouchX = null
+    this.lastTouchTime = null
+    // Rolling ~80ms window of {x, t} samples used to compute flick velocity
+    // on release. A single last-sample delta was noisy — a touchmove right
+    // before touchend could land with a tiny dt (spurious high velocity) or
+    // a tiny dx (spurious near-zero velocity) independent of the actual
+    // flick speed, which is why a real flick would sometimes fail to
+    // register and snap back instead of advancing.
+    this.velocitySamples = []
+    this.rafId = null
+    this.dragMovedClearTimeout = null
   },
   methods: {
     publishActiveCover() {
@@ -350,8 +376,9 @@ export default {
       this.lastTouchX = touch.clientX
       this.lastTouchTime = Date.now()
       this.dragOffset = 0
-      this.dragVelocity = 0
+      this.velocitySamples = [{ x: touch.clientX, t: Date.now() }]
       this.dragMoved = false
+      clearTimeout(this.dragMovedClearTimeout)
       this.dragLocked = null
       this.isDragging = true
       const now = Date.now()
@@ -371,34 +398,112 @@ export default {
       if (!this.dragLocked) {
         if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
           this.dragLocked = Math.abs(dx) >= Math.abs(dy) ? 'horizontal' : 'vertical'
+        } else {
+          return
         }
-        return
       }
 
       if (this.dragLocked === 'vertical') {
         // Vertical scroll — cancel drag and let browser handle it
         this.isDragging = false
         this.dragOffset = 0
+        if (this.rafId !== null) {
+          cancelAnimationFrame(this.rafId)
+          this.rafId = null
+        }
         return
       }
 
-      // Horizontal drag — prevent page scroll and track position
+      // Horizontal drag — prevent page scroll AND the ghost click Chrome
+      // synthesizes after touchend when no touchmove in the gesture called
+      // preventDefault. This must run on the SAME event that just decided
+      // dragLocked (falling through from above, not an early return before
+      // it) — a short, fast flick can produce only one or two touchmove
+      // samples, and skipping preventDefault on the lock-deciding one meant
+      // that kind of gesture could reach touchend having never called it at
+      // all, letting the synthetic click through to open the book instead
+      // of registering the swipe.
       e.preventDefault()
 
       const now = Date.now()
-      const dt = now - this.lastTouchTime
-      if (dt > 0) this.dragVelocity = (x - this.lastTouchX) / dt
+      this.velocitySamples.push({ x, t: now })
+      while (this.velocitySamples.length > 1 && now - this.velocitySamples[0].t > 80) {
+        this.velocitySamples.shift()
+      }
       this.lastTouchX = x
       this.lastTouchTime = now
       this.dragOffset = dx
       if (Math.abs(dx) > 8) this.dragMoved = true
+
+      // Coalesce raw touch samples (which can fire faster than the screen
+      // repaints) into one DOM write per frame, and write it straight to
+      // the element instead of through a reactive Vue property — see the
+      // data()/created() comments for why going through Vue here caused
+      // visible drag lag and a hitch right when the finger lifted.
+      if (this.rafId === null) {
+        this.rafId = requestAnimationFrame(() => {
+          this.rafId = null
+          this.applyDragTransform()
+        })
+      }
     },
-    onTouchEnd() {
+    applyDragTransform() {
+      if (!this.isDragging) return
+      const els = this.$refs.slideEl
+      if (!els) return
+      const cardWidth = this.$el ? this.$el.offsetWidth : 300
+      const px = this.dragOffset
+      this.slides.forEach((_, i) => {
+        const diff = i - this.activeIndex
+        if (Math.abs(diff) > 1) return // stays hidden/untouched, per slideStyle()
+        const el = els[i]
+        if (!el) return
+        el.style.transition = 'none'
+        el.style.transform = `translateX(calc(${diff * 100}% + ${px}px))`
+        el.style.opacity = diff !== 0 ? Math.min(1, Math.abs(px) / cardWidth * 1.5) : 1
+      })
+    },
+    onTouchEnd(e) {
       if (!this.isDragging) return
       this.isDragging = false
+      if (this.rafId !== null) {
+        cancelAnimationFrame(this.rafId)
+        this.rafId = null
+      }
+
+      // A fast/short flick can end without ever firing a touchmove (some
+      // devices/WebViews batch or drop intermediate samples under ~100-150ms
+      // of contact) — dragLocked staying null is how we know that happened.
+      // Without this fallback, dragOffset would still be 0 here: the swipe
+      // wouldn't just fail to register, it would leave the browser's
+      // ghost-click free to fire (nothing ever called preventDefault, since
+      // that only happens inside onTouchMove) and openItem() would wrongly
+      // treat the flick as a tap and navigate into the book. changedTouches
+      // still has the lift-off position even though the touch point is
+      // gone from `touches`, so we can reconstruct start-to-end displacement
+      // and direction from touchstart/touchend alone.
+      if (this.dragLocked === null && e?.changedTouches?.length && this.dragStartX !== null) {
+        const touch = e.changedTouches[0]
+        const dx = touch.clientX - this.dragStartX
+        const dy = touch.clientY - this.dragStartY
+        if (Math.abs(dx) > 6 && Math.abs(dx) >= Math.abs(dy)) {
+          e.preventDefault()
+          this.dragOffset = dx
+          this.dragMoved = true
+          this.velocitySamples.push({ x: touch.clientX, t: Date.now() })
+        }
+      }
 
       const offset = this.dragOffset
-      const velocity = this.dragVelocity
+      let velocity = 0
+      if (this.velocitySamples.length >= 2) {
+        const first = this.velocitySamples[0]
+        const last = this.velocitySamples[this.velocitySamples.length - 1]
+        const dt = last.t - first.t
+        if (dt > 0) velocity = (last.x - first.x) / dt
+      }
+      this.velocitySamples = []
+
       const cardWidth = this.$el ? this.$el.offsetWidth : 300
       const threshold = cardWidth * 0.30
 
@@ -419,7 +524,17 @@ export default {
       this.dragStartY = null
       this.dragLocked = null
 
-      this.$nextTick(() => { this.dragMoved = false })
+      // Deliberately a short delay, not $nextTick: some WebView versions
+      // still fire a delayed synthetic "click" after a real drag despite
+      // preventDefault having been called during the gesture. $nextTick
+      // resolves in under a frame, so it would clear dragMoved well before
+      // that ghost click lands, letting openItem() wrongly treat the drag
+      // as a tap and navigate into the book. 350ms comfortably outlasts the
+      // ~300ms delayed-click quirk.
+      clearTimeout(this.dragMovedClearTimeout)
+      this.dragMovedClearTimeout = setTimeout(() => {
+        this.dragMoved = false
+      }, 350)
     }
   },
   mounted() {
@@ -430,6 +545,8 @@ export default {
   beforeDestroy() {
     clearInterval(this.advanceInterval)
     clearTimeout(this.releaseClearTimeout)
+    clearTimeout(this.dragMovedClearTimeout)
+    if (this.rafId !== null) cancelAnimationFrame(this.rafId)
   }
 }
 </script>
