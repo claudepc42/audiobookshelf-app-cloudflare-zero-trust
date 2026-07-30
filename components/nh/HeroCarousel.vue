@@ -42,11 +42,17 @@
           <!-- Author -->
           <p class="text-xs mt-1 truncate flex-shrink-0" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
 
-          <!-- Metadata pills -->
+          <!-- Metadata pills — each pill is capped and truncated with an
+               ellipsis so a long value (e.g. a metadata provider dumping a
+               whole "Category:Subcategory:Sub-subcategory" chain into one
+               genre string) can never wrap to a second line inside the pill
+               itself and blow out the card's fixed-height layout. The row
+               as a whole can still wrap onto a new line if needed — this
+               only prevents a single pill's own text from wrapping. -->
           <div class="flex flex-wrap gap-1.5 mt-2 flex-shrink-0">
-            <span v-if="itemDuration(slide)" class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemDuration(slide) }}</span>
-            <span v-if="itemNarrator(slide)" class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">Narrated by {{ itemNarrator(slide) }}</span>
-            <span class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemGenre(slide) }}</span>
+            <span v-if="itemDuration(slide)" class="text-xs px-2 py-0.5 rounded-full truncate max-w-[45%]" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemDuration(slide) }}</span>
+            <span v-if="itemNarrator(slide)" class="text-xs px-2 py-0.5 rounded-full truncate max-w-[45%]" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">Narrated by {{ itemNarrator(slide) }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full truncate max-w-[45%]" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemGenre(slide) }}</span>
           </div>
 
           <!-- Description — min-height reserves the full 3-line-clamp height
@@ -259,7 +265,14 @@ export default {
     },
     itemGenre(item) {
       const genres = item.media?.metadata?.genres
-      if (genres?.length) return genres[0]
+      if (genres?.length) {
+        // Some metadata providers store a whole category hierarchy as one
+        // genre string (e.g. "Science Fiction & Fantasy:Science Fiction:
+        // Military") instead of separate genre entries — show just the
+        // most specific (last) segment rather than the full chain.
+        const segments = genres[0].split(':')
+        return segments[segments.length - 1].trim()
+      }
       return item.mediaType === 'podcast' ? 'Podcast' : 'Audiobook'
     },
     itemProgress(item) {
