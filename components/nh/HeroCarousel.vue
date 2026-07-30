@@ -54,7 +54,7 @@
                reason as the title above. Reserved even when there's no
                description at all, so Continue/the bar land in the same spot
                either way instead of the card losing its shape. -->
-          <p class="text-xs mt-2 line-clamp-3 leading-relaxed flex-shrink-0" style="color: rgba(154,144,133,0.80); min-height: 4.875em">{{ itemDescription(slide) }}</p>
+          <p class="text-xs mt-2 line-clamp-3 leading-relaxed flex-shrink-0" style="color: rgba(154,144,133,0.80); min-height: 4.875em" v-html="itemDescription(slide)" />
 
           <!-- Continue + progress bar, sharing one row. The row is widened via
                calc() by exactly (gap-4 + cover width) so its right edge lands
