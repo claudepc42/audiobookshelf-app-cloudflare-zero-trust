@@ -22,13 +22,13 @@
         <button @click="$emit('close')" style="color: #9a9085; font-size: 1.3rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center">✕</button>
       </div>
 
-      <p style="color: #9a9085; font-size: 0.78rem; line-height: 1.5; margin-bottom: 20px">
+      <p style="color: #dddad6; font-size: 0.78rem; line-height: 1.5; margin-bottom: 20px">
         Fine-tune the blur and transparency of NanoHive's translucent surfaces — this panel, the cinematic background, app bar, hamburger drawer, and mini player. Adjustments preview live right away. Tap "Save to Slot…" then a slot below to keep a look; tap a slot normally any time to switch back to it. Unsaved adjustments reset the next time you restart the app.
       </p>
 
       <!-- This Panel section -->
       <div style="margin-bottom: 24px">
-        <p style="color: #9a9085; font-size: 0.68rem; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 10px">This Panel</p>
+        <p style="color: #dddad6; font-size: 0.68rem; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 10px">This Panel</p>
 
         <div style="margin-bottom: 18px">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
@@ -60,7 +60,7 @@
 
       <!-- CSS var control groups -->
       <div v-for="group in controlGroups" :key="group.label" style="margin-bottom: 24px">
-        <p style="color: #9a9085; font-size: 0.68rem; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 10px">{{ group.label }}</p>
+        <p style="color: #dddad6; font-size: 0.68rem; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 10px">{{ group.label }}</p>
 
         <div v-for="ctrl in group.items" :key="ctrl.prop" style="margin-bottom: 18px">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
