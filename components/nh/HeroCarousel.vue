@@ -33,12 +33,21 @@
 
         <!-- Text column (left) -->
         <div class="flex-1 min-w-0 flex flex-col">
-          <!-- Big Spectral title — min-height reserves the full 2-line-clamp
-               height (2.5em = leading-tight's 1.25 * 2 lines) so a 1-line
-               title leaves blank space below it instead of pulling the rest
-               of the card upward. Keeps every card the same fixed shape
-               regardless of title/description length. -->
-          <p class="leading-tight line-clamp-2 flex-shrink-0" style="font-family: var(--nh-serif); font-size: 1.70rem; font-weight: 700; color: #f4eee2; letter-spacing: -0.01em; margin-top: 4px; min-height: 2.5em">{{ itemTitle(slide) }}</p>
+          <!-- Big Spectral title — outer wrapper reserves the full 2-line-clamp
+               height (4.25rem = title's 1.7rem font-size * leading-tight's 1.25
+               * 2 lines — must be rem, not em, since the wrapper's own font-size
+               is the default 1rem, not the title's 1.7rem) so every card keeps
+               the same fixed shape regardless of title length, and vertically
+               centers its content so a 1-line title sits centered in that
+               reserved space (half a line down from the top) instead of pinned
+               to the top with all the blank space below it. The min-height/
+               centering lives on the wrapper rather than the <p> itself so
+               line-clamp-2's own display:-webkit-box (needed for 2-line
+               truncation of genuinely long titles) isn't overridden by a
+               conflicting display:flex on the same element. -->
+          <div class="flex-shrink-0" style="min-height: 4.25rem; display: flex; align-items: center">
+            <p class="leading-tight line-clamp-2" style="font-family: var(--nh-serif); font-size: 1.70rem; font-weight: 700; color: #f4eee2; letter-spacing: -0.01em; margin-top: 4px">{{ itemTitle(slide) }}</p>
+          </div>
           <!-- Author -->
           <p class="text-xs mt-1 truncate flex-shrink-0" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
 
