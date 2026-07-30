@@ -106,7 +106,7 @@
             <p class="text-xs text-fg-muted">CF-ZT {{ $config.cfztVersion }}</p>
           </div>
           <div class="flex-grow" />
-          <div v-if="user" class="flex items-center" @click="disconnect">
+          <div v-if="user" class="flex items-center rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="disconnect">
             <p class="text-xs pr-2">{{ $strings.ButtonDisconnect }}</p>
             <i class="material-symbols text-sm -mb-0.5">cloud_off</i>
           </div>
