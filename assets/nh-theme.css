@@ -30,6 +30,7 @@ html[data-theme='nanohive'] {
   --nh-amber-tint: rgba(224, 194, 122, 0.12);
   --nh-serif: 'Merriweather', 'Spectral', Georgia, serif;
   --nh-font-scale: 1;
+  --nh-drawer-font-scale: 1;
   --nh-text-1: #f4eee2;
   --nh-text-2: #d8cfc2;
   --nh-text-3: #cfc6ba;
@@ -1448,8 +1449,11 @@ html[data-theme='nanohive'] #nh-side-drawer {
   border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
 }
 
-/* "Welcome, [name]" — Spectral serif with warm cream tone */
-html[data-theme='nanohive'] #nh-side-drawer .px-6 > p {
+/* "Welcome, [name]" — Spectral serif with warm cream tone. Was ".px-6 > p",
+   a structural match that also caught the nav-item text below (their
+   button/link parents carry px-6 too, for unrelated padding), silently
+   forcing this rule's font-size/color onto them via !important. */
+html[data-theme='nanohive'] #nh-side-drawer .nh-drawer-greeting {
   font-family: var(--nh-serif) !important;
   color: var(--nh-text-1) !important;
   font-size: 1.1rem !important;

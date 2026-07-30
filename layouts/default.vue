@@ -640,6 +640,7 @@ export default {
       root.setProperty('--nh-amber-tint', this.hexToRgba(accent, 0.12))
       root.setProperty('--nh-serif', `"${settings.mainFont || 'Merriweather'}", "Spectral", Georgia, serif`)
       root.setProperty('--nh-font-scale', settings.fontScale || 1)
+      root.setProperty('--nh-drawer-font-scale', settings.drawerFontScale || 1)
 
       if (settings.mainFont && settings.mainFont.toLowerCase() !== 'spectral') {
         let link = document.getElementById('nh-custom-font-link')

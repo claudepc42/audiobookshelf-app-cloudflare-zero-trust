@@ -13,6 +13,10 @@ export const NH_SETTINGS_DEFAULTS = {
   baseTheme: 'warm',
   mainFont: 'Merriweather',
   fontScale: 1.0,
+  // Extra multiplier applied on top of fontScale, for the hamburger drawer's
+  // nav-item text only — lets it be tuned independently since it's often
+  // the tightest-fitting text in the app (long labels in a narrow drawer).
+  drawerFontScale: 1.0,
   carouselTiming: 15,
   logoUrl: '',
   colorizeLogo: false,

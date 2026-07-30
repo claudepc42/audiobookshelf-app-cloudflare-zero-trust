@@ -67,6 +67,14 @@
     </div>
 
     <div class="py-3 flex items-center">
+      <div class="pr-4 flex-1">
+        <p style="color: #d8cfc2">Menu Text Size</p>
+        <p class="text-xs" style="color: #9a9085">Extra scale for the hamburger menu's text only, applied on top of Font Size Scale above. 1.0 = default size. Range 0.8&ndash;1.3.</p>
+      </div>
+      <ui-text-input type="number" :value="settings.drawerFontScale" step="0.05" min="0.8" max="1.3" style="width: 90px" @input="updateSetting('drawerFontScale', Number($event) || 1)" />
+    </div>
+
+    <div class="py-3 flex items-center">
       <p class="pr-4 flex-1" style="color: #d8cfc2">Custom Logo URL</p>
     </div>
     <ui-text-input :value="settings.logoUrl" placeholder="Leave empty for the default logo" clearable class="mb-3" @input="updateSetting('logoUrl', $event)" />

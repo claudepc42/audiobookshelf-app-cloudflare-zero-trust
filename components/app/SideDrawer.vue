@@ -3,18 +3,40 @@
     <div class="absolute top-0 left-0 w-full h-full bg-black transition-opacity duration-200" :class="show ? 'bg-opacity-60 pointer-events-auto' : 'bg-opacity-0'" @click="clickBackground" />
     <div id="nh-side-drawer" class="absolute top-0 right-0 w-64 h-full bg-bg transform transition-transform py-6 pointer-events-auto" :class="show ? '' : 'translate-x-64'" @click.stop>
       <div class="px-6 mb-4">
-        <p v-if="user" class="text-base" v-html="$getString('HeaderWelcome', [username])" />
+        <!-- nh-drawer-greeting: a dedicated hook for nh-theme.css's greeting
+             style. It used to be targeted via "#nh-side-drawer .px-6 > p",
+             a structural match against the wrapping div's padding class —
+             which also matched every nav-item <p> below, since their
+             <button>/<nuxt-link> parents carry px-6 too (for their own
+             padding, unrelated to this element). That meant the greeting's
+             own !important font-size/color silently overrode any styling
+             attempted on the nav items, including the text-sm class added
+             earlier for the oversized-menu-text fix — which never actually
+             took effect because of this. -->
+        <p v-if="user" class="text-base nh-drawer-greeting" v-html="$getString('HeaderWelcome', [username])" />
       </div>
 
       <div class="w-full overflow-y-auto">
         <template v-for="item in navItems">
           <button v-if="item.action" :key="item.text" :tabindex="show ? 0 : -1" class="w-full hover:bg-bg/60 flex items-center py-3 px-6 text-fg-muted" @click="clickAction(item.action)">
             <span class="material-symbols fill text-lg">{{ item.icon }}</span>
-            <p class="pl-4 text-sm">{{ item.text }}</p>
+            <!-- text-sm's actual rem value (0.875rem), reproduced via calc()
+                 instead of the class so the dedicated drawer-only font
+                 scale setting (Settings > NanoHive UI > Menu Text Size) can
+                 apply on top of it — still layers on the app-wide Font Size
+                 Scale too, since that one scales the root rem this is
+                 based on. -->
+            <p class="pl-4" style="font-size: calc(0.875rem * var(--nh-drawer-font-scale, 1))">{{ item.text }}</p>
           </button>
           <nuxt-link v-else :to="item.to" :key="item.text" :tabindex="show ? 0 : -1" class="w-full hover:bg-bg/60 flex items-center py-3 px-6 text-fg" :class="currentRoutePath.startsWith(item.to) ? 'bg-bg-hover/50' : 'text-fg-muted'">
             <span class="material-symbols fill text-lg">{{ item.icon }}</span>
-            <p class="pl-4 text-sm">{{ item.text }}</p>
+            <!-- text-sm's actual rem value (0.875rem), reproduced via calc()
+                 instead of the class so the dedicated drawer-only font
+                 scale setting (Settings > NanoHive UI > Menu Text Size) can
+                 apply on top of it — still layers on the app-wide Font Size
+                 Scale too, since that one scales the root rem this is
+                 based on. -->
+            <p class="pl-4" style="font-size: calc(0.875rem * var(--nh-drawer-font-scale, 1))">{{ item.text }}</p>
           </nuxt-link>
         </template>
       </div>
