@@ -3,6 +3,7 @@ package com.audiobookshelf.app.plugins
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.graphics.Color
+import android.graphics.Paint
 import android.net.Uri
 import android.util.Log
 import android.util.TypedValue
@@ -140,14 +141,37 @@ class AbsCfZeroTrust : Plugin() {
 
       var resolved = false
 
-      // URL indicator bar so the user can see what host they're authenticating against
+      // URL indicator so the user can see what host they're authenticating against
       val urlBar = TextView(activity).apply {
         text = serverHost
         setTextColor(Color.parseColor("#AAAAAA"))
-        setBackgroundColor(Color.parseColor("#111111"))
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-        gravity = Gravity.CENTER
+        gravity = Gravity.CENTER_VERTICAL
         setPadding(16, 12, 16, 12)
+      }
+
+      // Only escape route used to be the hardware back button (dialog is already
+      // cancelable — see setOnDismissListener below, which every caller already
+      // handles gracefully by proceeding without the refreshed session). Nobody
+      // finds that from what looks like a stuck loading webpage, especially if
+      // the device has just enough signal to start the page load but not enough
+      // to ever finish it — this can sit there indefinitely with nothing on
+      // screen telling the user they aren't stuck.
+      val cancelText = TextView(activity).apply {
+        text = "Cancel"
+        setTextColor(Color.parseColor("#DDDAD6"))
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+        gravity = Gravity.CENTER_VERTICAL
+        paintFlags = paintFlags or Paint.UNDERLINE_TEXT_FLAG
+        setPadding(16, 12, 16, 12)
+        setOnClickListener { dialog.dismiss() }
+      }
+
+      val headerBar = LinearLayout(activity).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setBackgroundColor(Color.parseColor("#111111"))
+        addView(urlBar, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        addView(cancelText, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
       }
 
       webView.webViewClient = object : WebViewClient() {
@@ -180,7 +204,7 @@ class AbsCfZeroTrust : Plugin() {
 
       val layout = LinearLayout(activity)
       layout.orientation = LinearLayout.VERTICAL
-      layout.addView(urlBar, LinearLayout.LayoutParams(
+      layout.addView(headerBar, LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT,
         LinearLayout.LayoutParams.WRAP_CONTENT
       ))
