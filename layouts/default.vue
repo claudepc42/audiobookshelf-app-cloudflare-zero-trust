@@ -724,18 +724,6 @@ export default {
       if (!this.user) await this.attemptConnection()
 
       AbsLogger.info({ tag: 'default', message: 'mounted: fully initialized' })
-
-      // One-time diagnostic snapshot for support requests — device/WebView identity
-      // (embedded in the UA string) plus the exact NanoHive rendering signals we'd
-      // otherwise have to manually query over a remote debug connection: whether
-      // the theme attribute actually got set, and whether this WebView's engine
-      // supports the CSS the theme depends on. Ask users to copy this line from
-      // Settings > Logs when reporting a display issue.
-      AbsLogger.info({
-        tag: 'diagnostics',
-        message: `App diagnostics: UA=${navigator.userAgent} | dataTheme=${document.documentElement.dataset.theme || '(none)'} | nhThemeActive=${this.nhThemeActive} | appVersion=${this.$config.cfztVersion} | backdropFilter=${CSS.supports('backdrop-filter', 'blur(1px)')} | filterBlur=${CSS.supports('filter', 'blur(1px)')} | hasSelector=${CSS.supports('selector(:has(a))')} | fontScale=${this.nhSettings?.fontScale}`
-      })
-
       this.$eventBus.$emit('abs-ui-ready')
       this.checkForUpdates()
 
