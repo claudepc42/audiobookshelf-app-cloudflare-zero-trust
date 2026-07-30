@@ -70,13 +70,34 @@
           </button>
         </div>
         <div v-if="serverConnectionConfig" class="mb-4 flex items-center justify-center gap-2">
+          <!-- connectionLabel: "Cloudflare" only when isSsoAuth confirms the
+               actual Cloudflare Access login flow was used; "Custom Headers"
+               when headers exist but weren't set via that flow (someone using
+               a different reverse-proxy auth scheme via the Custom Headers
+               modal); "Primary" when nothing's configured at all — as
+               opposed to hardcoding "Cloudflare" regardless. -->
           <template v-if="!serverConnectionConfig.localAddress">
-            <p :class="['text-xs', socketConnected ? 'text-fg/80' : 'text-fg-muted']">{{ socketConnected ? 'Cloudflare Connected' : 'Cloudflare Disconnected' }}</p>
+            <p :class="['text-xs', socketConnected ? 'text-fg/80' : 'text-fg-muted/50']">{{ connectionLabel }} {{ socketConnected ? 'Connected' : 'Disconnected' }}</p>
           </template>
           <template v-else>
-            <p :class="['text-xs', !isOnLan && socketConnected ? 'text-fg/80' : 'text-fg-muted']">Cloudflare</p>
-            <p class="text-xs text-fg-muted">|</p>
-            <p :class="['text-xs', isOnLan ? 'text-fg/80' : 'text-fg-muted']">LAN</p>
+            <!-- LAN's highlight used to be just "isOnLan" (whichever address
+                 was last resolved to try), with no socketConnected check —
+                 unlike the other side's condition. That meant if the last
+                 resolved address happened to be the LAN one but the
+                 connection actually failed, LAN would render fully lit up
+                 as if genuinely connected while nothing was connected at
+                 all. Both sides now require socketConnected too, so
+                 "lit up" always means "actually connected", not just
+                 "attempted". -->
+            <p :class="['text-xs', !isOnLan && socketConnected ? 'text-fg/80' : 'text-fg-muted/50']">{{ connectionLabel }}</p>
+            <p class="text-xs text-fg-muted/50">|</p>
+            <p :class="['text-xs', isOnLan && socketConnected ? 'text-fg/80' : 'text-fg-muted/50']">LAN</p>
+            <!-- With the fix above, "neither lit up" is now the correct and
+                 only way both-disconnected renders — but that alone was
+                 easy to miss (just two dim labels, no wording change,
+                 unlike the singular branch above which spells out
+                 "Disconnected"). This makes it explicit here too. -->
+            <p v-if="!socketConnected" class="text-xs text-fg-muted/50">(Disconnected)</p>
           </template>
         </div>
         <div class="flex items-center">
@@ -155,6 +176,14 @@ export default {
     },
     hasCfCookies() {
       return this.$platform === 'android' && !!(this.serverConnectionConfig?.isSsoAuth)
+    },
+    hasCustomHeaders() {
+      return !!Object.keys(this.serverConnectionConfig?.customHeaders || {}).length
+    },
+    connectionLabel() {
+      if (this.serverConnectionConfig?.isSsoAuth) return 'Cloudflare'
+      if (this.hasCustomHeaders) return 'Custom Headers'
+      return 'Primary'
     },
     navItems() {
       var items = [
