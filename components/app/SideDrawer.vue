@@ -74,7 +74,7 @@
                actual Cloudflare Access login flow was used; "Custom Headers"
                when headers exist but weren't set via that flow (someone using
                a different reverse-proxy auth scheme via the Custom Headers
-               modal); "Primary" when nothing's configured at all — as
+               modal); "Server" when nothing's configured at all — as
                opposed to hardcoding "Cloudflare" regardless. -->
           <template v-if="!serverConnectionConfig.localAddress">
             <p :class="['text-xs', socketConnected ? 'text-fg/80' : 'text-fg-muted/50']">{{ connectionLabel }} {{ socketConnected ? 'Connected' : 'Disconnected' }}</p>
@@ -183,7 +183,7 @@ export default {
     connectionLabel() {
       if (this.serverConnectionConfig?.isSsoAuth) return 'Cloudflare'
       if (this.hasCustomHeaders) return 'Custom Headers'
-      return 'Primary'
+      return 'Server'
     },
     navItems() {
       var items = [
