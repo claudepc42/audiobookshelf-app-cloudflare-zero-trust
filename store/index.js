@@ -80,7 +80,7 @@ export const NH_GLASS_EFFECT_CONTROLS = [
   { group: 'Carousel Background', prop: '--nh-carousel-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Carousel Background', prop: '--nh-carousel-brightness', label: 'Brightness', default: 0.5, min: 0, max: 1.5, step: 0.01, unit: '' },
   { group: 'Carousel Background', prop: '--nh-carousel-saturate', label: 'Saturate', default: 1.4, min: 0, max: 3, step: 0.05, unit: '' },
-  { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.41, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.73, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Appbar', prop: '--nh-appbar-blur', label: 'Blur', default: 48, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Drawer', prop: '--nh-drawer-blur', label: 'Blur', default: 13, min: 0, max: 60, step: 1, unit: 'px' },

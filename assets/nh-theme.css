@@ -44,7 +44,7 @@ html[data-theme='nanohive'] {
      blur(28px) saturate(150%); mobile drawer rgba(--nh-bg-rgb,0.98/0.94)
      blur(24px) saturate(140%)); tuned live on-device and set as the new
      baseline 2026-07-25. */
-  --nh-appbar-opacity: 0.41;
+  --nh-appbar-opacity: 0.73;
   --nh-appbar-blur: 48px;
   --nh-drawer-opacity: 0;
   --nh-drawer-blur: 13px;
