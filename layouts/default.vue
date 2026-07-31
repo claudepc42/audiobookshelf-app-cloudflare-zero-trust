@@ -25,7 +25,7 @@
 import { CapacitorHttp } from '@capacitor/core'
 import { AbsLogger } from '@/plugins/capacitor'
 import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
-import { NH_BASE_THEMES } from '@/store/index'
+import { NH_BASE_THEMES, NH_GLASS_EFFECT_CONTROLS } from '@/store/index'
 
 export default {
   data() {
@@ -646,9 +646,24 @@ export default {
       // Tuner, so a Save there actually survives the next app launch instead
       // of just being a same-session live preview (DevPanel.vue's sliders
       // write straight to these same CSS vars for the live-preview part).
+      // NH_GLASS_EFFECT_CONTROLS' unit metadata matters here: nh-theme.css
+      // consumes several of these via filter: blur(var(--nh-cine-blur)) —
+      // a bare unitless number substituted into blur() is invalid CSS at
+      // computed-value time, which drops the whole filter function back to
+      // its initial value (effectively 0 blur), not the fallback inside
+      // var(--nh-cine-blur, 12px) (that fallback only applies when the
+      // property is unset, not when it's set to something invalid). Writing
+      // String(val) directly here (no unit) was exactly that bug — the
+      // saved value itself was always correct, which is why the tuner's own
+      // slider still read the right number even while blur visibly sat at
+      // 0, and why manually nudging the slider "fixed" it (DevPanel's own
+      // apply() always appended the unit correctly; only this
+      // reapply-on-mount path skipped it).
       if (settings.nhGlassEffect?.cssVars) {
         Object.entries(settings.nhGlassEffect.cssVars).forEach(([prop, val]) => {
-          root.setProperty(prop, String(val))
+          const ctrl = NH_GLASS_EFFECT_CONTROLS.find((c) => c.prop === prop)
+          const num = parseFloat(val)
+          root.setProperty(prop, ctrl?.unit ? `${num}${ctrl.unit}` : String(num))
         })
       }
 
