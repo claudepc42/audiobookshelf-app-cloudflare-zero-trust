@@ -154,6 +154,10 @@ import { NH_GLASS_EFFECT_CONTROLS } from '@/store/index'
 const CONTROLS = NH_GLASS_EFFECT_CONTROLS
 
 const panelState = { bgOpacity: 0.56, scrimOpacity: 0.56, blur: 21 }
+// Guards the store->panelState seed below to only ever run once per app
+// session (see the comment at its call site for why) instead of every time
+// this component mounts, i.e. every single time the panel is opened.
+let hasSeededPanelStateThisSession = false
 
 const SLOT_LIST = [
   { key: 'slot1', label: 'Slot 1' },
@@ -177,8 +181,19 @@ export default {
     // last saved (if anything) rather than always starting from its hardcoded
     // defaults. Written back into the module-level const too so a reopen later in
     // the same session (without a Save in between) still reflects it.
-    const savedPanel = this.$store.state.nhSettings?.nhGlassEffect?.panel
-    if (savedPanel) Object.assign(panelState, savedPanel)
+    //
+    // Confirmed bug: hasSeededPanelStateThisSession used to not exist, so this
+    // ran on every mount — and this component fully unmounts on close (v-if in
+    // layouts/default.vue) and remounts fresh on reopen. That meant any live,
+    // unsaved tweak to Background/Scrim Opacity or Blur got silently thrown
+    // away and reverted to the last *saved* value the moment you closed and
+    // reopened the panel, even within the same session — not just on an app
+    // restart, which is the only time this reseed is actually meant to happen.
+    if (!hasSeededPanelStateThisSession) {
+      hasSeededPanelStateThisSession = true
+      const savedPanel = this.$store.state.nhSettings?.nhGlassEffect?.panel
+      if (savedPanel) Object.assign(panelState, savedPanel)
+    }
     return {
       panel: { ...panelState },
       values,
