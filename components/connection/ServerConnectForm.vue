@@ -1,12 +1,18 @@
 <template>
-  <!-- short:mt-4 (max-height: 500px, tailwind.config.js — also what the
-       keyboard-open viewport falls under, verified ~405px) shrinks the
-       144px mt-36 resting-state spacing down to a small clearance instead,
-       so the form actually moves up toward the top as the keyboard opens
-       rather than keeping the same fixed offset regardless of how little
-       vertical room is left — mt-36 alone was the real reason Submit/the
-       Custom Headers/Cloudflare buttons ended up so far below the fold. -->
-  <div :class="showForm ? 'self-start mt-36 short:mt-4' : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
+  <!-- inputFocused shrinks the 144px mt-36 resting-state top margin down to
+       a small clearance while either address field has focus. This used to
+       be a short:mt-4 CSS breakpoint keyed to the keyboard shrinking the
+       viewport height (max-height: 500px), but on real devices confirmed
+       neither window.innerHeight nor visualViewport.height change AT ALL
+       when the keyboard opens — windowSoftInputMode="adjustResize" has
+       grown unreliable on modern Android, and native IME-inset handling
+       turned out not to be a quick fix either (WindowInsets.Type.ime()
+       wasn't reliably reaching a plain WebView listener). Driving this off
+       focus state instead needs no real keyboard-height detection at all —
+       just "a field is focused, assume a keyboard's probably covering the
+       bottom of the screen, make room" — so it works regardless of whether
+       the platform ever tells the page anything about the keyboard. -->
+  <div :class="showForm ? ['self-start', inputFocused ? 'mt-4' : 'mt-36'] : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
     <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
@@ -45,9 +51,9 @@
             <span class="material-symbols text-fg-muted">arrow_back</span>
           </div>
           <h2 class="text-lg leading-7 mb-2">{{ $strings.LabelServerAddress }}</h2>
-          <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" />
+          <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" @focus="inputFocused = true" @blur="inputFocused = false" />
           <h2 class="text-sm leading-7 mt-3 mb-1 text-fg-muted">LAN address (optional)</h2>
-          <ui-text-input v-model="serverConfig.localAddress" :disabled="processing || !networkConnected" placeholder="http://192.168.1.x:13378" type="url" class="w-full h-10" />
+          <ui-text-input v-model="serverConfig.localAddress" :disabled="processing || !networkConnected" placeholder="http://192.168.1.x:13378" type="url" class="w-full h-10" @focus="inputFocused = true" @blur="inputFocused = false" />
           <p v-if="$platform === 'android'" class="text-xs text-fg-muted mt-1">Used automatically when your device is on your home network.</p>
           <div class="flex justify-end items-center mt-6">
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
@@ -120,6 +126,9 @@ export default {
       loggedIn: false,
       showAuth: false,
       processing: false,
+      // See the template comment above the top-level div for why this drives
+      // the resting-state spacing instead of a keyboard-height CSS breakpoint.
+      inputFocused: false,
       serverConfig: {
         address: null,
         version: null,
