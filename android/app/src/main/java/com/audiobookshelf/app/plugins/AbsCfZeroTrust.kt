@@ -135,6 +135,14 @@ class AbsCfZeroTrust : Plugin() {
 
       webView.settings.javaScriptEnabled = true
       webView.settings.domStorageEnabled = true
+      // A bare WebView with neither of these set falls back to Android's legacy
+      // default of assuming a ~980px desktop-width layout regardless of actual
+      // screen size — pages render huge and unscaled instead of at their real
+      // mobile-responsive size. Every other WebView in this app already gets
+      // this from Capacitor's own setup; this one's created fresh just for
+      // this dialog and never inherited it.
+      webView.settings.useWideViewPort = true
+      webView.settings.loadWithOverviewMode = true
 
       CookieManager.getInstance().setAcceptCookie(true)
       CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
