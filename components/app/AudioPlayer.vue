@@ -154,6 +154,7 @@ export default {
       trackWidth: 0,
       isPlaying: false,
       isEnded: false,
+      autoplayNextTriggered: false,
       volume: 0.5,
       readyTrackWidth: 0,
       seekedTime: 0,
@@ -856,15 +857,56 @@ export default {
       if (data.playerState === 'ENDED') {
         console.log('[AudioPlayer] Playback ended')
       }
+      const wasEnded = this.isEnded
       this.isEnded = data.playerState === 'ENDED'
+      if (this.isEnded && !wasEnded) {
+        this.checkAutoplayNext()
+      }
 
       console.log('received metadata update', data)
 
       this.timeupdate()
     },
+    // NH source: enhancements.js autoplaySeries (line 66) + 8358 (playback-end
+    // check). Finds the next unfinished book in the current book's series and
+    // starts it. Server items only for now — local/offline library chaining
+    // isn't handled here, same scope note as the NH source itself doesn't
+    // address local downloads either (NH is web-only).
+    async checkAutoplayNext() {
+      if (this.autoplayNextTriggered) return
+      if (!this.$store.state.nhSettings?.autoplaySeries) return
+      const libraryItemId = this.playbackSession?.libraryItemId
+      const episodeId = this.playbackSession?.episodeId
+      if (!libraryItemId || episodeId) return // podcasts/episodes have no series concept
+      if (libraryItemId.startsWith('local')) return // local items: no server series lookup
+      this.autoplayNextTriggered = true
+
+      const item = await this.$nativeHttp.get(`/api/items/${libraryItemId}`).catch(() => null)
+      const seriesList = item?.media?.metadata?.series
+      if (!seriesList?.length) return
+      const series = seriesList[0]
+      const currentSeq = parseFloat(series.sequence)
+
+      const searchParams = new URLSearchParams()
+      searchParams.set('filter', `series.${this.$encode(series.id)}`)
+      const payload = await this.$nativeHttp.get(`/api/libraries/${item.libraryId}/items?${searchParams.toString()}&limit=100&page=0&minified=1`).catch(() => null)
+      const candidates = payload?.results || []
+
+      const next = candidates
+        .map((li) => ({ li, seq: parseFloat(li.media?.metadata?.series?.find((s) => s.id === series.id)?.sequence) }))
+        .filter((c) => c.li.id !== libraryItemId && isFinite(c.seq) && (!isFinite(currentSeq) || c.seq > currentSeq))
+        .sort((a, b) => a.seq - b.seq)
+        .find((c) => !this.$store.getters['user/getUserMediaProgress'](c.li.id)?.isFinished)
+
+      if (!next) return
+      const nextTitle = next.li.media?.metadata?.title || ''
+      this.$toast.info(nextTitle ? `Playing next in series: ${nextTitle}` : 'Playing next in series')
+      this.$eventBus.$emit('play-item', { libraryItemId: next.li.id })
+    },
     // When a playback session is started the native android/ios will send the session
     onPlaybackSession(playbackSession) {
       console.log('onPlaybackSession received', JSON.stringify(playbackSession))
+      this.autoplayNextTriggered = false
       this.playbackSession = playbackSession
 
       this.isEnded = false

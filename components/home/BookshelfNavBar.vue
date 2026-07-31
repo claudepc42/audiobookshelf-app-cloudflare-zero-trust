@@ -35,6 +35,7 @@ export default {
         'bookshelf-series': 'layers',
         'bookshelf-collections': 'collections_bookmark',
         'bookshelf-authors': 'groups',
+        'bookshelf-narrators': 'record_voice_over',
         'bookshelf-playlists': 'queue_music',
         'bookshelf-latest': 'schedule',
         'bookshelf-add-podcast': 'podcasts'
@@ -143,6 +144,20 @@ export default {
             text: this.$strings.ButtonAuthors
           }
         ]
+
+        // NH source: enhancements.js Narrator card pages. No stock-ABS icon-pack
+        // glyph exists for this (it's an NH-only addition), so only ever shown
+        // under the NH theme, same as the Collections tab above.
+        if (this.nhThemeActive) {
+          items.push({
+            to: '/bookshelf/narrators',
+            routeName: 'bookshelf-narrators',
+            iconPack: 'material-symbols',
+            icon: 'record_voice_over',
+            iconClass: 'text-xl',
+            text: this.$strings.ButtonNarrators
+          })
+        }
       }
 
       if (this.userHasPlaylists) {
@@ -164,6 +179,7 @@ export default {
         if (this.nhSettings.hideRailSeries) hiddenRouteNames.add('bookshelf-series')
         if (this.nhSettings.hideRailCollections) hiddenRouteNames.add('bookshelf-collections')
         if (this.nhSettings.hideRailAuthors) hiddenRouteNames.add('bookshelf-authors')
+        if (this.nhSettings.hideRailNarrators) hiddenRouteNames.add('bookshelf-narrators')
         if (hiddenRouteNames.size) items = items.filter((item) => !hiddenRouteNames.has(item.routeName))
       }
 

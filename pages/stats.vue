@@ -54,6 +54,8 @@
       </div>
     </div>
 
+    <stats-finished-book-tools />
+
     <!-- Year in review banner shown at the bottom Feb - Nov -->
     <stats-year-in-review-banner v-if="!showYearInReviewBanner" />
   </div>

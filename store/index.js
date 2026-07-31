@@ -5,9 +5,10 @@ import { PlayMethod } from '@/plugins/constants'
 
 // NanoHive customization settings — ported from nanohive-abs-theme/theme/enhancements.js
 // defaultSettings (lines 27-53). Fields with no destination in this mobile app
-// (appName/showLogoText — no app-name text element in Appbar; hideRailNarrators —
-// no Narrators page/tab exists here) are intentionally left out rather than added
-// as no-op controls.
+// (appName/showLogoText — no app-name text element in Appbar) are intentionally
+// left out rather than added as no-op controls. hideRailNarrators used to be in
+// that excluded list too (no Narrators page existed) — added for real once the
+// Narrator card page was built (pages/bookshelf/narrators.vue).
 export const NH_SETTINGS_DEFAULTS = {
   accentColor: '#e0c27a',
   baseTheme: 'warm',
@@ -37,6 +38,7 @@ export const NH_SETTINGS_DEFAULTS = {
   hideRailSeries: false,
   hideRailCollections: false,
   hideRailAuthors: false,
+  hideRailNarrators: false,
   hideRailStats: false,
   hideHomeRecentlyAdded: false,
   hideHomeContinueSeries: false,
@@ -49,7 +51,22 @@ export const NH_SETTINGS_DEFAULTS = {
   // NH source uses a muted gray (--nh-muted-2) for the home greeting label
   // ("FRIDAY - GOOD EVENING"); default true keeps it on the accent color
   // instead, matching the app's existing look before this toggle was added.
-  greetingUsesAccent: true
+  greetingUsesAccent: true,
+  // NH source: enhancements.js autoplaySeries (line 66). Off by default —
+  // it decides what your speakers do next, so opt-in only.
+  autoplaySeries: false,
+  // NH source: enhancements.js NH_ALMOST_MIN (0.97) drives the "almost done"
+  // list; no dedicated setting in NH itself for showing/hiding the section,
+  // but this app gates it since it's a new stats-page addition, not a
+  // ported toggle NH already had.
+  showFinishedBookTools: true,
+  // NH's cross-library search (2.0's "search every library at once") has no
+  // corresponding NH setting either — added here since our default search
+  // scope (current library only) predates this feature.
+  crossLibrarySearch: true,
+  // NH source: enhancements.js homeOrder (line 68) — empty array = default
+  // (unmodified) order. Array of home-section keys in display order.
+  homeOrder: []
 }
 
 // NH source: enhancements.js baseThemes (lines 67-80)

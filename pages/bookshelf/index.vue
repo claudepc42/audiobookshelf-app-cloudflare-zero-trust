@@ -168,6 +168,25 @@ export default {
         return true
       })
 
+      // NH source: enhancements.js homeOrder (line 68) — reorders the known
+      // home sections; any shelf not in homeOrder (or not a recognized
+      // section, e.g. a genre shelf) keeps its original relative position,
+      // appended after the ordered ones (stable sort, order.indexOf === -1 -> Infinity).
+      const order = Array.isArray(s.homeOrder) ? s.homeOrder : []
+      if (order.length) {
+        list = list
+          .map((shelf, i) => ({ shelf, i, key: this.getShelfOrderKey(shelf) }))
+          .sort((a, b) => {
+            const ai = a.key ? order.indexOf(a.key) : -1
+            const bi = b.key ? order.indexOf(b.key) : -1
+            const av = ai === -1 ? Infinity : ai
+            const bv = bi === -1 ? Infinity : bi
+            if (av !== bv) return av - bv
+            return a.i - b.i
+          })
+          .map((x) => x.shelf)
+      }
+
       return list
     },
     continueListeningItems() {
@@ -181,6 +200,21 @@ export default {
     getShelfLabel(shelf) {
       if (shelf.labelStringKey && this.$strings[shelf.labelStringKey]) return this.$strings[shelf.labelStringKey]
       return shelf.label
+    },
+    // Stable keys for the reorderable home sections — same categories as the
+    // hide-toggles above (title-substring matched, same convention), plus
+    // 'continue-listening' by id. Returns null for anything unrecognized
+    // (e.g. a genre shelf), which keeps its original position in displayShelves.
+    getShelfOrderKey(shelf) {
+      if (shelf.id === 'continue-listening') return 'continue-listening'
+      const title = (this.getShelfLabel(shelf) || '').toLowerCase()
+      if (title.includes('recently added')) return 'recently-added'
+      if (title.includes('recent series')) return 'recent-series'
+      if (title.includes('continue series')) return 'continue-series'
+      if (title.includes('listen again')) return 'listen-again'
+      if (title.includes('discover')) return 'discover'
+      if (title.includes('authors')) return 'new-authors'
+      return null
     },
     getLocalMediaItemCategories() {
       const localMedia = this.localLibraryItems

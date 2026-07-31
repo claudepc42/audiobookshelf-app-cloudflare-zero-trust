@@ -122,6 +122,33 @@
       <p class="pl-4" style="color: #d8cfc2">Home Carousel</p>
     </div>
 
+    <div class="flex items-center py-2">
+      <div class="w-10 flex justify-center" @click="updateSetting('autoplaySeries', !settings.autoplaySeries)">
+        <ui-toggle-switch :value="settings.autoplaySeries" @input="updateSetting('autoplaySeries', $event)" />
+      </div>
+      <div class="pl-4">
+        <p style="color: #d8cfc2">Autoplay Next in Series</p>
+        <p class="text-xs" style="color: #9a9085">When a book finishes, start the next one in the same series automatically.</p>
+      </div>
+    </div>
+
+    <div class="flex items-center py-2">
+      <div class="w-10 flex justify-center" @click="updateSetting('crossLibrarySearch', !settings.crossLibrarySearch)">
+        <ui-toggle-switch :value="settings.crossLibrarySearch" @input="updateSetting('crossLibrarySearch', $event)" />
+      </div>
+      <div class="pl-4">
+        <p style="color: #d8cfc2">Search Every Library at Once</p>
+        <p class="text-xs" style="color: #9a9085">When off, search only looks in your current library.</p>
+      </div>
+    </div>
+
+    <div class="flex items-center py-2">
+      <div class="w-10 flex justify-center" @click="updateSetting('showFinishedBookTools', !settings.showFinishedBookTools)">
+        <ui-toggle-switch :value="settings.showFinishedBookTools" @input="updateSetting('showFinishedBookTools', $event)" />
+      </div>
+      <p class="pl-4" style="color: #d8cfc2">Finished Book Tools on Stats Page</p>
+    </div>
+
     <p class="text-sm mb-2 mt-3" style="color: #d8cfc2">Continue Reading Shelf</p>
     <div class="flex flex-wrap gap-2 mb-3">
       <button
@@ -144,6 +171,18 @@
       <p class="pr-4 flex-1" style="color: #d8cfc2">Recent Series Count</p>
       <ui-text-input type="number" :value="settings.recentSeriesCount" min="1" max="50" style="width: 90px" @input="updateSetting('recentSeriesCount', Number($event) || 12)" />
     </div>
+
+    <p class="text-xs uppercase mb-2 mt-4" style="color: #8a8075; letter-spacing: 0.08em">Reorder Home Shelves</p>
+    <div v-for="(key, index) in orderedSectionKeys" :key="key" class="flex items-center py-1.5">
+      <p class="flex-1" style="color: #d8cfc2">{{ sectionLabels[key] }}</p>
+      <button type="button" class="w-8 h-8 flex items-center justify-center" :disabled="index === 0" :style="{ opacity: index === 0 ? 0.3 : 1 }" @click="moveSection(index, -1)">
+        <span class="material-symbols text-xl" style="color: #d8cfc2">arrow_upward</span>
+      </button>
+      <button type="button" class="w-8 h-8 flex items-center justify-center" :disabled="index === orderedSectionKeys.length - 1" :style="{ opacity: index === orderedSectionKeys.length - 1 ? 0.3 : 1 }" @click="moveSection(index, 1)">
+        <span class="material-symbols text-xl" style="color: #d8cfc2">arrow_downward</span>
+      </button>
+    </div>
+    <button v-if="settings.homeOrder && settings.homeOrder.length" type="button" class="text-xs mb-4 mt-1" style="color: #9a9085" @click="updateSetting('homeOrder', [])">Reset to default order</button>
 
     <p class="text-xs uppercase mb-2 mt-4" style="color: #8a8075; letter-spacing: 0.08em">Hide Homepage Shelves</p>
     <div class="flex items-center py-2">
@@ -205,6 +244,12 @@
       </div>
       <p class="pl-4" style="color: #d8cfc2">Hide Authors</p>
     </div>
+    <div class="flex items-center py-2">
+      <div class="w-10 flex justify-center" @click="updateSetting('hideRailNarrators', !settings.hideRailNarrators)">
+        <ui-toggle-switch :value="settings.hideRailNarrators" @input="updateSetting('hideRailNarrators', $event)" />
+      </div>
+      <p class="pl-4" style="color: #d8cfc2">Hide Narrators</p>
+    </div>
     <div class="flex items-center py-2 mb-6">
       <div class="w-10 flex justify-center" @click="updateSetting('hideRailStats', !settings.hideRailStats)">
         <ui-toggle-switch :value="settings.hideRailStats" @input="updateSetting('hideRailStats', $event)" />
@@ -217,6 +262,10 @@
 <script>
 import { NH_BASE_THEMES, NH_GOOGLE_FONTS, NH_PRESET_COLORS } from '@/store/index'
 
+// Same keys as pages/bookshelf/index.vue's getShelfOrderKey() — must match
+// exactly, this is the canonical default order used when homeOrder is empty.
+const DEFAULT_SECTION_ORDER = ['continue-listening', 'recently-added', 'recent-series', 'continue-series', 'listen-again', 'discover', 'new-authors']
+
 export default {
   data() {
     return {
@@ -227,7 +276,16 @@ export default {
         { value: 'combine', text: 'Combine into carousel' },
         { value: 'separate', text: 'Keep as separate shelf' },
         { value: 'hidden', text: 'Hidden' }
-      ]
+      ],
+      sectionLabels: {
+        'continue-listening': 'Continue Listening',
+        'recently-added': 'Recently Added',
+        'recent-series': 'Recent Series',
+        'continue-series': 'Continue Series',
+        'listen-again': 'Listen Again',
+        discover: 'Discover',
+        'new-authors': 'Newest Authors'
+      }
     }
   },
   computed: {
@@ -236,11 +294,21 @@ export default {
     },
     isKnownAccent() {
       return this.presetColors.includes((this.settings.accentColor || '').toLowerCase())
+    },
+    orderedSectionKeys() {
+      return this.settings.homeOrder && this.settings.homeOrder.length ? this.settings.homeOrder : DEFAULT_SECTION_ORDER
     }
   },
   methods: {
     isAccent(color) {
       return (this.settings.accentColor || '').toLowerCase() === color.toLowerCase()
+    },
+    moveSection(index, dir) {
+      const list = this.orderedSectionKeys.slice()
+      const target = index + dir
+      if (target < 0 || target >= list.length) return
+      ;[list[index], list[target]] = [list[target], list[index]]
+      this.updateSetting('homeOrder', list)
     },
     async updateSetting(key, value) {
       this.$store.commit('setNhSetting', { key, value })

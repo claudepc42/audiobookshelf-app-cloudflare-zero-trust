@@ -71,7 +71,7 @@
             </ui-btn>
             <!-- NH source: enhancements.js injectGoodreads() (lines 1645-1685) -->
             <a v-if="nhThemeActive && !isPodcast" :href="goodreadsUrl" target="_blank" rel="noopener" title="Find on Goodreads" class="nh-goodreads-btn flex items-center justify-center mx-1">
-              <img src="https://cdn.aptoide.com/imgs/8/0/0/800221239eae4d986d53aaeba991e771_icon.png" alt="Goodreads" />
+              <img src="/booksite-goodreads.png" alt="Goodreads" />
             </a>
           </div>
           <ui-btn v-else-if="isMissing" color="error" :padding-x="4" small class="mt-4 flex items-center justify-center w-full" @click="clickMissingButton">

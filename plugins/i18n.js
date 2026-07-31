@@ -33,11 +33,20 @@ const languageCodeMap = {
   'zh-cn': { label: '简体中文 (Simplified Chinese)', dateFnsLocale: 'zhCN' }
 }
 
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
 function supplant(str, subs) {
   // source: http://crockford.com/javascript/remedial.html
+  // Substituted values are escaped (unlike the surrounding translation string
+  // itself, which is static bundled content) — some translations legitimately
+  // wrap {0} in real markup (e.g. "<strong>{0}</strong>") and are rendered via
+  // v-html, so a substituted value like a username must not be able to inject
+  // its own HTML into that render.
   return str.replace(/{([^{}]*)}/g, function (a, b) {
     var r = subs[b]
-    return typeof r === 'string' || typeof r === 'number' ? r : a
+    return typeof r === 'string' || typeof r === 'number' ? escapeHtml(r) : a
   })
 }
 

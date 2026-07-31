@@ -8,7 +8,11 @@
       <p>Server version: v{{ serverVersion }}</p>
     </div>
 
+    <ui-btn v-if="isAdminOrUp" color="bg bg-opacity-50 flex items-center justify-between gap-2 ml-auto text-base mt-8" @click="showTidyAuthors = true">{{ $strings.HeaderTidyAuthors }}<span class="material-symbols" style="font-size: 1.1rem">group_remove</span></ui-btn>
+
     <ui-btn color="primary flex items-center justify-between gap-2 ml-auto text-base mt-8" @click="logout">{{ $strings.ButtonSwitchServerUser }}<span class="material-symbols" style="font-size: 1.1rem">logout</span></ui-btn>
+
+    <modals-tidy-authors-modal v-model="showTidyAuthors" />
 
     <div class="flex justify-center items-center my-4 left-0 right-0 bottom-0 absolute">
       <p class="text-sm text-fg">{{ $strings.MessageReportBugsAndContribute }} <a class="underline" href="https://github.com/advplyr/audiobookshelf-app" target="_blank">GitHub</a></p>
@@ -32,7 +36,9 @@ export default {
     return {}
   },
   data() {
-    return {}
+    return {
+      showTidyAuthors: false
+    }
   },
   computed: {
     username() {
@@ -41,6 +47,9 @@ export default {
     },
     user() {
       return this.$store.state.user.user
+    },
+    isAdminOrUp() {
+      return this.$store.getters['user/getIsAdminOrUp']
     },
     serverConnectionConfig() {
       return this.$store.state.user.serverConnectionConfig || {}
