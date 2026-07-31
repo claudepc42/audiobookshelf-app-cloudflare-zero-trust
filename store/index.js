@@ -72,6 +72,14 @@ export const NH_GLASS_EFFECT_CONTROLS = [
   { group: 'Cinematic Background', prop: '--nh-cine-grad-top', label: 'Gradient Top', default: 0.77, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.8, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-grad-bottom', label: 'Gradient Bottom', default: 1, min: 0, max: 1, step: 0.01, unit: '' },
+  // Home page's #nh-home-bg cinematic background (above) and the hero
+  // carousel's own per-slide blurred cover background (.nh-slide-bg) are
+  // separate elements with separate effects — this used to be hardcoded
+  // (filter: blur(28px) brightness(0.5) saturate(1.4) in nh-theme.css) with
+  // no way to tune it at all.
+  { group: 'Carousel Background', prop: '--nh-carousel-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Carousel Background', prop: '--nh-carousel-brightness', label: 'Brightness', default: 0.5, min: 0, max: 1.5, step: 0.01, unit: '' },
+  { group: 'Carousel Background', prop: '--nh-carousel-saturate', label: 'Saturate', default: 1.4, min: 0, max: 3, step: 0.05, unit: '' },
   { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.41, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Appbar', prop: '--nh-appbar-blur', label: 'Blur', default: 48, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0, min: 0, max: 1, step: 0.01, unit: '' },

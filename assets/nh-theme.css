@@ -60,6 +60,12 @@ html[data-theme='nanohive'] {
   --nh-cine-grad-top: 0.77;
   --nh-cine-grad-mid: 0.8;
   --nh-cine-grad-bottom: 1;
+  /* Hero carousel's own per-slide blurred cover background — was hardcoded
+     with no tuner control at all (see .nh-slide-bg below). Values match
+     what used to be hardcoded there. */
+  --nh-carousel-blur: 28px;
+  --nh-carousel-brightness: 0.5;
+  --nh-carousel-saturate: 1.4;
 }
 
 /* NH source: core.js line 67 — global font-size scaling driven by the fontScale setting */
@@ -1418,10 +1424,12 @@ html[data-theme='nanohive'] .box-shadow-book .bg-black p:last-child {
 /* Per-slide blurred cover background. NH source: enhancements.js slideMarkup()
    .nh-hero-bg — inset:-12%, filter: blur(60px) brightness(0.5) saturate(1.4).
    Same phone-viewport scaling as #nh-home-bg's blur above — 60px was tuned
-   for a desktop-width card, not this ~350-400px mobile carousel slide. */
+   for a desktop-width card, not this ~350-400px mobile carousel slide.
+   Tunable via --nh-carousel-* (NH UI Glass Effect Tuner > Carousel
+   Background) — was hardcoded with no control at all before. */
 html[data-theme='nanohive'] .nh-slide-bg {
   inset: -12% !important;
-  filter: blur(28px) brightness(0.5) saturate(1.4);
+  filter: blur(var(--nh-carousel-blur, 28px)) brightness(var(--nh-carousel-brightness, 0.5)) saturate(var(--nh-carousel-saturate, 1.4));
 }
 
 /* Gradient overlay — NH source: enhancements.js slideMarkup(), 110deg diagonal
