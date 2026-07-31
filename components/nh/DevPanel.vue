@@ -35,8 +35,18 @@
             <span style="color: #f4eee2; font-size: 0.82rem">Background Opacity</span>
             <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.bgOpacity.toFixed(2) }}</span>
           </div>
-          <input type="range" min="0" max="1" step="0.01" :value="panel.bgOpacity" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="setPanel('bgOpacity', $event.target.value)" />
-          <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0</span><span>1</span></div>
+          <!-- 40px dead-space gutter (below) reserved on the right so the panel
+               can be scrolled from anywhere alongside a slider without a touch
+               starting on the slider track itself and dragging its value
+               instead — sliders used to run edge-to-edge with nothing to grab. -->
+          <div style="display: flex; align-items: center; gap: 8px">
+            <input type="range" min="0" max="1" step="0.01" :value="panel.bgOpacity" style="flex: 1; min-width: 0; accent-color: #e0c27a; height: 4px" @input="setPanel('bgOpacity', $event.target.value)" />
+            <div style="width: 40px; flex-shrink: 0"></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px">
+            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem"><span>0</span><span>1</span></div>
+            <div style="width: 40px; flex-shrink: 0"></div>
+          </div>
         </div>
 
         <div style="margin-bottom: 18px">
@@ -44,8 +54,14 @@
             <span style="color: #f4eee2; font-size: 0.82rem">Scrim Opacity</span>
             <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.scrimOpacity.toFixed(2) }}</span>
           </div>
-          <input type="range" min="0" max="1" step="0.01" :value="panel.scrimOpacity" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="setPanel('scrimOpacity', $event.target.value)" />
-          <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0</span><span>1</span></div>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <input type="range" min="0" max="1" step="0.01" :value="panel.scrimOpacity" style="flex: 1; min-width: 0; accent-color: #e0c27a; height: 4px" @input="setPanel('scrimOpacity', $event.target.value)" />
+            <div style="width: 40px; flex-shrink: 0"></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px">
+            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem"><span>0</span><span>1</span></div>
+            <div style="width: 40px; flex-shrink: 0"></div>
+          </div>
         </div>
 
         <div style="margin-bottom: 18px">
@@ -53,8 +69,14 @@
             <span style="color: #f4eee2; font-size: 0.82rem">Blur</span>
             <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.blur }}px</span>
           </div>
-          <input type="range" min="0" max="40" step="1" :value="panel.blur" style="width: 100%; accent-color: #e0c27a; height: 4px" @input="setPanel('blur', $event.target.value)" />
-          <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px"><span>0px</span><span>40px</span></div>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <input type="range" min="0" max="40" step="1" :value="panel.blur" style="flex: 1; min-width: 0; accent-color: #e0c27a; height: 4px" @input="setPanel('blur', $event.target.value)" />
+            <div style="width: 40px; flex-shrink: 0"></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px">
+            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem"><span>0px</span><span>40px</span></div>
+            <div style="width: 40px; flex-shrink: 0"></div>
+          </div>
         </div>
       </div>
 
@@ -67,18 +89,24 @@
             <span style="color: #f4eee2; font-size: 0.82rem">{{ ctrl.label }}</span>
             <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ fmt(ctrl) }}</span>
           </div>
-          <input
-            type="range"
-            :min="ctrl.min"
-            :max="ctrl.max"
-            :step="ctrl.step"
-            :value="values[ctrl.prop]"
-            style="width: 100%; accent-color: #e0c27a; height: 4px"
-            @input="apply(ctrl, $event.target.value)"
-          />
-          <div style="display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem; margin-top: 3px">
-            <span>{{ ctrl.min }}{{ ctrl.unit }}</span>
-            <span>{{ ctrl.max }}{{ ctrl.unit }}</span>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <input
+              type="range"
+              :min="ctrl.min"
+              :max="ctrl.max"
+              :step="ctrl.step"
+              :value="values[ctrl.prop]"
+              style="flex: 1; min-width: 0; accent-color: #e0c27a; height: 4px"
+              @input="apply(ctrl, $event.target.value)"
+            />
+            <div style="width: 40px; flex-shrink: 0"></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px">
+            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem">
+              <span>{{ ctrl.min }}{{ ctrl.unit }}</span>
+              <span>{{ ctrl.max }}{{ ctrl.unit }}</span>
+            </div>
+            <div style="width: 40px; flex-shrink: 0"></div>
           </div>
         </div>
       </div>
