@@ -51,6 +51,14 @@ html[data-theme='nanohive'] {
   --nh-drawer-blur: 13px;
   --nh-miniplayer-opacity: 0.4;
   --nh-miniplayer-blur: 28px;
+  /* Library-switcher button (Appbar.vue) — NH's real appbar buttons (e.g. the
+     gear/customizations icon, #nh-gear-btn) have NO background of their own,
+     just a subtle hover tint, since NH is a mouse-driven desktop theme and
+     hover alone reveals the button. This app has no hover on a touchscreen, so
+     a small non-zero default opacity keeps the button legible/discoverable
+     without it becoming a solid pill — tunable low if this reads as too visible. */
+  --nh-libbtn-opacity: 0.12;
+  --nh-libbtn-blur: 8px;
   /* Cinematic background — tuned live on-device 2026-07-25 after the .bg-bg
      visibility bug was fixed (was previously invisible regardless of value).
      Originally blur(55px) brightness(0.45) saturate(1.35), gradient
@@ -225,6 +233,19 @@ html[data-theme='nanohive'] #nh-appbar-wrapper {
   backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
   -webkit-backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+/* NH source: #appbar/#nh-gear-btn (core.js:243,486) — buttons living directly
+   in the appbar have no background of their own in NH, just a subtle hover
+   tint, since the appbar itself is already the frosted surface. Overrides the
+   stock ABS `bg-bg bg-opacity-30` pill on the library-switcher button
+   (Appbar.vue) with the same treatment, tunable via the NH UI Glass Effect
+   Tuner ("Library Button" group) since a touchscreen has no hover to fall
+   back on for legibility the way NH's real (mouse-driven) button does. */
+html[data-theme='nanohive'] [aria-label='Show library modal'] {
+  background-color: rgba(var(--nh-bg-rgb), var(--nh-libbtn-opacity, 0.12)) !important;
+  backdrop-filter: blur(var(--nh-libbtn-blur, 8px)) !important;
+  -webkit-backdrop-filter: blur(var(--nh-libbtn-blur, 8px)) !important;
 }
 
 /* ============ ACCENT COLOR OVERRIDES ============ */

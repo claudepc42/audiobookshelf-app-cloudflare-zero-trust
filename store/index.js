@@ -138,7 +138,13 @@ export const NH_GLASS_EFFECT_CONTROLS = [
   { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Drawer', prop: '--nh-drawer-blur', label: 'Blur', default: 13, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Mini Player', prop: '--nh-miniplayer-opacity', label: 'Opacity', default: 0.4, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Mini Player', prop: '--nh-miniplayer-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' }
+  { group: 'Mini Player', prop: '--nh-miniplayer-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
+  // NH's real appbar buttons have no background at all (hover alone reveals
+  // them on a mouse-driven desktop theme) — these exist because a touchscreen
+  // has no hover, so the library-switcher button needs *some* tunable
+  // legibility instead of NH's literal zero.
+  { group: 'Library Button', prop: '--nh-libbtn-opacity', label: 'Opacity', default: 0.12, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Library Button', prop: '--nh-libbtn-blur', label: 'Blur', default: 8, min: 0, max: 60, step: 1, unit: 'px' }
 ]
 
 export const NH_BASE_THEMES = {
