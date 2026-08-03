@@ -65,7 +65,17 @@
          badge instead of a full-width progress bar, which carries no information
          once a book is done. -->
     <div v-if="nhThemeActive && itemIsFinished && !collapsedSeries" class="nh-finished-badge absolute z-10 flex items-center justify-center">
-      <span class="material-symbols">check</span>
+      <span class="material-symbols" :style="finishedBadgeUsesAccent ? { color: 'var(--nh-amber)' } : {}">check</span>
+    </div>
+
+    <!-- NH source: nhCrPaint (enhancements.js:5758-5804), card rating badge -->
+    <div v-if="cardRating" class="nh-card-rating">
+      <span class="nh-cr-stars">
+        <span>★★★★★</span>
+        <span class="nh-cr-fill" :style="{ width: (Math.max(0, Math.min(5, cardRating.avg)) / 5) * 100 + '%' }">★★★★★</span>
+      </span>
+      <span class="nh-cr-num">{{ Number(cardRating.avg.toFixed(1)) }}</span>
+      <span class="nh-cr-n">({{ cardRating.n }})</span>
     </div>
 
     <!-- Downloaded icon -->
@@ -109,8 +119,10 @@
 
 <script>
 import { Capacitor } from '@capacitor/core'
+import nhRatingsBulk from '@/mixins/nhRatingsBulk'
 
 export default {
+  mixins: [nhRatingsBulk],
   props: {
     index: Number,
     width: {
@@ -317,6 +329,23 @@ export default {
     },
     nhThemeActive() {
       return this.store.state.nhThemeActive
+    },
+    finishedBadgeUsesAccent() {
+      return this.store.state.nhSettings.finishedBadgeUsesAccent
+    },
+    // NH source: nhCardRatings() gating (enhancements.js:5806-5808) + nhRatingsLibOn()
+    // (enhancements.js:164-168) — per-library override wins, else default is "on
+    // unless it's a podcast library".
+    ratingsEnabledForLibrary() {
+      const s = this.store.state.nhSettings
+      if (s.showRatings === false || s.showCardRatings === false) return false
+      const libs = s.ratingLibs && typeof s.ratingLibs === 'object' ? s.ratingLibs : {}
+      if (this.libraryId && Object.prototype.hasOwnProperty.call(libs, this.libraryId)) return libs[this.libraryId] !== false
+      return !this.isPodcast
+    },
+    cardRating() {
+      if (!this.nhThemeActive || !this.ratingsEnabledForLibrary) return null
+      return this.nhRatingAvgFor(this.libraryItemId)
     },
     showError() {
       return this.isMissing || this.isInvalid
@@ -576,6 +605,7 @@ export default {
         this.setLocalLibraryItem(this.bookMount.localLibraryItem)
       }
     }
+    if (this.nhThemeActive && this.ratingsEnabledForLibrary) this.ensureNhRatingsBulk()
   }
 }
 </script>

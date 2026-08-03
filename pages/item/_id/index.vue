@@ -17,7 +17,7 @@
         <div v-if="!isPodcast && !(nhThemeActive && userIsFinished)" class="absolute bottom-0 left-0 h-1 z-10 box-shadow-progressbar" :class="userIsFinished ? 'bg-success' : 'bg-yellow-400'" :style="{ width: coverWidth * progressPercent + 'px' }"></div>
         <!-- NH source: book-details.js #nh-finished-badge (lines 109-123) -->
         <div v-if="nhThemeActive && !isPodcast && userIsFinished" id="nh-item-finished-badge" class="absolute z-10 flex items-center justify-center">
-          <span class="material-symbols">check</span>
+          <span class="material-symbols" :style="finishedBadgeUsesAccent ? { color: 'var(--nh-amber)', textShadow: '0 0 10px var(--nh-amber-shadow)' } : {}">check</span>
         </div>
       </div>
     </div>
@@ -69,10 +69,13 @@
             <ui-btn color="primary" class="flex items-center justify-center mx-1" :padding-x="2" @click="moreButtonPress">
               <span class="material-symbols text-2xl">more_vert</span>
             </ui-btn>
-            <!-- NH source: enhancements.js injectGoodreads() (lines 1645-1685) -->
-            <a v-if="nhThemeActive && !isPodcast" :href="goodreadsUrl" target="_blank" rel="noopener" title="Find on Goodreads" class="nh-goodreads-btn flex items-center justify-center mx-1">
-              <img src="/booksite-goodreads.png" alt="Goodreads" />
-            </a>
+            <!-- NH source: NH_BOOK_SITES / injectBookSites() (enhancements.js:3118-3253), values ported exactly -->
+            <span v-if="nhThemeActive && !isPodcast && bookSiteLinks.length" class="nh-bs-row flex items-center mx-1">
+              <a v-for="site in bookSiteLinks" :key="site.id" :href="site.url" target="_blank" rel="noopener noreferrer" :title="`Find on ${site.name}`" class="nh-bs-btn flex items-center justify-center">
+                <span v-if="site.hasLogo" class="nh-bs-logo" :style="{ '--nh-bs-logo': `url(/booksites/${site.id}.png)` }" />
+                <span v-else class="nh-bs-letter">{{ site.letter }}</span>
+              </a>
+            </span>
           </div>
           <ui-btn v-else-if="isMissing" color="error" :padding-x="4" small class="mt-4 flex items-center justify-center w-full" @click="clickMissingButton">
             <span class="material-symbols">error</span>
@@ -84,6 +87,11 @@
             <p v-if="!useEBookProgress && !userIsFinished" class="text-fg-muted text-xs">{{ $getString('LabelTimeRemaining', [$elapsedPretty(userTimeRemaining)]) }}</p>
             <p v-else-if="userIsFinished" class="text-fg-muted text-xs">{{ $strings.LabelFinished }} {{ $formatDate(userProgressFinishedAt) }}</p>
           </div>
+
+          <!-- NH source: community ratings widget, anchored directly under the Play/Read
+               row (book-details.js nhRtMaintain(), lines 1243-1292). Renders nothing if
+               the server has no NanoHive backend behind it. -->
+          <nh-ratings-widget v-if="nhThemeActive && !isPodcast && serverLibraryItemId" :item-key="serverLibraryItemId" />
         </div>
 
         <div v-if="downloadItem" class="py-3">
@@ -161,8 +169,41 @@
           </div>
         </div>
 
+        <!-- NH source: nhBdDates() (book-details.js:636-729). Finished date edits via
+             ABS's own native PATCH /api/me/progress (always available). Started date
+             has no ABS equivalent — ABS silently ignores attempts to write it (NH's own
+             comment: "verified five ways") — so it needs NH's /_nh/api/dates backend to
+             be editable at all; falls back to plain read-only display when that backend
+             isn't there (only becomes an <input> once a successful fetch confirms it is). -->
+        <div v-if="nhThemeActive && !isPodcast && (startedAtDisplay || userProgressFinishedAt)" id="nh-bd-dates">
+          <div v-if="startedAtDisplay" class="nh-bd-dt">
+            <span class="nh-bd-dt-l">Started</span>
+            <span v-if="!datesBackendReady" class="nh-bd-dt-v">{{ $formatDate(startedAtDisplay) }}</span>
+            <span v-else class="nh-date-wrap">
+              <input type="date" class="nh-bd-dt-inp" :class="{ 'nh-bd-dt-saving': savingStartedAt }" :value="isoDate(startedAtDisplay)" @change="onStartedAtChange" />
+              <span class="nh-date-ico" />
+            </span>
+          </div>
+          <div v-if="userProgressFinishedAt" class="nh-bd-dt">
+            <span class="nh-bd-dt-l">Finished</span>
+            <span class="nh-date-wrap">
+              <input type="date" class="nh-bd-dt-inp" :class="{ 'nh-bd-dt-saving': savingFinishedAt }" :value="isoDate(userProgressFinishedAt)" @change="onFinishedAtChange" />
+              <span class="nh-date-ico" />
+            </span>
+          </div>
+        </div>
+
+        <!-- NH source: nhReportLink() (book-details.js:886-913) — fallback standalone
+             link form (NH's preferred form injects into the 3-dot menu; not attempted
+             here since it targets ABS's own web-client menu markup, not this app's). -->
+        <button v-if="nhThemeActive && !isPodcast && serverLibraryItemId" id="nh-rp-link" type="button" @click="showReportModal = true">
+          <span class="material-symbols">flag</span>
+          {{ reportStrings.menu }}
+        </button>
+        <nh-report-problem-modal v-if="showReportModal" :item-id="serverLibraryItemId" :title="title" @close="showReportModal = false" />
+
         <div v-if="description" class="w-full py-2">
-          <div ref="description" class="default-style less-spacing text-sm text-justify whitespace-pre-line font-light" :class="{ 'line-clamp-4': !showFullDescription }" style="hyphens: auto" v-html="description" />
+          <div ref="description" class="default-style less-spacing text-sm text-justify whitespace-pre-line font-light" :class="{ 'line-clamp-4': !showFullDescription }" style="hyphens: auto">{{ description }}</div>
 
           <div v-if="descriptionClamped" class="text-fg text-sm py-2" @click="showFullDescription = !showFullDescription">
             {{ showFullDescription ? $strings.ButtonReadLess : $strings.ButtonReadMore }}
@@ -200,6 +241,7 @@ import { AbsFileSystem, AbsDownloader } from '@/plugins/capacitor'
 import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 import { getAverageColorFromCoverUrl } from '@/utils/coverAverageColor'
 import cellularPermissionHelpers from '@/mixins/cellularPermissionHelpers'
+import { NH_BOOK_SITES, NH_BOOK_SITE_LOGOS, nhReportStrings } from '@/store/index'
 
 export default {
   async asyncData({ store, params, redirect, app, query }) {
@@ -247,7 +289,12 @@ export default {
       descriptionClamped: false,
       showFullDescription: false,
       episodeStartingPlayback: null,
-      startingDownload: false
+      startingDownload: false,
+      showReportModal: false,
+      startedAtOverride: null,
+      datesBackendReady: false,
+      savingStartedAt: false,
+      savingFinishedAt: false
     }
   },
   mixins: [cellularPermissionHelpers],
@@ -355,10 +402,50 @@ export default {
     nhThemeActive() {
       return this.$store.state.nhThemeActive
     },
-    goodreadsUrl() {
+    finishedBadgeUsesAccent() {
+      return this.$store.state.nhSettings.finishedBadgeUsesAccent
+    },
+    nhSettings() {
+      return this.$store.state.nhSettings
+    },
+    reportStrings() {
+      return nhReportStrings(this.$languageCodes?.current)
+    },
+    startedAtDisplay() {
+      return this.startedAtOverride || this.userItemProgress?.startedAt || 0
+    },
+    // NH source: nhBookSitesDefault() (enhancements.js:3150-3159) — Goodreads plus
+    // the biggest local book community for the interface language, preferring a
+    // real local site (Lubimyczytać, Babelio…) over that language's Amazon store.
+    bookSitesDefault() {
+      const lang = (this.$languageCodes?.current || 'en').split('-')[0].toLowerCase()
+      const forLang = NH_BOOK_SITES.filter((s) => s.langs.indexOf(lang) !== -1)
+      const local = forLang.filter((s) => s.id.indexOf('amazon') !== 0)[0] || forLang[0]
+      const ids = ['goodreads']
+      if (local) ids.push(local.id)
+      return ids
+    },
+    // [] is a deliberate "show none" choice, distinct from not-yet-customized (null).
+    bookSitesSelected() {
+      const v = this.nhSettings.bookSites
+      return Array.isArray(v) ? v : this.bookSitesDefault
+    },
+    bookSiteQuery() {
       const authorNames = this.podcastAuthor || this.bookAuthors?.map((a) => a.name).join(', ') || ''
-      const q = [this.title, this.subtitle, authorNames].filter(Boolean).join(' ')
-      return 'https://www.goodreads.com/search?q=' + encodeURIComponent(q)
+      return [this.title, this.subtitle, authorNames].filter(Boolean).join(' ')
+    },
+    bookSiteLinks() {
+      const q = encodeURIComponent(this.bookSiteQuery)
+      return this.bookSitesSelected
+        .map((id) => NH_BOOK_SITES.find((s) => s.id === id))
+        .filter(Boolean)
+        .map((site) => ({
+          id: site.id,
+          name: site.name,
+          url: site.url + q,
+          hasLogo: NH_BOOK_SITE_LOGOS.indexOf(site.id) !== -1,
+          letter: site.name.charAt(0).toUpperCase()
+        }))
     },
     publisher() {
       return this.mediaMetadata.publisher
@@ -385,7 +472,14 @@ export default {
       return this.mediaMetadata.narrators || []
     },
     description() {
-      return this.mediaMetadata.description || ''
+      const raw = this.mediaMetadata.description || ''
+      if (!raw) return ''
+      // Same DOMParser + textContent pattern as HeroCarousel.vue's itemDescription() —
+      // consumes any embedded HTML (stray <p> tags, or a malicious <img onerror=...>
+      // payload) as inert structure instead of live markup. whitespace-pre-line on the
+      // rendering element (below) preserves literal newlines textContent keeps intact.
+      const doc = new DOMParser().parseFromString(raw, 'text/html')
+      return doc.body.textContent || ''
     },
     series() {
       return this.mediaMetadata.series || []
@@ -530,6 +624,56 @@ export default {
     }
   },
   methods: {
+    isoDate(ms) {
+      if (!ms) return ''
+      const d = new Date(ms)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    },
+    // NH source: nhBdLoadStarted() (book-details.js:616-628) — probing this also
+    // doubles as the "is the NH backend even there" check that gates whether the
+    // started-date field renders as an editable <input> at all.
+    async fetchStartedDate() {
+      if (!this.nhThemeActive || this.isPodcast || !this.serverLibraryItemId) return
+      try {
+        const res = await this.$nativeHttp.get('/_nh/api/dates')
+        this.datesBackendReady = true
+        const rec = res?.items?.[this.serverLibraryItemId]
+        if (rec?.startedAt) this.startedAtOverride = rec.startedAt
+      } catch (e) {
+        // No NH backend behind this server (or a transient failure) — stays
+        // read-only, same as the pre-backend fallback plan.
+      }
+    },
+    async onStartedAtChange(e) {
+      if (!e.target.value) return
+      const [y, m, d] = e.target.value.split('-')
+      const ms = new Date(+y, +m - 1, +d, 12, 0, 0).getTime()
+      this.savingStartedAt = true
+      try {
+        await this.$nativeHttp.post('/_nh/api/dates', { itemId: this.serverLibraryItemId, startedAt: ms })
+        this.startedAtOverride = ms
+      } catch (e2) {
+        // Save failed — leave the displayed value as whatever it was; the input
+        // will just show the unsaved value until next reload, same as a normal
+        // failed-save UX elsewhere in this app.
+      }
+      this.savingStartedAt = false
+    },
+    // NH source: finished-date editor (book-details.js:699-724) — ABS's own
+    // native PATCH, same endpoint FinishedBookTools.vue already uses successfully.
+    async onFinishedAtChange(e) {
+      if (!e.target.value) return
+      const [y, m, d] = e.target.value.split('-')
+      const ms = new Date(+y, +m - 1, +d, 12, 0, 0).getTime()
+      this.savingFinishedAt = true
+      try {
+        await this.$nativeHttp.patch(`/api/me/progress/${this.serverLibraryItemId}`, { finishedAt: ms })
+        if (this.userItemProgress) this.userItemProgress.finishedAt = ms
+      } catch (e2) {
+        // failed save — leave as-is
+      }
+      this.savingFinishedAt = false
+    },
     clickMissingButton() {
       Dialog.alert({
         title: this.$strings.LabelMissing,
@@ -855,6 +999,7 @@ export default {
       await this.loadServerLibraryItem()
     }
     this.init()
+    this.fetchStartedDate()
   },
   beforeDestroy() {
     window.removeEventListener('resize', this.windowResized)

@@ -16,7 +16,21 @@
           <nuxt-link :to="`/item/${item.libraryItem.id}`">
             <cards-item-search-card :library-item="item.libraryItem" :search="lastSearch" />
           </nuxt-link>
-          <span v-if="item._libraryName" class="nh-search-lib-badge">{{ item._libraryName }}</span>
+          <!-- NH source: multi-library "copies" chips (enhancements.js:4121-4125) —
+               one small chip per library the match was found in, each linking to
+               that specific copy, instead of one full duplicate row per library. -->
+          <span v-if="item._copies.length > 1" class="nh-search-lib-chips">
+            <nuxt-link v-for="copy in item._copies" :key="copy.libraryItem.id" :to="`/item/${copy.libraryItem.id}`" class="nh-search-lib-badge">{{ copy._libraryName }}</nuxt-link>
+          </span>
+          <span v-else-if="item._libraryName" class="nh-search-lib-badge">{{ item._libraryName }}</span>
+          <!-- NH source: nh-gs-stars badge in global search rows (enhancements.js:4115-4119) -->
+          <span v-if="searchRating(item.libraryItem.id)" class="nh-search-rating">
+            <span class="nh-cr-stars">
+              <span>★★★★★</span>
+              <span class="nh-cr-fill" :style="{ width: (Math.max(0, Math.min(5, searchRating(item.libraryItem.id).avg)) / 5) * 100 + '%' }">★★★★★</span>
+            </span>
+            <span class="nh-cr-n">({{ searchRating(item.libraryItem.id).n }})</span>
+          </span>
         </div>
       </template>
 
@@ -44,7 +58,10 @@
       <template v-for="seriesResult in seriesResults">
         <div :key="seriesResult.series.id" class="w-full h-16 py-1 relative cursor-pointer" @click="goToFiltered(seriesResult._libraryId, `/bookshelf/series/${seriesResult.series.id}`)">
           <cards-series-search-card :series="seriesResult.series" :book-items="seriesResult.books" />
-          <span v-if="seriesResult._libraryName" class="nh-search-lib-badge">{{ seriesResult._libraryName }}</span>
+          <span v-if="seriesResult._copies.length > 1" class="nh-search-lib-chips">
+            <span v-for="copy in seriesResult._copies" :key="copy.series.id" class="nh-search-lib-badge" @click.stop="goToFiltered(copy._libraryId, `/bookshelf/series/${copy.series.id}`)">{{ copy._libraryName }}</span>
+          </span>
+          <span v-else-if="seriesResult._libraryName" class="nh-search-lib-badge">{{ seriesResult._libraryName }}</span>
         </div>
       </template>
 
@@ -52,7 +69,10 @@
       <template v-for="authorResult in authorResults">
         <div :key="authorResult.id" class="w-full h-14 py-1 relative cursor-pointer" @click="goToFiltered(authorResult._libraryId, `/bookshelf/library?filter=authors.${$encode(authorResult.id)}`)">
           <cards-author-search-card :author="authorResult" />
-          <span v-if="authorResult._libraryName" class="nh-search-lib-badge">{{ authorResult._libraryName }}</span>
+          <span v-if="authorResult._copies.length > 1" class="nh-search-lib-chips">
+            <span v-for="copy in authorResult._copies" :key="copy.id" class="nh-search-lib-badge" @click.stop="goToFiltered(copy._libraryId, `/bookshelf/library?filter=authors.${$encode(copy.id)}`)">{{ copy._libraryName }}</span>
+          </span>
+          <span v-else-if="authorResult._libraryName" class="nh-search-lib-badge">{{ authorResult._libraryName }}</span>
         </div>
       </template>
 
@@ -76,7 +96,10 @@
 </template>
 
 <script>
+import nhRatingsBulk from '@/mixins/nhRatingsBulk'
+
 export default {
+  mixins: [nhRatingsBulk],
   data() {
     return {
       search: null,
@@ -166,13 +189,49 @@ export default {
       }
       const merge = (key) => perLibraryResults.flatMap(({ lib, res }) => tag(res?.[key] || [], lib))
 
-      this.bookResults = merge('book')
+      // NH source: cross-library search dedup (enhancements.js:3965-3985) — the
+      // same book/series/author found in multiple libraries merges into one row
+      // with a "copies" list, instead of one full duplicate row per library.
+      // NH's own real scope is books/series/authors only (not podcasts/episodes/
+      // narrators/tags), matched here.
+      this.bookResults = this.dedupeSearchResults(merge('book'), (item) => this.searchNorm(item.libraryItem?.media?.metadata?.title) + '|' + this.searchNorm(item.libraryItem?.media?.metadata?.authorName))
       this.podcastResults = merge('podcast')
       this.episodeResults = merge('episodes')
-      this.seriesResults = merge('series')
-      this.authorResults = merge('authors')
+      this.seriesResults = this.dedupeSearchResults(merge('series'), (item) => this.searchNorm(item.series?.name))
+      this.authorResults = this.dedupeSearchResults(merge('authors'), (item) => this.searchNorm(item.name))
       this.narratorResults = merge('narrators')
       this.tagResults = merge('tags')
+    },
+    // NH source: nhGsNorm (enhancements.js:3937-3941), ported exactly.
+    searchNorm(s) {
+      let n = String(s || '').toLowerCase()
+      try {
+        n = n.normalize('NFD').replace(/[̀-ͯ]/g, '')
+      } catch (e) {
+        // normalize() unsupported — fall back to the un-stripped lowercase string
+      }
+      return n.replace(/[^a-z0-9]+/g, ' ').trim()
+    },
+    // Groups same-key items into one row with a `_copies` array (one entry per
+    // library the match was found in) instead of a full duplicate row each.
+    dedupeSearchResults(items, keyFn) {
+      const rows = []
+      const byKey = new Map()
+      items.forEach((item) => {
+        const key = keyFn(item)
+        if (!key) {
+          rows.push({ ...item, _copies: [item] })
+          return
+        }
+        let row = byKey.get(key)
+        if (!row) {
+          row = { ...item, _copies: [] }
+          byKey.set(key, row)
+          rows.push(row)
+        }
+        row._copies.push(item)
+      })
+      return rows
     },
     updateSearch(val) {
       clearTimeout(this.searchTimeout)
@@ -190,6 +249,10 @@ export default {
       }
       this.$router.push(path)
     },
+    searchRating(libraryItemId) {
+      if (!this.$store.state.nhThemeActive || this.$store.state.nhSettings.showRatings === false || this.$store.state.nhSettings.showCardRatings === false) return null
+      return this.nhRatingAvgFor(libraryItemId)
+    },
     setFocus() {
       setTimeout(() => {
         if (this.$refs.input) {
@@ -204,6 +267,9 @@ export default {
       this.runSearch(this.search)
     } else {
       this.$nextTick(this.setFocus())
+    }
+    if (this.$store.state.nhThemeActive && this.$store.state.nhSettings.showRatings !== false && this.$store.state.nhSettings.showCardRatings !== false) {
+      this.ensureNhRatingsBulk()
     }
   }
 }
@@ -224,5 +290,24 @@ export default {
   background: rgba(255, 255, 255, 0.1);
   color: var(--nh-muted-2, #9a9085);
   pointer-events: none;
+}
+/* Multi-library "copies" chip row (cross-library search dedup) — each chip
+   is individually clickable to its own library's copy, unlike the single
+   non-interactive badge above. */
+.nh-search-lib-chips {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+}
+.nh-search-lib-chips .nh-search-lib-badge {
+  position: static;
+  pointer-events: auto;
+  cursor: pointer;
+  text-decoration: none;
+}
+.nh-search-lib-chips .nh-search-lib-badge:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 </style>

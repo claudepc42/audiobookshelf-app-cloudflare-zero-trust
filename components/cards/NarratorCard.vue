@@ -1,6 +1,6 @@
 <template>
   <div :style="{ width: width + 'px', height: height + 'px' }" class="bg-primary box-shadow-book rounded-md relative overflow-hidden flex flex-col items-center justify-center">
-    <span class="material-symbols text-4xl text-gray-300 mb-2">record_voice_over</span>
+    <span class="material-symbols text-4xl text-gray-300 mb-2">mic</span>
     <p class="text-center font-semibold truncate px-2 w-full text-white" :style="{ fontSize: sizeMultiplier * 0.75 + 'rem' }">{{ name }}</p>
     <p class="text-center text-gray-300" :style="{ fontSize: sizeMultiplier * 0.65 + 'rem' }">{{ numBooks }} {{ $strings.LabelBooks }}</p>
   </div>

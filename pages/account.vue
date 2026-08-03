@@ -10,9 +10,34 @@
 
     <ui-btn v-if="isAdminOrUp" color="bg bg-opacity-50 flex items-center justify-between gap-2 ml-auto text-base mt-8" @click="showTidyAuthors = true">{{ $strings.HeaderTidyAuthors }}<span class="material-symbols" style="font-size: 1.1rem">group_remove</span></ui-btn>
 
+    <!-- NH source: nhReportsAdminRender (enhancements.js:6875-6927) — admin queue for
+         reports submitted via the item-page "Report a problem" flow. Silently absent
+         if there's no NanoHive backend to talk to (nhThemeActive gate + graceful fetch
+         failure inside the modal). -->
+    <ui-btn v-if="isAdminOrUp && nhThemeActive" color="bg bg-opacity-50 flex items-center justify-between gap-2 ml-auto text-base mt-4" @click="showReportQueue = true">
+      Reported Problems<span class="material-symbols" style="font-size: 1.1rem">flag</span>
+    </ui-btn>
+
+    <!-- NH source: nhAvatarSave/nhAvatarPut (enhancements.js:8161-8194) — the server
+         enforces forUser as admin-only even for setting your OWN photo, so this is
+         gated behind isAdminOrUp same as everything else here. NOT end-to-end tested
+         against a real NanoHive server yet (only the JSON-based endpoints built this
+         session were) — see NANOHIVE_MANIFEST_DECISIONS.md for why. -->
+    <div v-if="isAdminOrUp && nhThemeActive" class="flex items-center gap-3 mt-4">
+      <img v-if="myAvatarUrl" :src="myAvatarUrl" alt="" class="w-10 h-10 rounded-full object-cover" />
+      <ui-btn color="bg bg-opacity-50 flex items-center justify-between gap-2 flex-1 text-base" :loading="avatarSaving" @click="pickAvatar">
+        My Photo<span class="material-symbols" style="font-size: 1.1rem">photo_camera</span>
+      </ui-btn>
+      <button v-if="myAvatarUrl" type="button" class="text-fg-muted" :disabled="avatarSaving" @click="clearAvatar">
+        <span class="material-symbols" style="font-size: 1.3rem">close</span>
+      </button>
+      <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarPicked" />
+    </div>
+
     <ui-btn color="primary flex items-center justify-between gap-2 ml-auto text-base mt-8" @click="logout">{{ $strings.ButtonSwitchServerUser }}<span class="material-symbols" style="font-size: 1.1rem">logout</span></ui-btn>
 
     <modals-tidy-authors-modal v-model="showTidyAuthors" />
+    <modals-report-queue-modal v-model="showReportQueue" />
 
     <div class="flex justify-center items-center my-4 left-0 right-0 bottom-0 absolute">
       <p class="text-sm text-fg">{{ $strings.MessageReportBugsAndContribute }} <a class="underline" href="https://github.com/advplyr/audiobookshelf-app" target="_blank">GitHub</a></p>
@@ -28,7 +53,10 @@
 </template>
 
 <script>
+import nhSeriesMeta from '@/mixins/nhSeriesMeta'
+
 export default {
+  mixins: [nhSeriesMeta],
   asyncData({ redirect, store }) {
     if (!store.state.socketConnected) {
       return redirect('/connect')
@@ -37,10 +65,15 @@ export default {
   },
   data() {
     return {
-      showTidyAuthors: false
+      showTidyAuthors: false,
+      showReportQueue: false,
+      avatarSaving: false
     }
   },
   computed: {
+    nhThemeActive() {
+      return this.$store.state.nhThemeActive
+    },
     username() {
       if (!this.user) return ''
       return this.user.username
@@ -60,6 +93,9 @@ export default {
     serverVersion() {
       // Saved in server connection config after 0.9.81
       return this.serverConnectionConfig.version
+    },
+    myAvatarUrl() {
+      return this.user ? this.nhAvatarUrl(this.user.id) : null
     }
   },
   methods: {
@@ -67,8 +103,60 @@ export default {
       await this.$hapticsImpact()
       await this.$store.dispatch('user/logout')
       this.$router.push('/connect')
+    },
+    pickAvatar() {
+      this.$refs.avatarInput.click()
+    },
+    onAvatarPicked(e) {
+      const file = e.target.files && e.target.files[0]
+      e.target.value = ''
+      if (!file) return
+      if (file.size > 2 * 1024 * 1024) {
+        this.$toast.error('Photo must be under 2MB')
+        return
+      }
+      const reader = new FileReader()
+      reader.onload = () => {
+        // Capacitor's documented binary-upload pattern: base64 payload with
+        // Content-Type: application/octet-stream, which its native HTTP layer
+        // decodes before sending the real bytes over the wire (not verified
+        // end-to-end against a real NanoHive server yet — see note above).
+        const base64 = reader.result.split(',')[1]
+        this.saveAvatar(base64)
+      }
+      reader.readAsDataURL(file)
+    },
+    async saveAvatar(base64) {
+      this.avatarSaving = true
+      try {
+        const res = await this.$nativeHttp.post(`/_nh/api/avatar-admin?forUser=${encodeURIComponent(this.user.id)}`, base64, { headers: { 'Content-Type': 'application/octet-stream' } })
+        if (res && res.ext) {
+          this.$store.commit('setNhSeriesMeta', {
+            covers: this.$store.state.nhSeriesCovers,
+            descs: this.$store.state.nhSeriesDescs,
+            avatars: { ...(this.$store.state.nhAvatars || {}), [this.user.id]: res.ext }
+          })
+        }
+      } catch (e) {
+        this.$toast.error('Failed to save photo')
+      }
+      this.avatarSaving = false
+    },
+    async clearAvatar() {
+      this.avatarSaving = true
+      try {
+        await this.$nativeHttp.delete(`/_nh/api/avatar-admin?forUser=${encodeURIComponent(this.user.id)}`)
+        const avatars = { ...(this.$store.state.nhAvatars || {}) }
+        delete avatars[this.user.id]
+        this.$store.commit('setNhSeriesMeta', { covers: this.$store.state.nhSeriesCovers, descs: this.$store.state.nhSeriesDescs, avatars })
+      } catch (e) {
+        this.$toast.error('Failed to remove photo')
+      }
+      this.avatarSaving = false
     }
   },
-  mounted() {}
+  mounted() {
+    if (this.nhThemeActive) this.ensureNhSeriesMeta()
+  }
 }
 </script>

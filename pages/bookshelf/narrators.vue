@@ -1,43 +1,75 @@
 <template>
   <div>
     <div id="bookshelf" class="w-full h-full p-4 overflow-y-auto">
-      <div class="flex flex-wrap justify-center">
-        <template v-for="narrator in narrators">
-          <nuxt-link :key="narrator.name" :to="`/bookshelf/library?filter=narrators.${$encode(narrator.name)}`">
-            <cards-narrator-card :narrator="narrator" :width="cardWidth" :height="cardHeight" class="p-2" />
-          </nuxt-link>
-        </template>
+      <div class="flex items-center flex-wrap gap-2 mb-4">
+        <p class="mr-auto text-sm" style="color: #9a9085">{{ countText }}</p>
+        <ui-text-input v-model="query" :placeholder="strings.search" clearable style="width: 190px" />
+        <ui-dropdown v-model="sort" :items="sortItems" small style="width: 160px" />
+      </div>
+      <div class="nh-nr-grid">
+        <nh-narrator-card v-for="narrator in filteredNarrators" :key="narrator.id" :narrator="narrator" :library-id="currentLibraryId" :cover-ids="coverIdsFor(narrator.name)" :book-forms="strings.bookForms" />
       </div>
     </div>
   </div>
 </template>
 
 <script>
-// NH source: enhancements.js Narrator card pages. Confirmed portable, see
-// NANOHIVE_2.0_UPDATE_PLAN.md section 2. Mirrors pages/bookshelf/authors.vue's
-// structure — narrators have no dedicated detail page in ABS (no id, no
-// image), so tapping a card filters the library view instead, same
-// destination the existing narrator search-result card already links to.
+import { nhNarratorStrings, nhRatingWord } from '@/store/index'
+
+// NH source: narrators page redesign (enhancements.js:6582-6794, "NARRATORS
+// PAGE REDESIGN (A9)") — cover-collage card grid, a name filter, a sort
+// control (most books / name), and a localized "N Narrators" count, replacing
+// the stock two-column table. One items fetch (limit=0, minified) builds
+// every card's cover collage, same as NH's own nhNr.byName map — per-narrator
+// requests were NH's own measured cause of 15s+ loads on big libraries.
 export default {
   data() {
     return {
       loading: true,
       narrators: [],
+      itemsByName: {},
       loadedLibraryId: null,
-      cardWidth: 200
+      query: '',
+      sort: 'books'
     }
   },
   computed: {
     currentLibraryId() {
       return this.$store.state.libraries.currentLibraryId
     },
-    cardHeight() {
-      return this.cardWidth * 1.25
+    lang() {
+      return this.$languageCodes?.current || 'en'
+    },
+    strings() {
+      return nhNarratorStrings(this.lang)
+    },
+    sortItems() {
+      return [
+        { text: this.strings.sortBooks, value: 'books' },
+        { text: this.strings.sortName, value: 'name' }
+      ]
+    },
+    filteredNarrators() {
+      let list = this.narrators
+      const q = this.query.trim().toLowerCase()
+      if (q) list = list.filter((n) => String(n.name || '').toLowerCase().indexOf(q) !== -1)
+      list = list.slice()
+      if (this.sort === 'books') list.sort((a, b) => b.numBooks - a.numBooks || String(a.name).localeCompare(String(b.name)))
+      else list.sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      return list
+    },
+    countText() {
+      const total = this.narrators.length
+      const label = nhRatingWord(total, this.strings.narratorForms)
+      const filtered = this.query.trim() ? `${this.filteredNarrators.length} / ` : ''
+      return `${filtered}${total} ${label}`
     }
   },
   methods: {
+    coverIdsFor(name) {
+      return this.itemsByName[name] || []
+    },
     async init() {
-      this.cardWidth = (window.innerWidth - 64) / 2
       if (!this.currentLibraryId) {
         return
       }
@@ -51,10 +83,30 @@ export default {
         })
       this.$eventBus.$emit('bookshelf-total-entities', this.narrators.length)
       this.loading = false
+      this.loadCoverMap()
+    },
+    async loadCoverMap() {
+      const libId = this.currentLibraryId
+      const payload = await this.$nativeHttp
+        .get(`/api/libraries/${libId}/items?limit=0&sort=media.metadata.title`)
+        .catch(() => null)
+      if (!payload?.results || this.currentLibraryId !== libId) return
+      const map = {}
+      payload.results.forEach((it) => {
+        const nn = it.media?.metadata?.narratorName || ''
+        if (!nn) return
+        nn.split(', ').forEach((nm) => {
+          if (!map[nm]) map[nm] = []
+          if (map[nm].length < 3) map[nm].push(it.id)
+        })
+      })
+      this.itemsByName = map
     },
     libraryChanged(libraryId) {
       if (libraryId !== this.loadedLibraryId) {
         if (this.$store.getters['libraries/getCurrentLibraryMediaType'] === 'book') {
+          this.itemsByName = {}
+          this.query = ''
           this.init()
         } else {
           this.$router.replace('/bookshelf')
@@ -71,3 +123,12 @@ export default {
   }
 }
 </script>
+
+<style>
+/* NH source: #nh-narrators grid (core.js:1382,1430). */
+.nh-nr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+}
+</style>

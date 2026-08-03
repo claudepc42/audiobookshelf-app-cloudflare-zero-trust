@@ -80,6 +80,7 @@ export default {
         if (val) {
           document.documentElement.dataset.theme = 'nanohive'
           this._loadNhFont()
+          this.fetchNhServerConfig()
         }
       }
     },
@@ -187,7 +188,8 @@ export default {
     // the last-known home cover. Any other route (connect, downloads, logs, etc.)
     // has no NH equivalent, so the cinematic layer stays off.
     nhCinematicMode() {
-      if (!this.nhThemeActive) return null
+      // NH source: manageCinematic() cinematicBg off-switch (enhancements.js:3004).
+      if (!this.nhThemeActive || this.nhSettings.cinematicBg === false) return null
       const name = this.$route.name || ''
       if (name.startsWith('item-id')) return 'item'
       if (name === 'bookshelf-series-id') return 'item'
@@ -231,6 +233,29 @@ export default {
       link.rel = 'stylesheet'
       link.href = 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap'
       document.head.appendChild(link)
+    },
+    // NH source: uiServerSettings load (enhancements.js:83) + NH_LOCKS
+    // (enhancements.js:133-137) — admin-set feature kill-switches, applied live.
+    // Server-wide DEFAULT values (branding etc.) are saveable by an admin (see
+    // settings-nanohive.vue) but not auto-applied here — this app persists a
+    // user's own settings locally on first NH activation already, so there's no
+    // "blank slate" moment to apply them into the way NH's own per-page-load
+    // injection has. Only the kill-switches, which must win regardless of a
+    // user's own saved choice, are wired up on this side.
+    fetchNhServerConfig() {
+      if (this._fetchingNhServerConfig) return
+      this._fetchingNhServerConfig = true
+      this.$nativeHttp
+        .get('/_nh/server-config.json')
+        .then((cfg) => {
+          this.$store.commit('setNhServerConfig', cfg)
+        })
+        .catch(() => {
+          this.$store.commit('setNhServerConfig', {})
+        })
+        .then(() => {
+          this._fetchingNhServerConfig = false
+        })
     },
     async checkForUpdates() {
       if (this.$platform !== 'android') return

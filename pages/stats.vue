@@ -56,6 +56,9 @@
 
     <stats-finished-book-tools />
 
+    <!-- NH source: nhStatsScoreboard() (enhancements.js:9438-9636) -->
+    <stats-server-ranking />
+
     <!-- Year in review banner shown at the bottom Feb - Nov -->
     <stats-year-in-review-banner v-if="!showYearInReviewBanner" />
   </div>

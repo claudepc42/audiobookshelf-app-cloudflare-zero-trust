@@ -30,8 +30,11 @@
       class="absolute inset-0 z-20 flex flex-col px-5 pt-5 pb-5"
       :style="slideStyle(i)"
     >
-      <!-- Amber label — small caps -->
-      <p class="text-xs font-semibold flex-shrink-0" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.13em">Pick up where you left off</p>
+      <!-- Amber label — small caps. NH source: t.pickup (enhancements.js:1977) —
+           "Your books are waiting", not "Pick up where you left off" (that string
+           is actually t.fallbackDesc, a different string entirely, used for the
+           description text when an item has none of its own). -->
+      <p class="text-xs font-semibold flex-shrink-0" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.13em">Your books are waiting</p>
 
       <!-- Main row: text LEFT, cover RIGHT -->
       <div class="flex gap-4 mt-2 flex-1 min-h-0" @click="openItem(slide)">
@@ -86,13 +89,26 @@
                real rendered heights, not estimated ones. margin-top is one
                description line-height (12px * 1.625) below the description. -->
           <div class="flex items-end flex-shrink-0" style="margin-top: 19.5px; width: calc(100% + 144px)">
+            <!-- NH source: hasAudio/hasEbook conditional buttons (enhancements.js:2417-2422) —
+                 an ebook-only continue-listening item gets a Read button instead of a Play/
+                 Continue button that would try to play audio that doesn't exist. -->
             <button
+              v-if="hasAudio(slide)"
               class="flex items-center justify-center gap-1.5 rounded-xl font-semibold text-xs flex-shrink-0"
               style="background: rgba(var(--nh-amber-rgb), 0.14); border: 1px solid rgba(var(--nh-amber-rgb), 0.50); color: var(--nh-amber); height: 38px; padding: 0 18px"
               @click.stop="continueItem(slide)"
             >
               <span class="material-symbols fill" style="font-size: 1.05rem">play_arrow</span>
               Continue
+            </button>
+            <button
+              v-else-if="hasEbook(slide)"
+              class="flex items-center justify-center gap-1.5 rounded-xl font-semibold text-xs flex-shrink-0"
+              style="background: rgba(var(--nh-amber-rgb), 0.14); border: 1px solid rgba(var(--nh-amber-rgb), 0.50); color: var(--nh-amber); height: 38px; padding: 0 18px"
+              @click.stop="readItem(slide)"
+            >
+              <span class="material-symbols fill" style="font-size: 1.05rem">auto_stories</span>
+              Read
             </button>
             <div class="flex-1" />
             <div class="flex-shrink-0" style="width: calc(100% - 144px)">
@@ -158,6 +174,20 @@
       >
         <span class="material-symbols" style="font-size: 1.5rem; color: #d8cfc2">chevron_right</span>
       </button>
+      <!-- NH source: #nh-hero-pause (enhancements.js:2748-2750, 2907-2926) — a
+           manual pause persisted via localStorage so it survives leaving and
+           returning to Home, not just a per-visit toggle. -->
+      <button
+        type="button"
+        class="flex items-center justify-center rounded-full"
+        style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); width: 40px; height: 40px"
+        :aria-pressed="heroPaused ? 'true' : 'false'"
+        :aria-label="heroPaused ? 'Play' : 'Pause'"
+        :title="heroPaused ? 'Play' : 'Pause'"
+        @click.stop="toggleHeroPause"
+      >
+        <span class="material-symbols" style="font-size: 1.35rem; color: #d8cfc2">{{ heroPaused ? 'play_arrow' : 'pause' }}</span>
+      </button>
     </div>
   </div>
 </template>
@@ -200,7 +230,12 @@ export default {
       firstTouchTime: 0,
       lastUserTouchTime: 0,
       lastAdvanceTime: 0,
-      advanceInterval: null
+      advanceInterval: null,
+      // NH source: nh-hero-paused (enhancements.js:2896-2897, 2920-2925) — a
+      // manual pause is a persisted PREFERENCE, not per-visit state (the
+      // carousel rebuilds on every return to Home, so a component-local
+      // variable alone would silently un-pause itself on navigation).
+      heroPaused: false
     }
   },
   watch: {
@@ -285,7 +320,13 @@ export default {
     },
     itemDescription(item) {
       const raw = item.media?.metadata?.description || ''
-      if (!raw) return ''
+      if (!raw) {
+        // NH source: t.fallbackDesc ("Pick up right where you left off."), with
+        // an ebook-only special case using t.pickup instead (enhancements.js:2274,
+        // "Your books are waiting." — avoids "pick up... left off" reading oddly
+        // for a book with no audio to physically pick back up).
+        return this.isEbookOnly(item) ? 'Your books are waiting.' : 'Pick up right where you left off.'
+      }
       // Some ABS descriptions contain literal HTML (e.g. stray <p> tags) that
       // used to show up as visible tag text with plain interpolation. Parsing
       // with DOMParser and reading textContent consumes the markup as
@@ -319,13 +360,34 @@ export default {
       }
       return item.mediaType === 'podcast' ? 'Podcast' : 'Audiobook'
     },
+    // NH source: hasAudio/hasEbook detection (enhancements.js:2242-2244), values
+    // ported exactly — audio needs a real duration, not just "has tracks".
+    hasAudio(item) {
+      return Number(item.media?.duration) > 0
+    },
+    hasEbook(item) {
+      return !!(item.media?.ebookFormat || item.media?.ebookFile?.ebookFormat)
+    },
+    isEbookOnly(item) {
+      return !this.hasAudio(item) && this.hasEbook(item)
+    },
     itemProgress(item) {
       const prog = this._getProgress(item)
-      return Math.round((prog?.progress || 0) * 100)
+      if (!prog) return 0
+      // NH source: isEbookOnly reads ebookProgress instead of the audio progress
+      // field (enhancements.js:2250).
+      const raw = this.isEbookOnly(item) ? prog.ebookProgress : prog.progress
+      return Math.round((raw || 0) * 100)
     },
     itemProgressLabel(item) {
       const prog = this._getProgress(item)
       if (!prog) return ''
+      if (this.isEbookOnly(item)) {
+        // No audio duration to compute a time-remaining label from for an
+        // ebook-only item — percentage only (NH source: same gap, its
+        // rightSideText stays a placeholder for ebook-only slides too).
+        return `${Math.round((prog.ebookProgress || 0) * 100)}%`
+      }
       const pct = Math.round((prog.progress || 0) * 100)
       const dur = item.media?.duration || 0
       if (!dur) return `${pct}%`
@@ -342,9 +404,25 @@ export default {
     continueItem(item) {
       this.$eventBus.$emit('play-item', { libraryItemId: item.id })
     },
+    // Ebook-only items have no audio to hand to the play-item event bus at
+    // all — route to the item page instead, where the real Read button
+    // already correctly loads a full libraryItem before opening the reader
+    // (a shelf-entity slide here may be minified and missing what the reader
+    // component needs).
+    readItem(item) {
+      this.$router.push(`/item/${item.id}`)
+    },
     goTo(i) {
       this.activeIndex = i
       this.restartTimer()
+    },
+    toggleHeroPause() {
+      this.heroPaused = !this.heroPaused
+      try {
+        localStorage.setItem('nh-hero-paused', this.heroPaused ? '1' : '0')
+      } catch (e) {
+        // localStorage unavailable — pause still works for this session
+      }
     },
     next() {
       this.activeIndex = (this.activeIndex + 1) % this.slides.length
@@ -364,6 +442,7 @@ export default {
       this.lastUserTouchTime = 0
     },
     checkAutoAdvance() {
+      if (this.heroPaused) return
       if (!this.advanceSeconds || this.advanceSeconds <= 0) return
       if (this.slides.length <= 1 || this.isDragging) return
       const intervalMs = this.advanceSeconds * 1000
@@ -547,6 +626,11 @@ export default {
     }
   },
   mounted() {
+    try {
+      this.heroPaused = localStorage.getItem('nh-hero-paused') === '1'
+    } catch (e) {
+      // localStorage unavailable — default to not paused
+    }
     this.lastAdvanceTime = Date.now()
     this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
     this.publishActiveCover()

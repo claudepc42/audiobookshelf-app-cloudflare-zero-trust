@@ -19,6 +19,7 @@
       </div>
       <nh-hero-carousel v-if="nhThemeActive && !currentLibraryIsPodcast && nhSettings.showHeroCarousel" :slides="continueListeningItems" :advance-seconds="nhSettings.carouselTiming" />
       <nh-recent-series-shelf v-if="showRecentSeriesShelf" />
+      <nh-rate-finished-shelf v-if="nhThemeActive && !currentLibraryIsPodcast" />
       <template v-for="(shelf, index) in displayShelves">
         <bookshelf-shelf :key="shelf.id" :label="getShelfLabel(shelf)" :entities="shelf.entities" :type="shelf.type" :style="{ zIndex: displayShelves.length - index }" />
       </template>
@@ -146,11 +147,20 @@ export default {
       if (!this.nhThemeActive) return this.shelves
 
       // NH source: enhancements.js continueReadingMode — 'combine' folds the
-      // continue-listening shelf into the hero carousel (default), 'separate'
-      // keeps it as its own shelf, 'hidden' drops it entirely.
-      let list = this.nhSettings.continueReadingMode === 'separate' ? this.shelves : this.shelves.filter((s) => s.id !== 'continue-listening')
+      // continue-listening AND continue-reading (ebooks) shelves into the hero
+      // carousel (default; enhancements.js:2604-2636 explicitly concats both),
+      // 'separate' keeps them as their own shelves, 'hidden' drops both entirely
+      // (enhancements.js:2606, the continue-reading hide check runs unconditionally,
+      // not just in combine mode).
+      let list = this.nhSettings.continueReadingMode === 'separate' ? this.shelves : this.shelves.filter((s) => s.id !== 'continue-listening' && s.id !== 'continue-reading')
 
       // NH source: enhancements.js applySettings() shelf title matching (lines 204-210).
+      // NH itself matches primarily by a stable shelf id, only falling back to
+      // English/Polish title-substring guessing when no id match exists (its comment:
+      // "the id is the same string in every language"). getShelfOrderKey() below does
+      // the equivalent for us via shelf.labelStringKey (ABS's own locale-independent
+      // string key), which is more reliable than an id lookup since it's guaranteed
+      // present on every stock home shelf, not just a subset.
       // Recent Series: hidden whenever hideHomeRecentSeries is set, OR whenever the
       // synthetic expanded shelf is showing in its place (showCustomRecentSeries &&
       // customSeriesCards !== false) — same combined condition as source, so the
@@ -158,13 +168,13 @@ export default {
       const s = this.nhSettings
       const hideRecentSeries = s.hideHomeRecentSeries || (s.showCustomRecentSeries && s.customSeriesCards !== false)
       list = list.filter((shelf) => {
-        const title = (this.getShelfLabel(shelf) || '').toLowerCase()
-        if (s.hideHomeRecentlyAdded && title.includes('recently added')) return false
-        if (hideRecentSeries && title.includes('recent series')) return false
-        if (s.hideHomeContinueSeries && title.includes('continue series')) return false
-        if (s.hideHomeListenAgain && title.includes('listen again')) return false
-        if (s.hideHomeDiscover && title.includes('discover')) return false
-        if (s.hideHomeNewAuthors && title.includes('authors')) return false
+        const key = this.getShelfOrderKey(shelf)
+        if (s.hideHomeRecentlyAdded && key === 'recently-added') return false
+        if (hideRecentSeries && key === 'recent-series') return false
+        if (s.hideHomeContinueSeries && key === 'continue-series') return false
+        if (s.hideHomeListenAgain && key === 'listen-again') return false
+        if (s.hideHomeDiscover && key === 'discover') return false
+        if (s.hideHomeNewAuthors && key === 'new-authors') return false
         return true
       })
 
@@ -191,9 +201,11 @@ export default {
     },
     continueListeningItems() {
       if (this.nhThemeActive && this.nhSettings.continueReadingMode !== 'combine') return []
-      const shelf = this.shelves.find((s) => s.id === 'continue-listening')
-      if (!shelf) return []
-      return shelf.entities.slice(0, 8)
+      const listeningShelf = this.shelves.find((s) => s.id === 'continue-listening')
+      const readingShelf = this.shelves.find((s) => s.id === 'continue-reading')
+      const combined = [...(listeningShelf?.entities || []), ...(readingShelf?.entities || [])]
+      // NH source: enhancements.js:2637 — combined cards capped at 10.
+      return combined.slice(0, 10)
     }
   },
   methods: {
@@ -201,12 +213,25 @@ export default {
       if (shelf.labelStringKey && this.$strings[shelf.labelStringKey]) return this.$strings[shelf.labelStringKey]
       return shelf.label
     },
-    // Stable keys for the reorderable home sections — same categories as the
-    // hide-toggles above (title-substring matched, same convention), plus
-    // 'continue-listening' by id. Returns null for anything unrecognized
-    // (e.g. a genre shelf), which keeps its original position in displayShelves.
+    // Stable keys for the reorderable home sections, used by both the
+    // hide-toggles and the reorder-sort above, plus 'continue-listening' by id.
+    // Matched primarily by shelf.labelStringKey — ABS's own locale-independent
+    // string key for stock home shelves — so hide/reorder keep working on a
+    // non-English server instead of silently matching nothing. Falls back to
+    // English title-substring matching only when labelStringKey is missing or
+    // unrecognized (a custom/genre shelf, or an older server). Returns null for
+    // anything still unrecognized, which keeps its original position in displayShelves.
     getShelfOrderKey(shelf) {
       if (shelf.id === 'continue-listening') return 'continue-listening'
+      const keyByStringKey = {
+        LabelRecentlyAdded: 'recently-added',
+        LabelRecentSeries: 'recent-series',
+        LabelContinueSeries: 'continue-series',
+        LabelListenAgain: 'listen-again',
+        LabelDiscover: 'discover',
+        LabelNewestAuthors: 'new-authors'
+      }[shelf.labelStringKey]
+      if (keyByStringKey) return keyByStringKey
       const title = (this.getShelfLabel(shelf) || '').toLowerCase()
       if (title.includes('recently added')) return 'recently-added'
       if (title.includes('recent series')) return 'recent-series'

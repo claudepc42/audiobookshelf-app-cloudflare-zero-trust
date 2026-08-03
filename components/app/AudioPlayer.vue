@@ -867,11 +867,11 @@ export default {
 
       this.timeupdate()
     },
-    // NH source: enhancements.js autoplaySeries (line 66) + 8358 (playback-end
-    // check). Finds the next unfinished book in the current book's series and
-    // starts it. Server items only for now — local/offline library chaining
-    // isn't handled here, same scope note as the NH source itself doesn't
-    // address local downloads either (NH is web-only).
+    // NH source: nhApPlayNext (enhancements.js:8301-8343), values/logic ported
+    // exactly. Finds the next unfinished, audio-having book in the current
+    // book's series and starts it. Server items only for now — local/offline
+    // library chaining isn't handled here, same scope note as the NH source
+    // itself doesn't address local downloads either (NH is web-only).
     async checkAutoplayNext() {
       if (this.autoplayNextTriggered) return
       if (!this.$store.state.nhSettings?.autoplaySeries) return
@@ -883,25 +883,60 @@ export default {
 
       const item = await this.$nativeHttp.get(`/api/items/${libraryItemId}`).catch(() => null)
       const seriesList = item?.media?.metadata?.series
-      if (!seriesList?.length) return
+      if (!seriesList?.length || !item.libraryId) return
       const series = seriesList[0]
-      const currentSeq = parseFloat(series.sequence)
+      const here = isFinite(parseFloat(series.sequence)) ? parseFloat(series.sequence) : null
 
       const searchParams = new URLSearchParams()
       searchParams.set('filter', `series.${this.$encode(series.id)}`)
-      const payload = await this.$nativeHttp.get(`/api/libraries/${item.libraryId}/items?${searchParams.toString()}&limit=100&page=0&minified=1`).catch(() => null)
-      const candidates = payload?.results || []
+      searchParams.set('limit', '300')
+      const payload = await this.$nativeHttp.get(`/api/libraries/${item.libraryId}/items?${searchParams.toString()}`).catch(() => null)
+      const rows = payload?.results || []
+      if (!rows.length) return
 
-      const next = candidates
-        .map((li) => ({ li, seq: parseFloat(li.media?.metadata?.series?.find((s) => s.id === series.id)?.sequence) }))
-        .filter((c) => c.li.id !== libraryItemId && isFinite(c.seq) && (!isFinite(currentSeq) || c.seq > currentSeq))
-        .sort((a, b) => a.seq - b.seq)
-        .find((c) => !this.$store.getters['user/getUserMediaProgress'](c.li.id)?.isFinished)
+      const all = rows.map((li) => {
+        // Unlike a single full item GET (metadata.series is an array of every
+        // series the book belongs to), this ?filter=series.<id> list endpoint
+        // returns metadata.series as ONE object — the specific series being
+        // filtered on, already matched server-side. Confirmed against a real
+        // ABS server; .find() here threw (series has no such method), silently
+        // breaking autoplay for every series book every time.
+        const seq = parseFloat(li.media?.metadata?.series?.sequence)
+        return {
+          id: li.id,
+          title: li.media?.metadata?.title || '',
+          seq: isFinite(seq) ? seq : null,
+          // NH source: audio track check (enhancements.js:8325) — a candidate
+          // with no real audio (an ebook-only entry in the same series) must
+          // never be handed to play-item.
+          audio: !!(li.media?.numTracks || li.media?.audioFiles?.length || li.media?.tracks?.length)
+        }
+      })
 
+      // NH source comment: "Plenty of libraries have series with no sequence
+      // numbers at all." Order by sequence when any exist; otherwise keep
+      // ABS's own returned order (the series order it shows everywhere else)
+      // instead of finding nothing, which is what a strict seq-comparison
+      // filter alone would do for an entirely unsequenced series.
+      const numbered = all.filter((x) => x.seq !== null)
+      const ordered = numbered.length ? numbered.slice().sort((a, b) => a.seq - b.seq) : all
+
+      let after
+      const idx = ordered.findIndex((x) => x.id === libraryItemId)
+      if (idx >= 0) after = ordered.slice(idx + 1)
+      else if (here !== null) after = ordered.filter((x) => x.seq !== null && x.seq > here)
+      else after = ordered
+
+      const finishedIds = {}
+      const progress = this.$store.state.user.user?.mediaProgress || []
+      progress.forEach((p) => {
+        if (p?.isFinished) finishedIds[p.libraryItemId] = true
+      })
+      const next = after.find((x) => x.audio && !finishedIds[x.id])
       if (!next) return
-      const nextTitle = next.li.media?.metadata?.title || ''
-      this.$toast.info(nextTitle ? `Playing next in series: ${nextTitle}` : 'Playing next in series')
-      this.$eventBus.$emit('play-item', { libraryItemId: next.li.id })
+
+      this.$toast.info(next.title ? `Playing next in series: ${next.title}` : 'Playing next in series')
+      this.$eventBus.$emit('play-item', { libraryItemId: next.id })
     },
     // When a playback session is started the native android/ios will send the session
     onPlaybackSession(playbackSession) {

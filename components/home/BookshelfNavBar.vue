@@ -35,7 +35,12 @@ export default {
         'bookshelf-series': 'layers',
         'bookshelf-collections': 'collections_bookmark',
         'bookshelf-authors': 'groups',
-        'bookshelf-narrators': 'record_voice_over',
+        // NH source: RAIL_ICONS table, enhancements.js:2024-2032 (real location —
+        // an earlier citation elsewhere in this codebase pointed at a stale line
+        // number from before NH's 2.0 rewrite). NH maps narrators to 'mic', not
+        // 'record_voice_over' as this was originally guessed without checking
+        // that this exact remap table existed.
+        'bookshelf-narrators': 'mic',
         'bookshelf-playlists': 'queue_music',
         'bookshelf-latest': 'schedule',
         'bookshelf-add-podcast': 'podcasts'
@@ -145,15 +150,16 @@ export default {
           }
         ]
 
-        // NH source: enhancements.js Narrator card pages. No stock-ABS icon-pack
-        // glyph exists for this (it's an NH-only addition), so only ever shown
-        // under the NH theme, same as the Collections tab above.
+        // NH source: RAIL_ICONS table, enhancements.js:2024-2032 (maps narrators
+        // to 'mic'). This item only ever renders under the NH theme (same as the
+        // Collections tab above), so nhIconMap above always wins over this
+        // fallback `icon` value in practice, but kept consistent regardless.
         if (this.nhThemeActive) {
           items.push({
             to: '/bookshelf/narrators',
             routeName: 'bookshelf-narrators',
             iconPack: 'material-symbols',
-            icon: 'record_voice_over',
+            icon: 'mic',
             iconClass: 'text-xl',
             text: this.$strings.ButtonNarrators
           })
