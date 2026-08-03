@@ -244,8 +244,20 @@ export default {
     },
     handleScroll(scrollTop) {
       this.currScrollTop = scrollTop
-      var firstShelfIndex = Math.floor(scrollTop / this.shelfHeight)
-      var lastShelfIndex = Math.ceil((scrollTop + this.bookshelfHeight) / this.shelfHeight)
+      // NH's series-detail page (pages/bookshelf/series/_id.vue) renders
+      // <nh-series-header> as a sibling ABOVE this component inside the same
+      // #bookshelf-wrapper scroller. Its height (which varies with e.g. a
+      // long/expanded description) pushes #bookshelf's own top down, but the
+      // shelf-index math below assumed scrollTop was already relative to
+      // #bookshelf's own top — so cards were mounted/unmounted for the wrong
+      // indices while scrolling, showing as cards blanking out mid-scroll.
+      // Subtracting #bookshelf's actual offset within the scroller (0 on
+      // every other page, which has no such header) fixes both.
+      var bookshelfEl = document.getElementById('bookshelf')
+      var topOffset = bookshelfEl ? bookshelfEl.offsetTop : 0
+      var relativeScrollTop = Math.max(0, scrollTop - topOffset)
+      var firstShelfIndex = Math.floor(relativeScrollTop / this.shelfHeight)
+      var lastShelfIndex = Math.ceil((relativeScrollTop + this.bookshelfHeight) / this.shelfHeight)
       lastShelfIndex = Math.min(this.totalShelves - 1, lastShelfIndex)
 
       var firstBookIndex = firstShelfIndex * this.entitiesPerShelf
