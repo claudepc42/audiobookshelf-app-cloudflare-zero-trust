@@ -11,10 +11,20 @@
       </div>
       <template v-else>
         <p v-if="!authorlessAuthors.length" class="text-sm text-fg-muted py-4 text-center">{{ $strings.MessageNoAuthorlessAuthors }}</p>
-        <div v-for="author in authorlessAuthors" :key="author.id" class="flex items-center py-2 border-b border-white border-opacity-5">
-          <p class="text-sm truncate flex-grow mr-3">{{ author.name }}</p>
-          <ui-btn small color="error" :loading="removingId === author.id" @click="removeAuthor(author)">{{ $strings.ButtonRemove }}</ui-btn>
-        </div>
+        <template v-else>
+          <!-- NH source: nhAuthorTidy() (enhancements.js:6812-6873) — "this deletes
+               records in ABS, so it must never be one careless click." Lists every
+               authorless author with no per-row action, then ONE bulk button below
+               removes all of them together — the list itself is the confirmation
+               step, replacing what used to be an instant per-row delete here. -->
+          <div v-for="author in authorlessAuthors" :key="author.id" class="py-2 border-b border-white border-opacity-5">
+            <p class="text-sm truncate">{{ author.name }}</p>
+          </div>
+          <div class="flex items-center pt-4">
+            <ui-btn small color="error" :loading="removing" :disabled="removing" @click="removeAll">{{ $strings.ButtonRemove }} ({{ authorlessAuthors.length }})</ui-btn>
+            <p v-if="removeStatus" class="text-xs text-fg-muted ml-3">{{ removeStatus }}</p>
+          </div>
+        </template>
       </template>
     </div>
   </modals-modal>
@@ -22,8 +32,12 @@
 
 <script>
 // Ported from NH source: enhancements.js "Tidy authors" admin tool
-// (enhancements.js:6812-6861). Confirmed portable — the actual delete call
+// (enhancements.js:6812-6873). Confirmed portable — the actual delete call
 // is ABS's own native `DELETE /api/authors/:id`, no NH-proxy dependency.
+// NH forces a full page reload after removing (its own comment: the only way
+// it can be sure to catch up its DOM-scraped author list) — not needed here,
+// we just update local state directly, a real platform-enabled improvement
+// over the source (see NANOHIVE_STATUS.md).
 export default {
   props: {
     value: Boolean
@@ -32,7 +46,8 @@ export default {
     return {
       loading: false,
       authors: [],
-      removingId: null
+      removing: false,
+      removeStatus: ''
     }
   },
   computed: {
@@ -55,6 +70,7 @@ export default {
     async init() {
       if (!this.currentLibraryId) return
       this.loading = true
+      this.removeStatus = ''
       this.authors = await this.$nativeHttp
         .get(`/api/libraries/${this.currentLibraryId}/authors`)
         .then((response) => response.authors || [])
@@ -64,19 +80,31 @@ export default {
         })
       this.loading = false
     },
-    async removeAuthor(author) {
-      this.removingId = author.id
-      const success = await this.$nativeHttp
-        .delete(`/api/authors/${author.id}`)
-        .then(() => true)
-        .catch((error) => {
-          console.error('Failed to remove author', error)
-          this.$toast.error(this.$strings.ToastFailedToUpdate)
-          return false
-        })
-      this.removingId = null
-      if (success) {
-        this.authors = this.authors.filter((au) => au.id !== author.id)
+    async removeAll() {
+      const targets = this.authorlessAuthors
+      if (!targets.length || this.removing) return
+      this.removing = true
+      this.removeStatus = 'Removing…'
+      const removedIds = new Set()
+      await Promise.all(
+        targets.map((author) =>
+          this.$nativeHttp
+            .delete(`/api/authors/${author.id}`)
+            .then(() => {
+              removedIds.add(author.id)
+            })
+            .catch((error) => {
+              console.error('Failed to remove author', error)
+            })
+        )
+      )
+      this.removing = false
+      this.removeStatus = `Removed ${removedIds.size}/${targets.length}`
+      // Only drop the ones that actually succeeded — anything that failed
+      // stays visible so it isn't silently lost from the list.
+      this.authors = this.authors.filter((au) => !removedIds.has(au.id))
+      if (removedIds.size < targets.length) {
+        this.$toast.error(this.$strings.ToastFailedToUpdate)
       }
     }
   },
