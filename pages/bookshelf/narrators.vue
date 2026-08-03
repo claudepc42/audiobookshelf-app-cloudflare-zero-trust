@@ -33,6 +33,15 @@ export default {
       sort: 'books'
     }
   },
+  watch: {
+    // Greptile-found bug: the library ID isn't always set yet when this page
+    // first mounts (e.g. it's the first page visited while the library list
+    // is still resolving) — without this watcher, init() returned once and
+    // never retried, leaving the page permanently empty.
+    currentLibraryId(newVal) {
+      if (newVal && !this.loadedLibraryId) this.init()
+    }
+  },
   computed: {
     currentLibraryId() {
       return this.$store.state.libraries.currentLibraryId
@@ -70,17 +79,23 @@ export default {
       return this.itemsByName[name] || []
     },
     async init() {
-      if (!this.currentLibraryId) {
+      const libraryId = this.currentLibraryId
+      if (!libraryId) {
         return
       }
-      this.loadedLibraryId = this.currentLibraryId
-      this.narrators = await this.$nativeHttp
-        .get(`/api/libraries/${this.currentLibraryId}/narrators`)
+      this.loadedLibraryId = libraryId
+      const narrators = await this.$nativeHttp
+        .get(`/api/libraries/${libraryId}/narrators`)
         .then((response) => response.narrators || [])
         .catch((error) => {
           console.error('Failed to load narrators', error)
           return []
         })
+      // Greptile-found bug: without this guard, a slow response for a
+      // previous library could land after the user already switched to a
+      // different one and overwrite its narrator list with stale data.
+      if (this.currentLibraryId !== libraryId) return
+      this.narrators = narrators
       this.$eventBus.$emit('bookshelf-total-entities', this.narrators.length)
       this.loading = false
       this.loadCoverMap()

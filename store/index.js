@@ -382,11 +382,15 @@ export const state = () => ({
   nhRatingsBulk: null,
   nhRatingsBulkAt: 0,
   // Set once several consecutive bulk-ratings fetches have failed — stops every
-  // card badge from retrying pointlessly for the rest of the session, mirroring
-  // NH source's nhRs.dead. (Per-item widget failures are scoped to that widget
-  // instance instead, matching nhRt.dead — see RatingsWidget.vue.)
+  // card badge from retrying pointlessly, mirroring NH source's nhRs.dead.
+  // (Per-item widget failures are scoped to that widget instance instead,
+  // matching nhRt.dead — see RatingsWidget.vue.) Greptile-found bug: this used
+  // to be permanent for the rest of the session with no way back — a single
+  // brief network blip early on could disable ratings everywhere until an app
+  // restart. nhRatingsRetryAt bounds it to an expiring backoff instead.
   nhRatingsDead: false,
   nhRatingsBulkFails: 0,
+  nhRatingsRetryAt: 0,
   // NH source: nhColArtMap (enhancements.js:7550) — admin-set custom icon/tint
   // overrides, keyed by collection id. null = not loaded yet, {} = loaded/empty.
   nhCollectionArt: null,
@@ -616,10 +620,19 @@ export const mutations = {
     state.nhRatingsBulk = items
     state.nhRatingsBulkAt = Date.now()
     state.nhRatingsBulkFails = 0
+    state.nhRatingsDead = false
+    state.nhRatingsRetryAt = 0
   },
   bumpNhRatingsBulkFails(state) {
     state.nhRatingsBulkFails++
-    if (state.nhRatingsBulkFails >= 4) state.nhRatingsDead = true
+    if (state.nhRatingsBulkFails >= 4) {
+      state.nhRatingsDead = true
+      // Exponential backoff (30s, 60s, 120s...), capped at 5 minutes, instead
+      // of a permanent-for-the-session flag — a real NH-backed server that
+      // was just briefly unreachable recovers on its own.
+      const backoff = Math.min(300000, 30000 * Math.pow(2, state.nhRatingsBulkFails - 4))
+      state.nhRatingsRetryAt = Date.now() + backoff
+    }
   },
   setNhCollectionArt(state, map) {
     state.nhCollectionArt = map

@@ -3,6 +3,13 @@
 // (enhancements.js:4700-4722) — one GET /_nh/api/ratings (no item= param) covers
 // every card instead of one fetch each, cached 60s, same as NH's nhRs.
 const STALE_MS = 60000
+// Greptile-found bug: the in-flight guard used to be a per-COMPONENT-INSTANCE
+// property (`this._nhRatingsBulkFetching`), so when many cards mounted at once
+// against an empty cache (a normal bookshelf grid), each one independently
+// passed the guard and fired its own duplicate GET. A module-scoped variable
+// is shared by every component using this mixin, so all of them coordinate on
+// the same in-flight request.
+let sharedFetchPromise = null
 
 export default {
   computed: {
@@ -23,28 +30,28 @@ export default {
   },
   methods: {
     ensureNhRatingsBulk() {
-      if (!this.nhStore || this.nhStore.state.nhRatingsDead) return
-      const stale = Date.now() - this.nhStore.state.nhRatingsBulkAt > STALE_MS
-      if (this.nhStore.state.nhRatingsBulk && !stale) return
-      if (this._nhRatingsBulkFetching) return
-      this._nhRatingsBulkFetching = true
-      this.$nativeHttp
+      if (!this.nhStore) return
+      const state = this.nhStore.state
+      if (state.nhRatingsDead && Date.now() < state.nhRatingsRetryAt) return
+      const stale = Date.now() - state.nhRatingsBulkAt > STALE_MS
+      if (state.nhRatingsBulk && !stale) return
+      if (sharedFetchPromise) return
+      sharedFetchPromise = this.$nativeHttp
         .get('/_nh/api/ratings')
         .then((res) => {
-          this._nhRatingsBulkFetching = false
           if (res && res.items) this.nhStore.commit('setNhRatingsBulk', res.items)
         })
         .catch(() => {
-          this._nhRatingsBulkFetching = false
           // $nativeHttp's thrown Error only carries a message string, not the actual
           // HTTP status — no reliable way to detect "404, backend truly absent" the
           // way NH's own fetch()-based client can (enhancements.js:4711, checking
-          // r.status directly). Instead of guessing from message text, give up
-          // permanently after several consecutive failed attempts (each call here is
-          // already naturally rate-limited to once per 60s by the staleness check
-          // above), which reaches the same end state — stop asking — without
-          // depending on fragile string matching.
+          // r.status directly). Instead of guessing from message text, back off
+          // (with expiry, see bumpNhRatingsBulkFails) after several consecutive
+          // failed attempts, without depending on fragile string matching.
           this.nhStore.commit('bumpNhRatingsBulkFails')
+        })
+        .finally(() => {
+          sharedFetchPromise = null
         })
     },
     // NH source: nhRsAvg() (enhancements.js:4724-4733), values ported exactly.
