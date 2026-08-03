@@ -119,11 +119,11 @@ export const NH_SETTINGS_DEFAULTS = {
 // deliberately re-tuned set (blur 12 vs NH's 55, brightness 1.08 vs 0.45,
 // saturate 1.9 vs 1.35) — tuned for a phone viewport, kept as-is.
 export const NH_GLASS_EFFECT_CONTROLS = [
-  { group: 'Cinematic Background', prop: '--nh-cine-blur', label: 'Blur', default: 20, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Cinematic Background', prop: '--nh-cine-blur', label: 'Blur', default: 18, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Cinematic Background', prop: '--nh-cine-brightness', label: 'Brightness', default: 0.94, min: 0, max: 1.5, step: 0.01, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-saturate', label: 'Saturate', default: 1.25, min: 0, max: 3, step: 0.05, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-grad-top', label: 'Gradient Top', default: 0.8, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.64, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.3, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-grad-bottom', label: 'Gradient Bottom', default: 0.85, min: 0, max: 1, step: 0.01, unit: '' },
   // Home page's #nh-home-bg cinematic background (above) and the hero
   // carousel's own per-slide blurred cover background (.nh-slide-bg) are

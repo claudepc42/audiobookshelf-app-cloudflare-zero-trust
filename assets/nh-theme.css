@@ -64,11 +64,11 @@ html[data-theme='nanohive'] {
      saturate(1.35), gradient 0.5/0.8/1.0 — ported directly from NH's
      desktop-tuned source; retuned once already on 2026-07-25 to 12/1.08/1.9,
      0.77/0.8/1 after the .bg-bg visibility bug was fixed. */
-  --nh-cine-blur: 20px;
+  --nh-cine-blur: 18px;
   --nh-cine-brightness: 0.94;
   --nh-cine-saturate: 1.25;
   --nh-cine-grad-top: 0.8;
-  --nh-cine-grad-mid: 0.64;
+  --nh-cine-grad-mid: 0.3;
   --nh-cine-grad-bottom: 0.85;
   /* Hero carousel's own per-slide blurred cover background — was hardcoded
      with no tuner control at all (see .nh-slide-bg below), then exposed as a
@@ -139,7 +139,7 @@ html[data-theme='nanohive'] #nh-home-bg .nh-bg-layer {
      unchanged from source. Exposed as CSS vars (defaults match the values
      above) so the NH UI Tuner dev panel can adjust them live on-device
      instead of needing another build/install cycle per guess. */
-  filter: blur(var(--nh-cine-blur, 20px)) brightness(var(--nh-cine-brightness, 0.94)) saturate(var(--nh-cine-saturate, 1.25));
+  filter: blur(var(--nh-cine-blur, 18px)) brightness(var(--nh-cine-brightness, 0.94)) saturate(var(--nh-cine-saturate, 1.25));
   opacity: 0;
   transition: opacity 2.8s ease;
 }
@@ -161,7 +161,7 @@ html[data-theme='nanohive'] #nh-home-bg.nh-bg-visible .nh-bg-layer {
    layer above (was hardcoded to a disconnected 26px — NH's real source keeps the
    same blur radius in both modes, only brightness/saturate change). */
 html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item .nh-bg-layer {
-  filter: blur(var(--nh-cine-blur, 20px)) brightness(0.62) saturate(1.3);
+  filter: blur(var(--nh-cine-blur, 18px)) brightness(0.62) saturate(1.3);
 }
 /* Two pseudo-elements, both always present, crossfading via opacity — matches
    NH's actual structure (core.js). Gradients themselves can't transition
@@ -174,7 +174,7 @@ html[data-theme='nanohive'] #nh-home-bg::after {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.8)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.64)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 0.85)) 100%);
+  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.8)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.3)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 0.85)) 100%);
   opacity: 1;
   transition: opacity 1.2s ease;
 }
