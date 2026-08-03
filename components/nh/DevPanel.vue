@@ -153,7 +153,7 @@ import { NH_GLASS_EFFECT_CONTROLS } from '@/store/index'
 // store/index.js for why this lives there instead of being duplicated.
 const CONTROLS = NH_GLASS_EFFECT_CONTROLS
 
-const panelState = { bgOpacity: 0.56, scrimOpacity: 0.56, blur: 21 }
+const panelState = { bgOpacity: 0.38, scrimOpacity: 0.42, blur: 18 }
 // Guards the store->panelState seed below to only ever run once per app
 // session (see the comment at its call site for why) instead of every time
 // this component mounts, i.e. every single time the panel is opened.

@@ -39,14 +39,14 @@ html[data-theme='nanohive'] {
   --nh-icon-base: #a89f94;
   --nh-hairline: rgba(255, 255, 255, 0.06);
   --nh-hairline-lit: rgba(255, 255, 255, 0.14);
-  /* NH UI Tuner defaults — overridden live by DevPanel.vue. Appbar matches NH
-     source exactly (core.js: rgba(--nh-bg-rgb,0.45) blur(28px) saturate(150%)) —
-     the 2026-07-25 on-device retuning to 0.73/48px was reconsidered during the
-     manifest walkthrough and reverted back to NH's real values. Drawer/
-     miniplayer below are the user's own deliberate, confirmed choices, not
-     reverted. */
-  --nh-appbar-opacity: 0.45;
-  --nh-appbar-blur: 28px;
+  /* NH UI Tuner defaults — overridden live by DevPanel.vue. Appbar was
+     originally ported to match NH source exactly (core.js: rgba(--nh-bg-rgb,0.45)
+     blur(28px) saturate(150%)); 2026-08-03 on-device retuning to 0.32/24px is the
+     user's own deliberate, confirmed choice and should not be reverted back to
+     NH's source values. Drawer/miniplayer below are likewise the user's own
+     deliberate, confirmed choices, not reverted. */
+  --nh-appbar-opacity: 0.32;
+  --nh-appbar-blur: 24px;
   --nh-drawer-opacity: 0;
   --nh-drawer-blur: 13px;
   --nh-miniplayer-opacity: 0.4;
@@ -59,22 +59,24 @@ html[data-theme='nanohive'] {
      without it becoming a solid pill — tunable low if this reads as too visible. */
   --nh-libbtn-opacity: 0.12;
   --nh-libbtn-blur: 8px;
-  /* Cinematic background — tuned live on-device 2026-07-25 after the .bg-bg
-     visibility bug was fixed (was previously invisible regardless of value).
-     Originally blur(55px) brightness(0.45) saturate(1.35), gradient
-     0.5/0.8/1.0 — ported directly from NH's desktop-tuned source. */
-  --nh-cine-blur: 12px;
-  --nh-cine-brightness: 1.08;
-  --nh-cine-saturate: 1.9;
-  --nh-cine-grad-top: 0.77;
-  --nh-cine-grad-mid: 0.8;
-  --nh-cine-grad-bottom: 1;
+  /* Cinematic background — retuned live on-device 2026-08-03, the user's own
+     deliberate, confirmed choice. Originally blur(55px) brightness(0.45)
+     saturate(1.35), gradient 0.5/0.8/1.0 — ported directly from NH's
+     desktop-tuned source; retuned once already on 2026-07-25 to 12/1.08/1.9,
+     0.77/0.8/1 after the .bg-bg visibility bug was fixed. */
+  --nh-cine-blur: 20px;
+  --nh-cine-brightness: 0.94;
+  --nh-cine-saturate: 1.25;
+  --nh-cine-grad-top: 0.8;
+  --nh-cine-grad-mid: 0.64;
+  --nh-cine-grad-bottom: 0.85;
   /* Hero carousel's own per-slide blurred cover background — was hardcoded
-     with no tuner control at all (see .nh-slide-bg below). Values match
-     what used to be hardcoded there. */
-  --nh-carousel-blur: 28px;
-  --nh-carousel-brightness: 0.5;
-  --nh-carousel-saturate: 1.4;
+     with no tuner control at all (see .nh-slide-bg below), then exposed as a
+     tuner group; these are the user's own deliberate, confirmed choice from
+     the 2026-08-03 on-device retuning. */
+  --nh-carousel-blur: 26px;
+  --nh-carousel-brightness: 0.92;
+  --nh-carousel-saturate: 2.7;
 }
 
 /* NH source: core.js line 67 — global font-size scaling driven by the fontScale setting */
@@ -137,7 +139,7 @@ html[data-theme='nanohive'] #nh-home-bg .nh-bg-layer {
      unchanged from source. Exposed as CSS vars (defaults match the values
      above) so the NH UI Tuner dev panel can adjust them live on-device
      instead of needing another build/install cycle per guess. */
-  filter: blur(var(--nh-cine-blur, 12px)) brightness(var(--nh-cine-brightness, 1.08)) saturate(var(--nh-cine-saturate, 1.9));
+  filter: blur(var(--nh-cine-blur, 20px)) brightness(var(--nh-cine-brightness, 0.94)) saturate(var(--nh-cine-saturate, 1.25));
   opacity: 0;
   transition: opacity 2.8s ease;
 }
@@ -159,7 +161,7 @@ html[data-theme='nanohive'] #nh-home-bg.nh-bg-visible .nh-bg-layer {
    layer above (was hardcoded to a disconnected 26px — NH's real source keeps the
    same blur radius in both modes, only brightness/saturate change). */
 html[data-theme='nanohive'] #nh-home-bg.nh-cinematic-item .nh-bg-layer {
-  filter: blur(var(--nh-cine-blur, 12px)) brightness(0.62) saturate(1.3);
+  filter: blur(var(--nh-cine-blur, 20px)) brightness(0.62) saturate(1.3);
 }
 /* Two pseudo-elements, both always present, crossfading via opacity — matches
    NH's actual structure (core.js). Gradients themselves can't transition
@@ -172,7 +174,7 @@ html[data-theme='nanohive'] #nh-home-bg::after {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.77)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.8)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 1)) 100%);
+  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.8)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.64)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 0.85)) 100%);
   opacity: 1;
   transition: opacity 1.2s ease;
 }
@@ -229,9 +231,9 @@ html[data-theme='nanohive'] #bookshelf {
 /* ============ FROSTED APPBAR ============ */
 /* Glass morphism on the appbar — semi-transparent with blur over the ambient gradient */
 html[data-theme='nanohive'] #nh-appbar-wrapper {
-  background-color: rgba(var(--nh-bg-rgb), var(--nh-appbar-opacity, 0.45)) !important;
-  backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
+  background-color: rgba(var(--nh-bg-rgb), var(--nh-appbar-opacity, 0.32)) !important;
+  backdrop-filter: blur(var(--nh-appbar-blur, 24px)) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(var(--nh-appbar-blur, 24px)) saturate(150%) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
 }
 
@@ -890,9 +892,9 @@ html[data-theme='nanohive'] #bookshelf-navbar a.bg-primary .material-symbols {
    ever renders on library/series/collections/authors listing pages in this app
    (home has no toolbar at all), so there's only one context to theme. */
 html[data-theme='nanohive'] #bookshelf-toolbar {
-  background-color: rgba(var(--nh-bg-rgb), var(--nh-appbar-opacity, 0.45)) !important;
-  backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(var(--nh-appbar-blur, 28px)) saturate(150%) !important;
+  background-color: rgba(var(--nh-bg-rgb), var(--nh-appbar-opacity, 0.32)) !important;
+  backdrop-filter: blur(var(--nh-appbar-blur, 24px)) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(var(--nh-appbar-blur, 24px)) saturate(150%) !important;
   box-shadow: none !important;
   border-bottom: 1px solid var(--nh-hairline-lit) !important;
 }
@@ -1619,7 +1621,7 @@ html[data-theme='nanohive'] .box-shadow-book .bg-black p:last-child {
    Background) — was hardcoded with no control at all before. */
 html[data-theme='nanohive'] .nh-slide-bg {
   inset: -12% !important;
-  filter: blur(var(--nh-carousel-blur, 28px)) brightness(var(--nh-carousel-brightness, 0.5)) saturate(var(--nh-carousel-saturate, 1.4));
+  filter: blur(var(--nh-carousel-blur, 26px)) brightness(var(--nh-carousel-brightness, 0.92)) saturate(var(--nh-carousel-saturate, 2.7));
 }
 
 /* Gradient overlay — NH source: enhancements.js slideMarkup(), 110deg diagonal
@@ -1691,7 +1693,14 @@ html[data-theme='nanohive'] #nh-side-drawer a:not(.text-fg-muted)::before {
    configured ABS server also runs behind NH's reverse proxy. Renders nothing
    (RatingsWidget.vue's `dead` state) on a stock ABS server. */
 html[data-theme='nanohive'] #nh-ratings {
-  margin: -10px 0 24px;
+  /* NH's real -26px/-4px negative top margins (book-details.js:454,499) are
+     tuned against NH's own raw-DOM button row, which this port's Vue/Tailwind
+     ui-btn flex row (pages/item/_id/index.vue) doesn't reproduce — carrying
+     the negative margin over pulled the stars up underneath the Play/Stream
+     button instead of just tightening the gap. 8px instead matches the gap
+     the buttons themselves already have between each other (each button
+     uses Tailwind's mx-1, so two adjacent buttons sit 4px+4px = 8px apart). */
+  margin: 8px 0 24px;
   max-width: 95%;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   position: relative;
@@ -1700,6 +1709,7 @@ html[data-theme='nanohive'] #nh-ratings {
 html[data-theme='nanohive'] #nh-ratings .nh-rt-main {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 14px;
   flex-wrap: wrap;
   min-height: 34px;

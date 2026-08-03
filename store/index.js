@@ -119,22 +119,22 @@ export const NH_SETTINGS_DEFAULTS = {
 // deliberately re-tuned set (blur 12 vs NH's 55, brightness 1.08 vs 0.45,
 // saturate 1.9 vs 1.35) — tuned for a phone viewport, kept as-is.
 export const NH_GLASS_EFFECT_CONTROLS = [
-  { group: 'Cinematic Background', prop: '--nh-cine-blur', label: 'Blur', default: 12, min: 0, max: 60, step: 1, unit: 'px' },
-  { group: 'Cinematic Background', prop: '--nh-cine-brightness', label: 'Brightness', default: 1.08, min: 0, max: 1.5, step: 0.01, unit: '' },
-  { group: 'Cinematic Background', prop: '--nh-cine-saturate', label: 'Saturate', default: 1.9, min: 0, max: 3, step: 0.05, unit: '' },
-  { group: 'Cinematic Background', prop: '--nh-cine-grad-top', label: 'Gradient Top', default: 0.77, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.8, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Cinematic Background', prop: '--nh-cine-grad-bottom', label: 'Gradient Bottom', default: 1, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-blur', label: 'Blur', default: 20, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Cinematic Background', prop: '--nh-cine-brightness', label: 'Brightness', default: 0.94, min: 0, max: 1.5, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-saturate', label: 'Saturate', default: 1.25, min: 0, max: 3, step: 0.05, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-top', label: 'Gradient Top', default: 0.8, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.64, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-bottom', label: 'Gradient Bottom', default: 0.85, min: 0, max: 1, step: 0.01, unit: '' },
   // Home page's #nh-home-bg cinematic background (above) and the hero
   // carousel's own per-slide blurred cover background (.nh-slide-bg) are
   // separate elements with separate effects — this used to be hardcoded
   // (filter: blur(28px) brightness(0.5) saturate(1.4) in nh-theme.css) with
   // no way to tune it at all.
-  { group: 'Carousel Background', prop: '--nh-carousel-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
-  { group: 'Carousel Background', prop: '--nh-carousel-brightness', label: 'Brightness', default: 0.5, min: 0, max: 1.5, step: 0.01, unit: '' },
-  { group: 'Carousel Background', prop: '--nh-carousel-saturate', label: 'Saturate', default: 1.4, min: 0, max: 3, step: 0.05, unit: '' },
-  { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.45, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Appbar', prop: '--nh-appbar-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Carousel Background', prop: '--nh-carousel-blur', label: 'Blur', default: 26, min: 0, max: 60, step: 1, unit: 'px' },
+  { group: 'Carousel Background', prop: '--nh-carousel-brightness', label: 'Brightness', default: 0.92, min: 0, max: 1.5, step: 0.01, unit: '' },
+  { group: 'Carousel Background', prop: '--nh-carousel-saturate', label: 'Saturate', default: 2.7, min: 0, max: 3, step: 0.05, unit: '' },
+  { group: 'Appbar', prop: '--nh-appbar-opacity', label: 'Opacity', default: 0.32, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Appbar', prop: '--nh-appbar-blur', label: 'Blur', default: 24, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Drawer', prop: '--nh-drawer-blur', label: 'Blur', default: 13, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Mini Player', prop: '--nh-miniplayer-opacity', label: 'Opacity', default: 0.4, min: 0, max: 1, step: 0.01, unit: '' },
