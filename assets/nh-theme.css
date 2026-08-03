@@ -68,7 +68,7 @@ html[data-theme='nanohive'] {
   --nh-cine-brightness: 0.94;
   --nh-cine-saturate: 1.25;
   --nh-cine-grad-top: 0.8;
-  --nh-cine-grad-mid: 0.3;
+  --nh-cine-grad-mid: 0.45;
   --nh-cine-grad-bottom: 0.85;
   /* Hero carousel's own per-slide blurred cover background — was hardcoded
      with no tuner control at all (see .nh-slide-bg below), then exposed as a
@@ -174,7 +174,7 @@ html[data-theme='nanohive'] #nh-home-bg::after {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.8)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.3)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 0.85)) 100%);
+  background: linear-gradient(180deg, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-top, 0.8)) 0%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-mid, 0.45)) 55%, rgba(var(--nh-bg-rgb), var(--nh-cine-grad-bottom, 0.85)) 100%);
   opacity: 1;
   transition: opacity 1.2s ease;
 }

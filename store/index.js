@@ -123,7 +123,7 @@ export const NH_GLASS_EFFECT_CONTROLS = [
   { group: 'Cinematic Background', prop: '--nh-cine-brightness', label: 'Brightness', default: 0.94, min: 0, max: 1.5, step: 0.01, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-saturate', label: 'Saturate', default: 1.25, min: 0, max: 3, step: 0.05, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-grad-top', label: 'Gradient Top', default: 0.8, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.3, min: 0, max: 1, step: 0.01, unit: '' },
+  { group: 'Cinematic Background', prop: '--nh-cine-grad-mid', label: 'Gradient Mid', default: 0.45, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Cinematic Background', prop: '--nh-cine-grad-bottom', label: 'Gradient Bottom', default: 0.85, min: 0, max: 1, step: 0.01, unit: '' },
   // Home page's #nh-home-bg cinematic background (above) and the hero
   // carousel's own per-slide blurred cover background (.nh-slide-bg) are
