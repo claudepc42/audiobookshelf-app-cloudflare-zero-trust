@@ -31,7 +31,17 @@ export const NH_SETTINGS_DEFAULTS = {
   nhGlassEffectSlots: { slot1: null, slot2: null, slot3: null },
   carouselTiming: 15,
   logoUrl: '',
+  // Off by default: when on, the app bar uses the server admin's current logo
+  // (nhServerConfig.logoUrl, from the public GET /_nh/server-config.json every
+  // user already fetches) instead of this device's own logoUrl above — lets a
+  // user opt into "whatever the server has" without losing their own pick.
+  useServerLogo: false,
   colorizeLogo: false,
+  // App-side-only fallback for a non-admin's own profile photo: NH's real avatar
+  // write endpoint is hard admin-gated at the server (nginx auth_request), so a
+  // non-admin's pick can never actually reach the shared /_nh/user-avatars/ slot
+  // — it only ever shows up in this device's own app, never to other users.
+  localAvatarDataUrl: null,
   customSeriesCards: true,
   showHeroCarousel: true,
   continueReadingMode: 'combine', // 'combine' | 'separate' | 'hidden'

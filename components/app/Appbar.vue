@@ -63,6 +63,10 @@ export default {
       return this.$store.state.nhSettings
     },
     nhLogoSrc() {
+      if (this.nhSettings.useServerLogo) {
+        const serverLogoUrl = this.$store.state.nhServerConfig?.logoUrl
+        if (serverLogoUrl) return serverLogoUrl
+      }
       return this.nhSettings.logoUrl || '/nh-logo.png'
     },
     nhColorizeLogo() {

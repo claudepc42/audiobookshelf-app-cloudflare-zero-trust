@@ -17,7 +17,13 @@ export default {
     nhSeriesCoverUrl() {
       return (seriesId) => {
         const ext = this.nhStore?.state.nhSeriesCovers?.[seriesId]
-        return ext ? `/_nh/series-covers/${seriesId}.${ext}` : null
+        if (!ext) return null
+        // Used directly as a CSS background-image url(), not routed through
+        // $nativeHttp (which prefixes the server address itself) — a bare
+        // relative path here resolves against the WebView's own local origin
+        // instead of the actual server, so it must be made absolute here.
+        const serverAddress = this.nhStore?.getters['user/getServerAddress']
+        return serverAddress ? `${serverAddress}/_nh/series-covers/${seriesId}.${ext}` : null
       }
     }
   },
@@ -50,8 +56,19 @@ export default {
       return null
     },
     nhAvatarUrl(userId) {
+      // A non-admin's own picked photo never reaches the server (admin-only write
+      // endpoint there), so it's saved locally instead — shown only in this app,
+      // for this user, taking priority over whatever the real shared avatar is.
+      const localDataUrl = this.nhStore?.state.nhSettings?.localAvatarDataUrl
+      const isMe = userId && userId === this.nhStore?.state.user?.user?.id
+      if (isMe && localDataUrl) return localDataUrl
+
       const ext = this.nhStore?.state.nhAvatars?.[userId]
-      return ext ? `/_nh/user-avatars/${userId}.${ext}` : null
+      if (!ext) return null
+      // Same reasoning as nhSeriesCoverUrl above — used directly as an <img>
+      // src/CSS background, needs an absolute URL, not a bare relative path.
+      const serverAddress = this.nhStore?.getters['user/getServerAddress']
+      return serverAddress ? `${serverAddress}/_nh/user-avatars/${userId}.${ext}` : null
     }
   }
 }

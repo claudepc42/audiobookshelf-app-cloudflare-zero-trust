@@ -101,7 +101,28 @@
       <div class="py-3 flex items-center">
         <p class="pr-4 flex-1" style="color: #d8cfc2">Custom Logo</p>
       </div>
-      <ui-text-input :value="settings.logoUrl" placeholder="Leave empty for the default logo" clearable class="mb-3" @input="updateSetting('logoUrl', $event)" />
+      <div class="flex items-center gap-2 mb-3">
+        <ui-text-input :value="settings.logoUrl" placeholder="Leave empty for the default logo" clearable class="flex-1" @input="updateSetting('logoUrl', $event)" />
+        <!-- Admins: uploads go through the same admin-gated NH DAV path as series
+             covers/avatars, so it becomes the server's shared logo for everyone.
+             Everyone else: the picked image is only ever converted to a local data
+             URL and saved to this device's own logoUrl — we don't control the NH
+             server code, and its logo-write endpoint is admin-only there too, so a
+             non-admin's pick can only ever be a this-app-only preference, not
+             something written back to the server. Either way, a plain URL is still
+             supported by typing/pasting one directly above. -->
+        <ui-btn v-if="nhThemeActive" small color="bg bg-opacity-50" :padding-x="2" :loading="logoSaving" style="height: 44px; width: 44px" @click="pickLogo">
+          <span class="material-symbols" style="font-size: 1.2rem">photo_camera</span>
+        </ui-btn>
+        <input ref="logoInput" type="file" accept="image/*" class="hidden" @change="onLogoPicked" />
+      </div>
+
+      <div class="flex items-center py-2">
+        <div class="w-10 flex justify-center" @click="updateSetting('useServerLogo', !settings.useServerLogo)">
+          <ui-toggle-switch :value="settings.useServerLogo" @input="updateSetting('useServerLogo', $event)" />
+        </div>
+        <p class="pl-4" style="color: #d8cfc2">Use Server's Logo<span class="text-xs pl-2" style="color: #9a9085">Overrides your own logo above, colorize still applies</span></p>
+      </div>
 
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('colorizeLogo', !settings.colorizeLogo)">
@@ -407,7 +428,10 @@
 </template>
 
 <script>
+import { Filesystem, Directory } from '@capacitor/filesystem'
 import { NH_BASE_THEMES, NH_GOOGLE_FONTS, NH_PRESET_COLORS, NH_BOOK_SITES, nhRatingsLibOn } from '@/store/index'
+
+const LOGO_EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg' }
 
 // Same keys as pages/bookshelf/index.vue's getShelfOrderKey() — must match
 // exactly, this is the canonical default order used when homeOrder is empty.
@@ -439,6 +463,7 @@ export default {
       ],
       srvSaving: false,
       srvStatus: '',
+      logoSaving: false,
       panelSearch: '',
       noSectionsMatch: false,
       sectionLabels: {
@@ -594,6 +619,58 @@ export default {
       this.$store.commit('setNhSetting', { key, value })
       const saved = (await this.$localStore.getNhSettings()) || {}
       await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
+    },
+    pickLogo() {
+      this.$refs.logoInput.click()
+    },
+    onLogoPicked(e) {
+      const file = e.target.files && e.target.files[0]
+      e.target.value = ''
+      if (!file) return
+      if (file.size > 2 * 1024 * 1024) {
+        this.$toast.error('Logo must be under 2MB')
+        return
+      }
+      const ext = LOGO_EXT_BY_MIME[file.type]
+      if (!ext) {
+        this.$toast.error('Logo must be a PNG, JPEG, WebP, GIF, or SVG image')
+        return
+      }
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (this.isAdminOrUp) {
+          const base64 = reader.result.split(',')[1]
+          this.saveLogo(base64, ext)
+        } else {
+          // Non-admins: the NH server's logo-write endpoint is admin-only (same as
+          // avatars), and we don't control that server code — so this can only ever
+          // be a this-device preference, saved as a plain data URL, never uploaded.
+          this.updateSetting('logoUrl', reader.result)
+        }
+      }
+      reader.readAsDataURL(file)
+    },
+    async saveLogo(base64, ext) {
+      this.logoSaving = true
+      // Same reasoning as account.vue's avatar upload: CapacitorHttp's `data` isn't
+      // auto-decoded from base64 for a raw binary body, so write real bytes to a
+      // temp file first and upload that file's URI with dataType: 'file'.
+      const tempPath = `nh-logo-upload-${Date.now()}.tmp`
+      try {
+        const written = await Filesystem.writeFile({ path: tempPath, data: base64, directory: Directory.Cache })
+        await this.$nativeHttp.request('PUT', `/_nh/data/logo.${ext}`, written.uri, {
+          headers: { 'Content-Type': 'application/octet-stream' },
+          dataType: 'file'
+        })
+        const serverAddress = this.$store.getters['user/getServerAddress']
+        await this.updateSetting('logoUrl', `${serverAddress}/_nh/logo.${ext}`)
+      } catch (e) {
+        this.$toast.error('Failed to save logo')
+      }
+      try {
+        await Filesystem.deleteFile({ path: tempPath, directory: Directory.Cache })
+      } catch (e) {}
+      this.logoSaving = false
     },
     // The app-wide font link (layouts/default.vue) only ever loads the
     // currently-active mainFont, so every other button in this picker fell

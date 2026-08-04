@@ -19,11 +19,11 @@
     </ui-btn>
 
     <!-- NH source: nhAvatarSave/nhAvatarPut (enhancements.js:8161-8194) — the server
-         enforces forUser as admin-only even for setting your OWN photo, so this is
-         gated behind isAdminOrUp same as everything else here. NOT end-to-end tested
-         against a real NanoHive server yet (only the JSON-based endpoints built this
-         session were) — see NANOHIVE_MANIFEST_DECISIONS.md for why. -->
-    <div v-if="isAdminOrUp && nhThemeActive" class="flex items-center gap-3 mt-4">
+         enforces forUser as admin-only even for setting your OWN photo. Admins here
+         upload for real (saveAvatar, writes to the shared /_nh/user-avatars/ slot);
+         everyone else's pick can only ever be a this-device-only fallback (see
+         onAvatarPicked) since we don't control the NH server code to open that up. -->
+    <div v-if="nhThemeActive" class="flex items-center gap-3 mt-4">
       <img v-if="myAvatarUrl" :src="myAvatarUrl" alt="" class="w-10 h-10 rounded-full object-cover" />
       <ui-btn color="bg bg-opacity-50 flex items-center justify-between gap-2 flex-1 text-base" :loading="avatarSaving" @click="pickAvatar">
         My Photo<span class="material-symbols" style="font-size: 1.1rem">photo_camera</span>
@@ -53,6 +53,7 @@
 </template>
 
 <script>
+import { Filesystem, Directory } from '@capacitor/filesystem'
 import nhSeriesMeta from '@/mixins/nhSeriesMeta'
 
 export default {
@@ -117,19 +118,39 @@ export default {
       }
       const reader = new FileReader()
       reader.onload = () => {
-        // Capacitor's documented binary-upload pattern: base64 payload with
-        // Content-Type: application/octet-stream, which its native HTTP layer
-        // decodes before sending the real bytes over the wire (not verified
-        // end-to-end against a real NanoHive server yet — see note above).
-        const base64 = reader.result.split(',')[1]
-        this.saveAvatar(base64)
+        if (this.isAdminOrUp) {
+          const base64 = reader.result.split(',')[1]
+          this.saveAvatar(base64)
+        } else {
+          // Non-admins: NH's avatar write endpoint is admin-only server-side, and
+          // we don't control that server code — so this can only ever be a
+          // this-device preference, never actually shared with other users.
+          this.saveLocalAvatar(reader.result)
+        }
       }
       reader.readAsDataURL(file)
     },
+    async saveLocalAvatar(dataUrl) {
+      this.$store.commit('setNhSetting', { key: 'localAvatarDataUrl', value: dataUrl })
+      const saved = (await this.$localStore.getNhSettings()) || {}
+      await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
+    },
     async saveAvatar(base64) {
       this.avatarSaving = true
+      // CapacitorHttp's `data` option can only be a string or JSON — passing a
+      // base64 string straight through with Content-Type: application/octet-stream
+      // does NOT decode it into real bytes on the wire (confirmed: the server
+      // rejects it as "not a supported image"). The documented workaround is to
+      // write the base64 to a real file first (Filesystem does the base64->bytes
+      // decoding) and upload that file's URI with dataType: 'file', which reads
+      // the actual bytes off disk for the request body.
+      const tempPath = `nh-avatar-upload-${Date.now()}.tmp`
       try {
-        const res = await this.$nativeHttp.post(`/_nh/api/avatar-admin?forUser=${encodeURIComponent(this.user.id)}`, base64, { headers: { 'Content-Type': 'application/octet-stream' } })
+        const written = await Filesystem.writeFile({ path: tempPath, data: base64, directory: Directory.Cache })
+        const res = await this.$nativeHttp.post(`/_nh/api/avatar-admin?forUser=${encodeURIComponent(this.user.id)}`, written.uri, {
+          headers: { 'Content-Type': 'application/octet-stream' },
+          dataType: 'file'
+        })
         if (res && res.ext) {
           this.$store.commit('setNhSeriesMeta', {
             covers: this.$store.state.nhSeriesCovers,
@@ -140,9 +161,16 @@ export default {
       } catch (e) {
         this.$toast.error('Failed to save photo')
       }
+      try {
+        await Filesystem.deleteFile({ path: tempPath, directory: Directory.Cache })
+      } catch (e) {}
       this.avatarSaving = false
     },
     async clearAvatar() {
+      if (!this.isAdminOrUp) {
+        await this.saveLocalAvatar(null)
+        return
+      }
       this.avatarSaving = true
       try {
         await this.$nativeHttp.delete(`/_nh/api/avatar-admin?forUser=${encodeURIComponent(this.user.id)}`)
