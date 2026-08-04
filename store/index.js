@@ -149,6 +149,12 @@ export const NH_GLASS_EFFECT_CONTROLS = [
   // Appbar/Mini Player groups above) to bring the sliders back.
 ]
 
+// DevPanel.vue's "This Panel" group (its own background/scrim/blur) isn't a
+// CSS var driven off NH_GLASS_EFFECT_CONTROLS — it's local panel chrome — but
+// its defaults still need to be shared with the one-time apply-on-first-boot
+// logic in plugins/init.client.js, so they live here instead of duplicated.
+export const NH_GLASS_PANEL_DEFAULTS = { bgOpacity: 0.38, scrimOpacity: 0.42, blur: 18 }
+
 export const NH_BASE_THEMES = {
   warm: { name: 'Warm Dark', canvas: '#181512', rail: '#120f0d', raised: '#221e1a', rgb: '24, 21, 18' },
   slate: { name: 'Cool Slate', canvas: '#111625', rail: '#0d111c', raised: '#1a2238', rgb: '17, 22, 37' },

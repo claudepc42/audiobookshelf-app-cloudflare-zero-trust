@@ -3,11 +3,20 @@ import { AbsCfZeroTrust } from './capacitor/AbsCfZeroTrust'
 
 export default function ({ store, $db, $socket }, inject) {
   const nativeHttp = {
-    // ABS /api/ endpoints always return JSON. A 2xx response with a string body means
-    // CapacitorHttp silently followed a redirect to the CF login page instead of hitting
-    // the real endpoint — the same failure mode that used to crash attemptConnection().
-    looksLikeStaleCfResponse(res, url) {
-      return url.includes('/api/') && typeof res.data === 'string'
+    // Most ABS /api/ endpoints return JSON, but not all — e.g. PATCH /api/me/progress/:id
+    // returns a plain 200 "OK" (text/plain). A stale CF session instead serves an HTML
+    // login/challenge page, which CapacitorHttp silently follows and returns as a 2xx —
+    // the same failure mode that used to crash attemptConnection(). Two guards keep a
+    // legitimate plain-text response from being misread as that: (1) this only applies
+    // to connections that actually went through CF/SSO in the first place — with no CF
+    // in front of the server there's no session to go stale, and refreshCfSessionIfStale
+    // below would immediately no-op anyway, leaving the caller with a false "Cloudflare
+    // session expired" for a request that actually succeeded; (2) the body has to
+    // actually look like an HTML document, not just be non-JSON.
+    looksLikeStaleCfResponse(res, url, serverConnectionConfig) {
+      if (!serverConnectionConfig?.isSsoAuth) return false
+      if (!url.includes('/api/') || typeof res.data !== 'string') return false
+      return /^\s*<(!doctype|html)/i.test(res.data)
     },
 
     // Probes for a stale CF session and opens the WebView to refresh it if needed.
@@ -83,7 +92,7 @@ export default function ({ store, $db, $socket }, inject) {
           throw new Error(message)
         }
 
-        if (this.looksLikeStaleCfResponse(res, url)) {
+        if (this.looksLikeStaleCfResponse(res, url, serverConnectionConfig)) {
           console.warn(`[nativeHttp] Non-JSON response for "${url}" — likely a stale CF session, attempting refresh`)
           return this.refreshCfSessionIfStale(serverConnectionConfig).then((refreshedConfig) => {
             if (!refreshedConfig) {
@@ -95,7 +104,7 @@ export default function ({ store, $db, $socket }, inject) {
                 const message = typeof retryRes.data === 'string' ? retryRes.data : `HTTP ${retryRes.status}`
                 throw new Error(message)
               }
-              if (this.looksLikeStaleCfResponse(retryRes, url)) {
+              if (this.looksLikeStaleCfResponse(retryRes, url, refreshedConfig)) {
                 throw new Error('Cloudflare session expired')
               }
               return retryRes.data

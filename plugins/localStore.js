@@ -145,6 +145,26 @@ class LocalStorage {
     }
   }
 
+  // One-shot marker so the Glass Effect Tuner's default apply (plugins/init.client.js)
+  // only ever runs once. Never reset.
+  async setHasAppliedGlassEffectDefaults() {
+    try {
+      await Preferences.set({ key: 'nh-glass-defaults-applied', value: 'true' })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set nh-glass-defaults-applied', error)
+    }
+  }
+
+  async getHasAppliedGlassEffectDefaults() {
+    try {
+      var obj = (await Preferences.get({ key: 'nh-glass-defaults-applied' })) || {}
+      return obj.value === 'true'
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get nh-glass-defaults-applied', error)
+      return false
+    }
+  }
+
   async setLanguage(lang) {
     try {
       await Preferences.set({ key: 'lang', value: lang })

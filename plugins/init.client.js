@@ -8,6 +8,7 @@ import { Clipboard } from '@capacitor/clipboard'
 import { Capacitor } from '@capacitor/core'
 import { formatDistance, format, addDays, isDate, setDefaultOptions } from 'date-fns'
 import * as locale from 'date-fns/locale'
+import { NH_SETTINGS_DEFAULTS, NH_GLASS_EFFECT_CONTROLS, NH_GLASS_PANEL_DEFAULTS } from '@/store/index'
 
 Vue.directive('click-outside', vClickOutside.directive)
 
@@ -282,7 +283,7 @@ export default ({ store, app }, inject) => {
   })
 
   // NanoHive theme — overrides the stock theme if the user previously activated it
-  app.$localStore?.getNhSettings()?.then((nhSettings) => {
+  app.$localStore?.getNhSettings()?.then(async (nhSettings) => {
     // Persisted customizations (accent colour, base theme, font, etc.) load regardless
     // of whether NH is currently active, so they're ready the instant the user toggles it on.
     if (nhSettings) store.commit('setNhSettings', nhSettings)
@@ -294,6 +295,22 @@ export default ({ store, app }, inject) => {
       link.rel = 'stylesheet'
       link.href = 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap'
       document.head.appendChild(link)
+    }
+
+    // Applies the shipped Glass Effect Tuner defaults once, ever, overwriting
+    // any existing active tuning (Slot 1-3 untouched). Gated on a flag that's
+    // never reset, so this never runs a second time.
+    const alreadyApplied = await app.$localStore.getHasAppliedGlassEffectDefaults()
+    if (!alreadyApplied) {
+      const cssVars = {}
+      NH_GLASS_EFFECT_CONTROLS.forEach((c) => {
+        cssVars[c.prop] = c.default
+      })
+      const snapshot = { cssVars, panel: { ...NH_GLASS_PANEL_DEFAULTS } }
+      const fullSettings = { ...NH_SETTINGS_DEFAULTS, ...(nhSettings || {}), nhGlassEffect: snapshot }
+      store.commit('setNhSettings', fullSettings)
+      app.$localStore.setNhSettings(fullSettings)
+      app.$localStore.setHasAppliedGlassEffectDefaults()
     }
   })
 

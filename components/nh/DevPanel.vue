@@ -146,14 +146,14 @@
 </template>
 
 <script>
-import { NH_GLASS_EFFECT_CONTROLS } from '@/store/index'
+import { NH_GLASS_EFFECT_CONTROLS, NH_GLASS_PANEL_DEFAULTS } from '@/store/index'
 
 // Shared with layouts/default.vue's applyNhCustomizations(), which needs
 // the same unit metadata to correctly reapply saved values on mount — see
 // store/index.js for why this lives there instead of being duplicated.
 const CONTROLS = NH_GLASS_EFFECT_CONTROLS
 
-const panelState = { bgOpacity: 0.38, scrimOpacity: 0.42, blur: 18 }
+const panelState = { ...NH_GLASS_PANEL_DEFAULTS }
 // Guards the store->panelState seed below to only ever run once per app
 // session (see the comment at its call site for why) instead of every time
 // this component mounts, i.e. every single time the panel is opened.
@@ -235,7 +235,7 @@ export default {
       // Resets only the live preview, same as before Save existed — doesn't
       // touch any already-saved nhGlassEffect, so closing without hitting
       // Save afterward leaves the previously-saved look intact for next launch.
-      Object.assign(panelState, { bgOpacity: 0.97, scrimOpacity: 0.55, blur: 0 })
+      Object.assign(panelState, NH_GLASS_PANEL_DEFAULTS)
       this.panel = { ...panelState }
       CONTROLS.forEach((c) => {
         this.$set(this.values, c.prop, c.default)
