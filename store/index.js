@@ -399,6 +399,10 @@ export const state = () => ({
   showSideDrawer: false,
   nhThemeActive: true,
   nhHomeCoverUrl: null,
+  // Local-only listening session history for whichever item is currently
+  // loaded in the player — see plugins/localStore.js and AudioPlayer.vue's
+  // logSessionStart/logSessionStop/loadSessionHistory. Not NH-specific.
+  sessionHistory: [],
   nhSettings: { ...NH_SETTINGS_DEFAULTS },
   // Shared cache for card-badge ratings (LazyBookCard/LazySeriesCard/search rows) —
   // one bulk GET /_nh/api/ratings covers every card instead of one fetch each,
@@ -555,6 +559,9 @@ export const mutations = {
   },
   setLastItemScrollData(state, data) {
     state.lastItemScrollData = data
+  },
+  setSessionHistory(state, sessions) {
+    state.sessionHistory = sessions || []
   },
   setPlaybackSession(state, playbackSession) {
     state.currentPlaybackSession = playbackSession

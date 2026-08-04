@@ -54,6 +54,8 @@
           <!-- hidden for podcasts but still using this as a placeholder -->
           <span v-else class="material-symbols text-3xl text-white text-opacity-0">bookmark</span>
 
+          <span class="material-symbols text-3xl text-fg-muted cursor-pointer" :class="{ fill: sessionHistory.length }" @click="$emit('showSessionHistory')">history</span>
+
           <span class="font-mono text-fg-muted cursor-pointer" style="font-size: 1.35rem" @click="$emit('selectPlaybackSpeed')">{{ currentPlaybackRate }}x</span>
           <svg v-if="!sleepTimerRunning" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-fg-muted cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor" @click.stop="$emit('showSleepTimer')">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
@@ -131,6 +133,10 @@ import jumpLabelMixin from '@/mixins/jumpLabel'
 export default {
   props: {
     bookmarks: {
+      type: Array,
+      default: () => []
+    },
+    sessionHistory: {
       type: Array,
       default: () => []
     },
@@ -407,6 +413,12 @@ export default {
       if (!localLibraryItem) return null
 
       return this.playbackSession.localEpisodeId ? `${localLibraryItem.id}-${this.playbackSession.localEpisodeId}` : localLibraryItem.id
+    },
+    // Stable per-book key for local-only session history — unlike bookmarks
+    // (server-synced, server items only), this works for local-only playback
+    // and podcasts too, since it never leaves the device.
+    sessionHistoryItemId() {
+      return this.serverLibraryItemId || this.libraryItem?.id || this.localLibraryItem?.id || null
     }
   },
   methods: {
@@ -831,13 +843,55 @@ export default {
     savePlayerSettings() {
       return this.$localStore.setPlayerSettings({ ...this.playerSettings })
     },
+    // Local-only listening session history — see plugins/localStore.js. Purely
+    // event-driven off actual play/pause transitions, no polling/background
+    // timers: on play, log a new start unless the last one started under 5
+    // minutes ago (still effectively the same session); on pause, drop the
+    // last entry if it started under 30 seconds ago (accidental tap, not a
+    // real listen), otherwise stamp it with a stop position.
+    async logSessionStart() {
+      const itemId = this.sessionHistoryItemId
+      if (!itemId) return
+      const sessions = await this.$localStore.getSessionHistory(itemId)
+      const last = sessions[sessions.length - 1]
+      if (last && Date.now() - last.startTime < 5 * 60 * 1000) return
+      sessions.push({ startTime: Date.now(), startPosition: this.currentTime, stopTime: null, stopPosition: null })
+      while (sessions.length > 10) sessions.shift()
+      this.$store.commit('setSessionHistory', sessions)
+      await this.$localStore.setSessionHistory(itemId, sessions)
+    },
+    async logSessionStop() {
+      const itemId = this.sessionHistoryItemId
+      if (!itemId) return
+      const sessions = await this.$localStore.getSessionHistory(itemId)
+      const last = sessions[sessions.length - 1]
+      if (!last) return
+      if (Date.now() - last.startTime < 30 * 1000) {
+        sessions.pop()
+      } else {
+        last.stopTime = Date.now()
+        last.stopPosition = this.currentTime
+      }
+      this.$store.commit('setSessionHistory', sessions)
+      await this.$localStore.setSessionHistory(itemId, sessions)
+    },
+    async loadSessionHistory() {
+      const itemId = this.sessionHistoryItemId
+      this.$store.commit('setSessionHistory', itemId ? await this.$localStore.getSessionHistory(itemId) : [])
+    },
     //
     // Listeners from audio AbsAudioPlayer
     //
     onPlayingUpdate(data) {
       console.log('onPlayingUpdate', JSON.stringify(data))
+      const wasPlaying = this.isPlaying
       this.isPlaying = !!data.value
       this.$store.commit('setPlayerPlaying', this.isPlaying)
+      if (this.isPlaying && !wasPlaying) {
+        this.logSessionStart()
+      } else if (!this.isPlaying && wasPlaying) {
+        this.logSessionStop()
+      }
       if (this.isPlaying) {
         this.startPlayInterval()
       } else {
@@ -948,6 +1002,7 @@ export default {
       this.isLoading = true
       this.syncStatus = 0
       this.$store.commit('setPlaybackSession', this.playbackSession)
+      this.loadSessionHistory()
 
       // Set track width
       this.$nextTick(() => {

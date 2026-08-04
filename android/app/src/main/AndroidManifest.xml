@@ -42,6 +42,19 @@
             android:resource="@xml/samsung_cover_widget_info" />
         </receiver>
 
+        <!-- NanoHive-themed second widget — separate from the one above, not a replacement -->
+        <receiver
+          android:name="NanoHiveMediaPlayerWidget"
+          android:exported="false">
+          <intent-filter>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+
+          <meta-data
+            android:name="android.appwidget.provider"
+            android:resource="@xml/nanohive_media_player_widget_info" />
+        </receiver>
+
         <!-- Used by Android Auto -->
         <meta-data
             android:name="com.google.android.gms.car.notification.SmallIcon"

@@ -7,10 +7,12 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import com.audiobookshelf.app.MediaPlayerWidget
+import com.audiobookshelf.app.NanoHiveMediaPlayerWidget
 import com.audiobookshelf.app.data.*
 import com.audiobookshelf.app.managers.DbManager
 import com.audiobookshelf.app.player.PlayerNotificationService
 import com.audiobookshelf.app.updateAppWidget
+import com.audiobookshelf.app.updateNanoHiveAppWidget
 
 /** Interface for widget event handling. */
 interface WidgetEventEmitter {
@@ -192,12 +194,23 @@ object DeviceManager {
                 val isPlaying = pns.currentPlayer.isPlaying
 
                 val appWidgetManager = AppWidgetManager.getInstance(context)
-                val componentName = ComponentName(context, MediaPlayerWidget::class.java)
-                val ids = appWidgetManager.getAppWidgetIds(componentName)
                 val playbackSession = pns.getCurrentPlaybackSessionCopy()
 
-                for (widgetId in ids) {
+                val componentName = ComponentName(context, MediaPlayerWidget::class.java)
+                for (widgetId in appWidgetManager.getAppWidgetIds(componentName)) {
                   updateAppWidget(
+                          context,
+                          appWidgetManager,
+                          widgetId,
+                          playbackSession,
+                          isPlaying,
+                          PlayerNotificationService.isClosed
+                  )
+                }
+
+                val nhComponentName = ComponentName(context, NanoHiveMediaPlayerWidget::class.java)
+                for (widgetId in appWidgetManager.getAppWidgetIds(nhComponentName)) {
+                  updateNanoHiveAppWidget(
                           context,
                           appWidgetManager,
                           widgetId,
@@ -210,10 +223,22 @@ object DeviceManager {
 
               override fun onPlayerClosed() {
                 val appWidgetManager = AppWidgetManager.getInstance(context)
+
                 val componentName = ComponentName(context, MediaPlayerWidget::class.java)
-                val ids = appWidgetManager.getAppWidgetIds(componentName)
-                for (widgetId in ids) {
+                for (widgetId in appWidgetManager.getAppWidgetIds(componentName)) {
                   updateAppWidget(
+                          context,
+                          appWidgetManager,
+                          widgetId,
+                          deviceData.lastPlaybackSession,
+                          false,
+                          PlayerNotificationService.isClosed
+                  )
+                }
+
+                val nhComponentName = ComponentName(context, NanoHiveMediaPlayerWidget::class.java)
+                for (widgetId in appWidgetManager.getAppWidgetIds(nhComponentName)) {
+                  updateNanoHiveAppWidget(
                           context,
                           appWidgetManager,
                           widgetId,
