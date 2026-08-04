@@ -148,7 +148,20 @@ export const NH_GLASS_EFFECT_CONTROLS = [
   { group: 'Drawer', prop: '--nh-drawer-opacity', label: 'Opacity', default: 0, min: 0, max: 1, step: 0.01, unit: '' },
   { group: 'Drawer', prop: '--nh-drawer-blur', label: 'Blur', default: 13, min: 0, max: 60, step: 1, unit: 'px' },
   { group: 'Mini Player', prop: '--nh-miniplayer-opacity', label: 'Opacity', default: 0.4, min: 0, max: 1, step: 0.01, unit: '' },
-  { group: 'Mini Player', prop: '--nh-miniplayer-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' }
+  { group: 'Mini Player', prop: '--nh-miniplayer-blur', label: 'Blur', default: 28, min: 0, max: 60, step: 1, unit: 'px' },
+  // The Android home-screen widget is a RemoteViews layout running in the
+  // launcher's process — it can't blur what's behind it (no API for that;
+  // only some OEM launchers do it, as a launcher-level effect, not something
+  // this app's widget content controls). Opacity is real and readable though:
+  // NanoHiveMediaPlayerWidget.kt reads this same value straight out of
+  // Capacitor's Preferences SharedPreferences file at update time and applies
+  // it as the background alpha. --nh-widget-opacity has no CSS effect at all
+  // (the widget isn't part of the WebView) — it rides along in this array
+  // purely to reuse the existing tuner UI/save-slot/persistence machinery for
+  // free. DevPanel.vue's apply() special-cases this one prop to also push a
+  // native refresh (AbsWidgetUpdater.refresh()) so the change shows up on the
+  // home screen immediately instead of waiting for the next play/pause.
+  { group: 'Home Screen Widget', prop: '--nh-widget-opacity', label: 'Opacity', default: 0.9, min: 0, max: 1, step: 0.01, unit: '' }
   // Library-switcher button (--nh-libbtn-opacity/--nh-libbtn-blur, defined in
   // nh-theme.css's :root) deliberately has NO tuner entry here for now — the
   // button doesn't visibly respond to either var yet (confirmed on-device: a

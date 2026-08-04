@@ -147,6 +147,7 @@
 
 <script>
 import { NH_GLASS_EFFECT_CONTROLS, NH_GLASS_PANEL_DEFAULTS } from '@/store/index'
+import { AbsWidgetUpdater } from '@/plugins/capacitor'
 
 // Shared with layouts/default.vue's applyNhCustomizations(), which needs
 // the same unit metadata to correctly reapply saved values on mount — see
@@ -230,6 +231,24 @@ export default {
       const num = parseFloat(rawVal)
       this.$set(this.values, ctrl.prop, num)
       document.documentElement.style.setProperty(ctrl.prop, ctrl.unit ? `${num}${ctrl.unit}` : String(num))
+      // --nh-widget-opacity has no CSS effect (the home-screen widget isn't part
+      // of the WebView) — unlike every other control here, it does nothing at
+      // all until it's actually persisted and the native widget re-reads it, so
+      // it can't wait for an explicit Save to Slot the way everything else does.
+      // Debounced so a drag doesn't spam localStorage writes/native bridge calls.
+      if (ctrl.prop === '--nh-widget-opacity') this.scheduleWidgetRefresh(num)
+    },
+    scheduleWidgetRefresh(num) {
+      clearTimeout(this._widgetRefreshTimer)
+      this._widgetRefreshTimer = setTimeout(async () => {
+        // Only touches this one key, layered onto whatever was last actually
+        // saved — doesn't leak any other still-unsaved live slider value into
+        // persisted storage the way a full this.values snapshot would.
+        const existing = this.$store.state.nhSettings?.nhGlassEffect || { cssVars: {}, panel: {} }
+        const snapshot = { ...existing, cssVars: { ...existing.cssVars, '--nh-widget-opacity': num } }
+        await this.persistSettings({ nhGlassEffect: snapshot })
+        AbsWidgetUpdater.refresh().catch(() => {})
+      }, 400)
     },
     resetAll() {
       // Resets only the live preview, same as before Save existed — doesn't

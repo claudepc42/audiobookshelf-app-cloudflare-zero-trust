@@ -59,6 +59,23 @@ export default {
     }
   },
   methods: {
+    // Bookmark/sleep-timer taps on the NanoHive widget can't open these modals
+    // directly (RemoteViews has no such capability) — they launch the app via
+    // the existing custom-URL-scheme deep link mechanism instead (same one
+    // already used for the Cloudflare SSO callback), landing here through the
+    // same 'url-open' eventBus event. See NanoHiveMediaPlayerWidget.kt's
+    // widgetActionPendingIntent for the native side.
+    onWidgetUrlOpen(url) {
+      if (!url || !url.startsWith('audiobookshelf://widget-action')) return
+      let type
+      try {
+        type = new URL(url).searchParams.get('type')
+      } catch (e) {
+        return
+      }
+      if (type === 'bookmark') this.showBookmarks()
+      else if (type === 'sleep-timer') this.showSleepTimer()
+    },
     showBookmarks() {
       this.showBookmarksModal = true
     },
@@ -471,6 +488,7 @@ export default {
     this.$eventBus.$on('playback-time-update', this.playbackTimeUpdate)
     this.$eventBus.$on('device-focus-update', this.deviceFocused)
     this.$eventBus.$on('socket-reconnected', this.socketReconnected)
+    this.$eventBus.$on('url-open', this.onWidgetUrlOpen)
   },
   beforeDestroy() {
     this.onLocalMediaProgressUpdateListener?.remove()
@@ -487,6 +505,7 @@ export default {
     this.$eventBus.$off('playback-time-update', this.playbackTimeUpdate)
     this.$eventBus.$off('device-focus-update', this.deviceFocused)
     this.$eventBus.$off('socket-reconnected', this.socketReconnected)
+    this.$eventBus.$off('url-open', this.onWidgetUrlOpen)
   }
 }
 </script>

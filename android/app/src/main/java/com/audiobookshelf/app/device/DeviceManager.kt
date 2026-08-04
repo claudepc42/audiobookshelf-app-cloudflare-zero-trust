@@ -49,6 +49,33 @@ object DeviceManager {
 
   var widgetUpdater: WidgetEventEmitter? = null
 
+  // Cached alongside every real widget update in initializeWidgetUpdater below,
+  // so a purely cosmetic refresh (e.g. AbsWidgetUpdater.refresh(), triggered
+  // when the NH UI Glass Effect Tuner's widget-opacity slider changes) can
+  // redraw both widgets with their last real content instead of needing a
+  // live PlayerNotificationService reference just to repaint a color.
+  var lastWidgetIsPlaying = false
+  var lastWidgetIsAppClosed = true
+
+  /**
+   * Redraws both widgets (stock + NanoHive) for every currently-placed
+   * instance, using the last known playback state — used for cosmetic-only
+   * refreshes that aren't triggered by an actual playback change.
+   */
+  fun refreshWidgets(context: Context) {
+    val appWidgetManager = AppWidgetManager.getInstance(context)
+
+    val componentName = ComponentName(context, MediaPlayerWidget::class.java)
+    for (widgetId in appWidgetManager.getAppWidgetIds(componentName)) {
+      updateAppWidget(context, appWidgetManager, widgetId, deviceData.lastPlaybackSession, lastWidgetIsPlaying, lastWidgetIsAppClosed)
+    }
+
+    val nhComponentName = ComponentName(context, NanoHiveMediaPlayerWidget::class.java)
+    for (widgetId in appWidgetManager.getAppWidgetIds(nhComponentName)) {
+      updateNanoHiveAppWidget(context, appWidgetManager, widgetId, deviceData.lastPlaybackSession, lastWidgetIsPlaying, lastWidgetIsAppClosed)
+    }
+  }
+
   init {
     Log.d(tag, "Device Manager Singleton invoked")
 
@@ -192,6 +219,8 @@ object DeviceManager {
             (object : WidgetEventEmitter {
               override fun onPlayerChanged(pns: PlayerNotificationService) {
                 val isPlaying = pns.currentPlayer.isPlaying
+                lastWidgetIsPlaying = isPlaying
+                lastWidgetIsAppClosed = PlayerNotificationService.isClosed
 
                 val appWidgetManager = AppWidgetManager.getInstance(context)
                 val playbackSession = pns.getCurrentPlaybackSessionCopy()
@@ -222,6 +251,9 @@ object DeviceManager {
               }
 
               override fun onPlayerClosed() {
+                lastWidgetIsPlaying = false
+                lastWidgetIsAppClosed = PlayerNotificationService.isClosed
+
                 val appWidgetManager = AppWidgetManager.getInstance(context)
 
                 val componentName = ComponentName(context, MediaPlayerWidget::class.java)
