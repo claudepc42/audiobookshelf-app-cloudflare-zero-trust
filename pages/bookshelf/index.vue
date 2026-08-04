@@ -17,7 +17,7 @@
         <p class="text-xs tracking-widest" :style="{ color: nhSettings.greetingUsesAccent ? 'var(--nh-amber)' : 'var(--nh-muted-2)', textTransform: 'uppercase', letterSpacing: '0.12em' }">{{ greetingLine }}</p>
         <h2 class="mt-1 text-2xl font-medium leading-tight" style="font-family: var(--nh-serif); color: var(--nh-text-1)">Welcome back, {{ username }}</h2>
       </div>
-      <nh-hero-carousel v-if="nhThemeActive && !currentLibraryIsPodcast && nhSettings.showHeroCarousel" :slides="continueListeningItems" :advance-seconds="nhSettings.carouselTiming" />
+      <nh-hero-carousel v-if="nhThemeActive && nhSettings.showHeroCarousel" :slides="continueListeningItems" :advance-seconds="nhSettings.carouselTiming" />
       <nh-recent-series-shelf v-if="showRecentSeriesShelf" />
       <nh-rate-finished-shelf v-if="nhThemeActive && !currentLibraryIsPodcast" />
       <template v-for="(shelf, index) in displayShelves">
