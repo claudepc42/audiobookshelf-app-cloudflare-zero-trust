@@ -364,6 +364,23 @@ export default {
       console.log('[categories] Local shelves set', this.shelves.length, this.lastLocalFetch)
 
       if (isConnectedToServerWithInternet) {
+        // Show last time's personalized shelves (Continue Series, Recently Added,
+        // etc.) immediately instead of leaving them absent while this request is
+        // in flight — replaced below the moment fresh data actually arrives.
+        const cachedCategories = await this.$localStore.getPersonalizedShelvesCache(this.currentLibraryId)
+        if (cachedCategories?.length) {
+          this.shelves = cachedCategories.map((cat) => {
+            if (cat.type == 'book' || cat.type == 'podcast' || cat.type == 'episode') {
+              cat.entities = cat.entities.map((entity) => {
+                const localLibraryItem = this.localLibraryItems.find((lli) => lli.libraryItemId == entity.id)
+                if (localLibraryItem) entity.localLibraryItem = localLibraryItem
+                return entity
+              })
+            }
+            return cat
+          })
+        }
+
         const categories = await this.$nativeHttp.get(`/api/libraries/${this.currentLibraryId}/personalized?minified=1&include=rssfeed,numEpisodesIncomplete`, { connectTimeout: 10000 }).catch((error) => {
           console.error('[categories] Failed to fetch categories', error)
           return []
@@ -378,7 +395,7 @@ export default {
           return
         }
 
-        this.shelves = categories.map((cat) => {
+        const freshShelves = categories.map((cat) => {
           if (cat.type == 'book' || cat.type == 'podcast' || cat.type == 'episode') {
             // Map localLibraryItem to entities
             cat.entities = cat.entities.map((entity) => {
@@ -393,6 +410,19 @@ export default {
           }
           return cat
         })
+
+        // A shelf missing from THIS response (e.g. Continue Series, whose real
+        // membership criteria on the server can legitimately be unmet moment to
+        // moment) doesn't mean "gone" — carry forward whatever we last actually
+        // had for it instead of letting it disappear, until a future response
+        // actually replaces it with something fresh.
+        const freshKeys = new Set(freshShelves.map((s) => this.getShelfOrderKey(s)).filter(Boolean))
+        const carriedOverShelves = (cachedCategories || []).filter((s) => {
+          const key = this.getShelfOrderKey(s)
+          return key && !freshKeys.has(key)
+        })
+        this.shelves = [...freshShelves, ...carriedOverShelves]
+        this.$localStore.setPersonalizedShelvesCache(this.currentLibraryId, this.shelves)
 
         // Only add the local shelf with the same media type
         const localShelves = localCategories.filter((cat) => cat.type === this.currentLibraryMediaType && !cat.localOnly)

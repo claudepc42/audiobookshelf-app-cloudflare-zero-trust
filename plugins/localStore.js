@@ -165,6 +165,33 @@ class LocalStorage {
     }
   }
 
+  // Last-known personalized home shelves (Continue Series, Recently Added, etc.
+  // from GET /api/libraries/:id/personalized) per library, so the home page can
+  // show the previous result immediately instead of the shelf just being absent
+  // while the fresh request is in flight — same reasoning as why "Rate What You
+  // Finished" already feels instant (its data is already in memory from login).
+  // Purely a display cache; pages/bookshelf/index.vue's fetchCategories() always
+  // still fetches fresh data and overwrites this once it arrives.
+  async getPersonalizedShelvesCache(libraryId) {
+    if (!libraryId) return null
+    try {
+      var obj = (await Preferences.get({ key: `personalized-shelves-${libraryId}` })) || {}
+      return obj.value ? JSON.parse(obj.value) : null
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get personalized-shelves cache', error)
+      return null
+    }
+  }
+
+  async setPersonalizedShelvesCache(libraryId, categories) {
+    if (!libraryId) return
+    try {
+      await Preferences.set({ key: `personalized-shelves-${libraryId}`, value: JSON.stringify(categories) })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set personalized-shelves cache', error)
+    }
+  }
+
   // Local-only listening session history — a rolling list of {startTime,
   // startPosition, stopTime, stopPosition} per book, never synced to the
   // server. One key per item, same flat JSON convention as everything else
