@@ -115,13 +115,21 @@ Toggle it on or off anytime from the side menu (hamburger icon → **NanoHive** 
 ### What's included
 
 - 12 base color themes, a full accent-color picker, and 16 selectable fonts — all live in an in-app customization panel (side menu → **Customizations**), no server-side config needed
-- A "Pick up where you left off" hero carousel on the home screen — swipeable, with auto-advance
+- A "Pick up where you left off" hero carousel on the home screen — swipeable, with auto-advance, now including podcast libraries
 - An expanded **Recent Series** shelf (stock Audiobookshelf caps this shelf at a handful of items)
 - Cinematic blurred-cover backgrounds behind the home, item detail, and series detail screens
 - Diagonal stacked-cover art for series and collections, with a book-count badge
 - Restyled mini player, with touched-up fullscreen player and reader toolbar
-- Finished-book badges, reordered metadata, and a Goodreads search link on the item detail page
+- Finished-book badges and reordered metadata on the item detail page
+- Book-lookup site buttons on the item page (Amazon per-region, Audible, Goodreads, and more)
 - Per-user toggles for which home shelves and side-menu entries are shown
+- Autoplay into the next book in a series when the current one finishes (opt-in)
+- Cross-library search, with deduplication for items that exist in more than one library
+- Reorderable, hideable home shelves
+- Narrator pages, mirroring the Authors page
+- Tidy Authors, a one-tap cleanup tool for authors with no books attached
+- Community ratings & reviews on the item page, a report-a-problem tool, and a server-wide listening ranking on the Stats page — these three require a NanoHive-backed server, not just the theme
+- A custom logo and profile photo, either picked from your device or (for admins) uploaded to the server for everyone; any user can opt into the server's shared logo instead of their own
 
 <p align="center">
   <img src="screenshots/nanohive/drawer-nanohive-on.png" width="240" alt="Side menu open over the series grid, NanoHive on">

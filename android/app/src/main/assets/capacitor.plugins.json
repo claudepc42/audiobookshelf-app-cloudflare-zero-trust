@@ -1,9 +1,5 @@
 [
 	{
-		"pkg": "@webnativellc/capacitor-filesharer",
-		"classpath": "com.byteowls.capacitor.filesharer.FileSharerPlugin"
-	},
-	{
 		"pkg": "@capacitor-community/keep-awake",
 		"classpath": "com.getcapacitor.community.keepawake.KeepAwakePlugin"
 	},
@@ -28,6 +24,10 @@
 		"classpath": "com.capacitorjs.plugins.dialog.DialogPlugin"
 	},
 	{
+		"pkg": "@capacitor/filesystem",
+		"classpath": "com.capacitorjs.plugins.filesystem.FilesystemPlugin"
+	},
+	{
 		"pkg": "@capacitor/haptics",
 		"classpath": "com.capacitorjs.plugins.haptics.HapticsPlugin"
 	},
@@ -42,5 +42,9 @@
 	{
 		"pkg": "@capacitor/status-bar",
 		"classpath": "com.capacitorjs.plugins.statusbar.StatusBarPlugin"
+	},
+	{
+		"pkg": "@webnativellc/capacitor-filesharer",
+		"classpath": "com.byteowls.capacitor.filesharer.FileSharerPlugin"
 	}
 ]
