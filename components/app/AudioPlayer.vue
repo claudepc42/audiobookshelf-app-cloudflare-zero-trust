@@ -849,35 +849,68 @@ export default {
     // minutes ago (still effectively the same session); on pause, drop the
     // last entry if it started under 30 seconds ago (accidental tap, not a
     // real listen), otherwise stamp it with a stop position.
+    //
+    // onPlayingUpdate (below) can fire in rapid bursts during buffering/
+    // reconnects — each transition used to spawn its own unguarded async
+    // Preferences round-trip with no protection against overlapping calls,
+    // which piled up native-bridge calls fast enough to freeze the player UI
+    // and eventually crash the app. this._sessionLogBusy makes at most one of
+    // these three run at a time; a burst just skips the extra triggers
+    // instead of queuing them, which is fine — missing one rapid-fire
+    // transition in a burst doesn't matter for this feature.
     async logSessionStart() {
-      const itemId = this.sessionHistoryItemId
-      if (!itemId) return
-      const sessions = await this.$localStore.getSessionHistory(itemId)
-      const last = sessions[sessions.length - 1]
-      if (last && Date.now() - last.startTime < 5 * 60 * 1000) return
-      sessions.push({ startTime: Date.now(), startPosition: this.currentTime, stopTime: null, stopPosition: null })
-      while (sessions.length > 10) sessions.shift()
-      this.$store.commit('setSessionHistory', sessions)
-      await this.$localStore.setSessionHistory(itemId, sessions)
+      if (this._sessionLogBusy) return
+      this._sessionLogBusy = true
+      try {
+        const itemId = this.sessionHistoryItemId
+        if (!itemId) return
+        const sessions = await this.$localStore.getSessionHistory(itemId)
+        const last = sessions[sessions.length - 1]
+        if (last && Date.now() - last.startTime < 5 * 60 * 1000) return
+        sessions.push({ startTime: Date.now(), startPosition: this.currentTime, stopTime: null, stopPosition: null })
+        while (sessions.length > 10) sessions.shift()
+        this.$store.commit('setSessionHistory', sessions)
+        await this.$localStore.setSessionHistory(itemId, sessions)
+      } catch (e) {
+        console.error('[AudioPlayer] logSessionStart failed', e)
+      } finally {
+        this._sessionLogBusy = false
+      }
     },
     async logSessionStop() {
-      const itemId = this.sessionHistoryItemId
-      if (!itemId) return
-      const sessions = await this.$localStore.getSessionHistory(itemId)
-      const last = sessions[sessions.length - 1]
-      if (!last) return
-      if (Date.now() - last.startTime < 30 * 1000) {
-        sessions.pop()
-      } else {
-        last.stopTime = Date.now()
-        last.stopPosition = this.currentTime
+      if (this._sessionLogBusy) return
+      this._sessionLogBusy = true
+      try {
+        const itemId = this.sessionHistoryItemId
+        if (!itemId) return
+        const sessions = await this.$localStore.getSessionHistory(itemId)
+        const last = sessions[sessions.length - 1]
+        if (!last) return
+        if (Date.now() - last.startTime < 30 * 1000) {
+          sessions.pop()
+        } else {
+          last.stopTime = Date.now()
+          last.stopPosition = this.currentTime
+        }
+        this.$store.commit('setSessionHistory', sessions)
+        await this.$localStore.setSessionHistory(itemId, sessions)
+      } catch (e) {
+        console.error('[AudioPlayer] logSessionStop failed', e)
+      } finally {
+        this._sessionLogBusy = false
       }
-      this.$store.commit('setSessionHistory', sessions)
-      await this.$localStore.setSessionHistory(itemId, sessions)
     },
     async loadSessionHistory() {
-      const itemId = this.sessionHistoryItemId
-      this.$store.commit('setSessionHistory', itemId ? await this.$localStore.getSessionHistory(itemId) : [])
+      if (this._sessionLogBusy) return
+      this._sessionLogBusy = true
+      try {
+        const itemId = this.sessionHistoryItemId
+        this.$store.commit('setSessionHistory', itemId ? await this.$localStore.getSessionHistory(itemId) : [])
+      } catch (e) {
+        console.error('[AudioPlayer] loadSessionHistory failed', e)
+      } finally {
+        this._sessionLogBusy = false
+      }
     },
     //
     // Listeners from audio AbsAudioPlayer
