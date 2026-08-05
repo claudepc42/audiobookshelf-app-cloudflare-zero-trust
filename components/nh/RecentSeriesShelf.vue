@@ -1,6 +1,6 @@
 <template>
   <div v-if="series.length" id="nh-recent-series-row">
-    <h2 class="nh-rs-heading">Recent Series</h2>
+    <h2 class="nh-rs-heading">{{ $strings.LabelRecentSeries }}</h2>
     <div class="nh-rs-scroll">
       <div v-for="s in series" :key="s.id" class="nh-rs-card" @click="openSeries(s)">
         <div class="nh-rs-covers">

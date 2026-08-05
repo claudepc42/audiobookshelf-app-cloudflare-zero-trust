@@ -4,7 +4,7 @@
     android:initialKeyguardLayout="@layout/nanohive_media_player_widget"
     android:initialLayout="@layout/nanohive_media_player_widget"
     android:minWidth="275dp"
-    android:minHeight="110dp"
+    android:minHeight="97dp"
     android:previewImage="@drawable/media_player_widget_preview"
     android:previewLayout="@layout/nanohive_media_player_widget"
     android:resizeMode="horizontal|vertical"

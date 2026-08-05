@@ -84,7 +84,7 @@ export default {
       const targets = this.authorlessAuthors
       if (!targets.length || this.removing) return
       this.removing = true
-      this.removeStatus = 'Removing…'
+      this.removeStatus = this.$strings.LabelRemovingEllipsis
       const removedIds = new Set()
       await Promise.all(
         targets.map((author) =>
@@ -99,7 +99,7 @@ export default {
         )
       )
       this.removing = false
-      this.removeStatus = `Removed ${removedIds.size}/${targets.length}`
+      this.removeStatus = this.$getString('LabelRemovedCount', [removedIds.size, targets.length])
       // Only drop the ones that actually succeeded — anything that failed
       // stays visible so it isn't silently lost from the list.
       this.authors = this.authors.filter((au) => !removedIds.has(au.id))

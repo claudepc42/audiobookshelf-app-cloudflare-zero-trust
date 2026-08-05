@@ -16,7 +16,7 @@
         <p class="text-sm text-fg-muted">{{ $strings.LabelAlmostDone }}</p>
         <!-- Tapping the checkmark to actually finish a book isn't obvious on its
              own — this column label is the whole fix. -->
-        <p class="text-xs text-fg-muted">Mark as Done</p>
+        <p class="text-xs text-fg-muted">{{ $strings.LabelMarkAsDone }}</p>
       </div>
       <div v-for="row in almostDone" :key="row.libraryItemId" class="flex items-center py-1.5">
         <div class="w-10 h-10 rounded bg-cover bg-center flex-shrink-0 mr-3" :style="{ backgroundImage: `url(${coverUrl(row.libraryItemId)})` }" />

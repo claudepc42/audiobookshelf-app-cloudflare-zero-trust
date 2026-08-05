@@ -1,7 +1,7 @@
 <template>
   <div v-if="seriesName || loading" id="nh-series-header" :class="{ 'nh-sh-loading': loading }">
     <div v-if="displayCoverUrl" class="nh-sh-cover nh-on" :style="{ backgroundImage: `url(${displayCoverUrl})` }" />
-    <div class="nh-sh-eyebrow">Series</div>
+    <div class="nh-sh-eyebrow">{{ $strings.LabelSeries }}</div>
     <h1>{{ seriesName }}</h1>
     <div v-if="authorLine || loading" class="nh-sh-author">{{ authorLine }}</div>
     <div v-if="statsLine || loading" class="nh-sh-stats">{{ statsLine }}</div>
@@ -17,7 +17,7 @@
     </div>
     <p v-if="displayDescription || loading" ref="desc" class="nh-sh-desc" :class="{ 'nh-open': descOpen }">{{ displayDescription }}</p>
     <button v-if="descClamped || descOpen" type="button" class="nh-sh-more" @click="descOpen = !descOpen">
-      {{ descOpen ? 'Show less' : 'Show more' }}
+      {{ descOpen ? $strings.ButtonShowLess : $strings.ButtonShowMore }}
     </button>
   </div>
 </template>
@@ -131,11 +131,11 @@ export default {
       const total = payload.total && payload.total > entities.length ? payload.total : entities.length
       const allLoaded = !payload.total || entities.length >= payload.total
       const durStr = allLoaded && dur > 60 ? `${Math.floor(dur / 3600)}h ${Math.round((dur % 3600) / 60)}m` : ''
-      const authStr = authors.slice(0, 2).join(', ') + (authors.length > 2 ? ' & more' : '')
+      const authStr = authors.slice(0, 2).join(', ') + (authors.length > 2 ? ` ${this.$strings.LabelAndMore}` : '')
 
       this.seriesName = seriesName
-      this.authorLine = authStr ? `by ${authStr}` : ''
-      this.statsLine = [`${total} ${total === 1 ? 'book' : 'books'}`, durStr].filter(Boolean).join(' · ')
+      this.authorLine = authStr ? this.$getString('LabelByAuthor', [authStr]) : ''
+      this.statsLine = [this.$getString('LabelNumBooks', [total]), durStr].filter(Boolean).join(' · ')
       this.description = desc
       this.entityIds = entities.map((e) => e.id).filter(Boolean)
       // NH source: nhSeriesHeaderCover() default 'grid' composite mode is a

@@ -20,6 +20,7 @@ import com.audiobookshelf.app.data.PlaybackSession
 import com.audiobookshelf.app.device.DeviceManager
 import com.audiobookshelf.app.managers.DbManager
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.request.target.AppWidgetTarget
 import com.bumptech.glide.request.transition.Transition
@@ -28,12 +29,14 @@ import org.json.JSONObject
 /**
  * NanoHive-themed copy of MediaPlayerWidget.kt — a second, separate widget
  * registered alongside the original, not a replacement for it. Same data
- * source and behavior, different look: a single translucent glass bar
- * (small cover, title/author, transport controls, thin progress track)
- * deliberately shaped after the in-app mini player rather than the
- * original widget's boxy grid layout — "the mini player, just bigger."
- * Kept as a full duplicate rather than a shared layout because RemoteViews
- * widgets can't runtime-swap layouts/colors the way the Vue UI does.
+ * source and behavior, different look: a square cover with a uniform
+ * margin on its three open sides, then one content column filling the rest
+ * of the width, with the transport row and progress bar both centered
+ * within that column rather than the whole widget. Sizing (icon/text sizes,
+ * corner radii) comes from a freeform mockup tool calibrated against a real
+ * reference photo of the widget on-device. Kept as a full duplicate rather
+ * than a shared layout because RemoteViews widgets can't runtime-swap
+ * layouts/colors the way the Vue UI does.
  */
 class NanoHiveMediaPlayerWidget : AppWidgetProvider() {
   val tag = "NanoHiveMediaPlayerWidget"
@@ -87,6 +90,21 @@ internal fun withAlpha(baseColor: Int, opacity: Double): Int {
   return Color.argb(alpha, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
 }
 
+// Mirrors Vue.prototype.$secondsToTimestamp (plugins/init.client.js) — "m:ss",
+// or "h:mm:ss" once there's a whole hour on the clock.
+internal fun formatWidgetTimestamp(seconds: Double): String {
+  var secs = Math.floor(seconds).toInt().coerceAtLeast(0)
+  val hours = secs / 3600
+  secs %= 3600
+  val minutes = secs / 60
+  secs %= 60
+  return if (hours == 0) {
+    String.format("%d:%02d", minutes, secs)
+  } else {
+    String.format("%d:%02d:%02d", hours, minutes, secs)
+  }
+}
+
 // Bookmark and sleep-timer aren't system media-session actions like
 // play/pause/rewind/forward — they need to actually open a modal in the Vue
 // app (BookmarksModal / SleepTimerModal), which nothing in RemoteViews can
@@ -129,6 +147,7 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
   views.setOnClickPendingIntent(R.id.widgetSleepTimerButton, widgetActionPendingIntent(context, "sleep-timer"))
 
   views.setViewVisibility(R.id.widgetButtonContainer, if (isAppClosed) View.GONE else View.VISIBLE)
+  views.setViewVisibility(R.id.widgetSecondaryButtonContainer, if (isAppClosed) View.GONE else View.VISIBLE)
 
   views.setOnClickPendingIntent(R.id.widgetBackground, wholeWidgetClickPI)
 
@@ -145,7 +164,11 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
   val title = playbackSession?.displayTitle ?: "Unknown"
   views.setTextViewText(R.id.widgetMediaTitle, title)
 
-  val options = RequestOptions().override(300, 300).placeholder(R.drawable.icon).error(R.drawable.icon)
+  // 17dp corner radius on the cover art, per the freeform mockup's cover-radius
+  // slider — RemoteViews can't clip an ImageView's corners directly, so this
+  // is baked into the bitmap itself via Glide before it reaches the widget.
+  val coverRadiusPx = (17 * context.resources.displayMetrics.density).toInt()
+  val options = RequestOptions().override(300, 300).transform(RoundedCorners(coverRadiusPx)).placeholder(R.drawable.icon).error(R.drawable.icon)
   Glide.with(context.applicationContext).asBitmap().load(imageUri).apply(options).into(awt)
 
   Log.i(tag, "Update NanoHive App Widget | Is Playing=$isPlaying | isAppClosed=$isAppClosed")
@@ -171,6 +194,13 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
   // AudioPlayer.vue) — playbackSession.progress is already a 0-1 fraction.
   val progressFraction = playbackSession?.progress ?: 0.0
   views.setProgressBar(R.id.widgetProgressBar, 1000, (progressFraction * 1000).toInt().coerceIn(0, 1000), false)
+
+  // Current/remaining time, positioned ABOVE the track in the layout XML —
+  // same pairing as #playerTrack's currentTimestamp + timeRemainingPretty.
+  val currentTime = playbackSession?.currentTime ?: 0.0
+  val duration = playbackSession?.duration ?: 0.0
+  views.setTextViewText(R.id.widgetCurrentTime, formatWidgetTimestamp(currentTime))
+  views.setTextViewText(R.id.widgetTimeRemaining, "-" + formatWidgetTimestamp((duration - currentTime).coerceAtLeast(0.0)))
   // ColorStateList tinting on a RemoteViews ProgressBar needs API 31+ (no
   // equivalent int-arg setter exists for older RemoteViews) — below that it
   // just keeps the system's default progress color, a harmless degradation.

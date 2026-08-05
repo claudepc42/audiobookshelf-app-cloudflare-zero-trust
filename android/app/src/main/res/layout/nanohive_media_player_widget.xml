@@ -1,137 +1,224 @@
-<!-- Deliberately shaped after the in-app mini player (components/app/AudioPlayer.vue's
-     #playerContent when not fullscreen) rather than the original widget's boxy
-     grid: translucent glass bar, small cover + title/author on top, a full
-     transport row (bookmark, rewind, play/pause, forward, sleep timer) below
-     it, and a thin progress track along the very bottom. Corner rounding on
-     Android 12+ is applied automatically by the system to every widget (see
-     values-v31/themes.xml's appWidgetRadius) — nothing extra needed here for
-     that part; nh_widget_border.xml supplies the mini player's subtle edge
-     stroke on top of it. -->
+<!-- Real layout, not copied absolute coordinates from the freeform mockup
+     tool. The mockup's raw pixel data was hand-dragged and noisy (the
+     cover's own margins landed at 4dp/4dp/6dp on three different sides) —
+     so instead of copying those three different numbers, ONE consistent
+     margin (4dp) is used for the cover's three open sides (left/top/bottom)
+     and reused again as the gap between the cover and the content column.
+     The RIGHT edge is deliberately a different, larger
+     number (9dp, averaged from the mockup's own pSecondary/pTrack right
+     margins of 7dp and 10dp) because content sitting near the frame's 19dp
+     corner radius needs more clearance than the cover does — the cover is
+     an opaque image that can sit closer to a rounded corner without
+     looking clipped, but text and icons can't. Title/author's left edge,
+     the progress bar's left edge, and the content column's left edge are
+     literally the same edge (one box, not independently placed pieces);
+     the transport row is centered horizontally WITHIN that box via
+     gravity, not resized or shifted to fit — icon sizes are the unmodified
+     values from the mockup's own sliders (44dp transport, 18dp
+     bookmark/sleep). Corner rounding on Android 12+ is applied
+     automatically by the system to every widget (see
+     values-v31/themes.xml's appWidgetRadius); nh_widget_border.xml
+     supplies the mini player's subtle edge stroke on top of it. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto"
   android:id="@+id/widgetBackground"
   android:layout_width="fill_parent"
   android:layout_height="fill_parent"
-  android:orientation="vertical"
+  android:orientation="horizontal"
+  android:paddingStart="4dp"
+  android:paddingTop="4dp"
+  android:paddingBottom="4dp"
+  android:paddingEnd="9dp"
   android:background="#1a1611"
   android:foreground="@drawable/nh_widget_border">
 
+  <!-- Square cover, filling the available height so its margin reads as
+       the same 4dp on the left/top/bottom (all from the root's own
+       padding above) — the fourth side is the gap to the content column,
+       a different-purpose space, reusing that same 4dp rather than a
+       separate guessed number. -->
+  <ImageView
+    android:id="@+id/widgetAlbumArt"
+    android:layout_width="89dp"
+    android:layout_height="89dp"
+    android:layout_gravity="center_vertical"
+    android:scaleType="centerCrop"
+    android:src="@drawable/icon" />
+
+  <!-- Everything else lives in this one column: the remaining width after
+       the cover. Its right edge is the root's own end-padding (9dp,
+       deliberately larger than the cover's 4dp — see class-level comment)
+       — not a separately chosen number.
+
+       IMPORTANT SIZE NOTE: title/author row (~32dp) + transport row (44dp,
+       the mockup's own slider value) + progress row (~33dp) need ~109dp of
+       vertical space; the column only has 89dp available (97dp frame minus
+       8dp top/bottom padding). Forcing that into three equal-weight thirds
+       (29.7dp each) would clip the 44dp icons — tried that, it looked
+       worse, reverted. Instead every row below is wrap_content: sized to
+       exactly what its content actually needs, nothing shrunk or clipped.
+       The column, and therefore the whole widget, renders TALLER than the
+       nominal 97dp as a result — the same thing the real installed widget
+       was already independently measured doing on an emulator earlier
+       (292x180dp placed vs. 275x110dp declared), so minHeight is a floor
+       the launcher grid can exceed, not a hard clip boundary. -->
   <LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="0dp"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
     android:layout_weight="1"
-    android:orientation="horizontal"
-    android:gravity="center_vertical">
+    android:layout_marginStart="4dp"
+    android:layout_gravity="center_vertical"
+    android:orientation="vertical">
 
-    <ImageView
-      android:id="@+id/widgetAlbumArt"
-      android:layout_width="0dp"
-      android:layout_height="match_parent"
-      android:layout_weight="1"
-      android:layout_margin="8dp"
-      android:scaleType="centerCrop"
-      android:src="@drawable/icon" />
-
+    <!-- Title/author on the left, bookmark+sleep pinned to the right of the
+         same row (title text naturally yields the space next to them via
+         its own weight instead of a hardcoded width that happens to stop
+         short). Sized to its natural content height — not stretched or
+         compressed to fit a fraction of the column. -->
     <LinearLayout
-      android:layout_width="0dp"
-      android:layout_height="match_parent"
-      android:layout_weight="4"
-      android:orientation="vertical"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
       android:gravity="center_vertical">
 
-      <TextView
-        android:id="@+id/widgetMediaTitle"
-        android:layout_width="match_parent"
+      <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:gravity="bottom"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="#f4eee2"
-        android:textSize="13sp"
-        android:text="Title"/>
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-      <TextView
-        android:id="@+id/widgetArtistText"
+        <TextView
+          android:id="@+id/widgetMediaTitle"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:maxLines="1"
+          android:textColor="#f4eee2"
+          android:textSize="9.5sp"
+          android:text="Title"/>
+
+        <TextView
+          android:id="@+id/widgetArtistText"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:maxLines="1"
+          android:textColor="#e0c27a"
+          android:textSize="8sp"
+          android:text="Artist"/>
+      </LinearLayout>
+
+      <LinearLayout
+        android:id="@+id/widgetSecondaryButtonContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+          android:id="@+id/widgetBookmarkButton"
+          android:layout_width="18dp"
+          android:layout_height="18dp"
+          android:layout_marginEnd="7dp"
+          android:scaleType="fitCenter"
+          android:src="@drawable/nh_widget_icon_bookmark" />
+
+        <ImageView
+          android:id="@+id/widgetSleepTimerButton"
+          android:layout_width="18dp"
+          android:layout_height="18dp"
+          android:scaleType="fitCenter"
+          android:src="@drawable/nh_widget_icon_sleep" />
+      </LinearLayout>
+    </LinearLayout>
+
+    <!-- Transport row, centered horizontally WITHIN the content column via
+         gravity — never resized to make it fit, never shifted to an
+         independent offset. Icon size (44dp, real, unshrunk) and inter-icon
+         gap (6dp) are the mockup's own slider values. A small fixed gap
+         above separates it from the title row, rather than an equal-weight
+         box that would clip these icons (see note above). -->
+    <LinearLayout
+      android:id="@+id/widgetButtonContainer"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="3dp"
+      android:orientation="horizontal"
+      android:gravity="center_horizontal">
+
+      <ImageView
+        android:id="@+id/widgetRewindButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="6dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/exo_icon_rewind" />
+
+      <ImageView
+        android:id="@+id/widgetPlayPauseButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="6dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_media_play_dark" />
+
+      <ImageView
+        android:id="@+id/widgetFastForwardButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/exo_icon_fastforward" />
+    </LinearLayout>
+
+    <!-- Progress bar fills the column's full width — which, since the
+         column itself is already positioned in "the space left of the
+         cover," makes the bar aligned against that same remaining distance
+         rather than needing its own separate centering. Small fixed gap
+         above, same reasoning as the transport row. -->
+    <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="3dp"
+      android:orientation="vertical">
+
+      <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="top"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="#e0c27a"
-        android:textSize="11sp"
-        android:text="Artist"/>
+        android:orientation="horizontal">
+
+        <TextView
+          android:id="@+id/widgetCurrentTime"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:gravity="start"
+          android:textColor="#9a9085"
+          android:textSize="12sp"
+          android:fontFamily="monospace"
+          android:text="0:00"/>
+
+        <TextView
+          android:id="@+id/widgetTimeRemaining"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:gravity="end"
+          android:textColor="#9a9085"
+          android:textSize="12sp"
+          android:fontFamily="monospace"
+          android:text="-0:00"/>
+      </LinearLayout>
+
+      <ProgressBar
+        android:id="@+id/widgetProgressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="7dp"
+        android:layout_marginTop="2dp"
+        android:progressDrawable="@drawable/nh_widget_progress"
+        android:max="1000"
+        android:progress="0" />
     </LinearLayout>
   </LinearLayout>
-
-  <!-- Full transport row, mirroring the mini player's actual button set
-       (bookmark, jump back, play/pause, jump forward, sleep timer) instead of
-       just the three the original widget has. -->
-  <LinearLayout
-    android:id="@+id/widgetButtonContainer"
-    android:layout_width="match_parent"
-    android:layout_height="0dp"
-    android:layout_weight="1"
-    android:orientation="horizontal"
-    android:gravity="center_vertical">
-
-    <ImageView
-      android:id="@+id/widgetBookmarkButton"
-      android:layout_width="0dp"
-      android:layout_height="30dp"
-      android:layout_weight="1"
-      android:layout_margin="4dp"
-      android:padding="4dp"
-      android:scaleType="fitCenter"
-      android:src="@drawable/nh_widget_icon_bookmark" />
-
-    <ImageView
-      android:id="@+id/widgetRewindButton"
-      android:layout_width="0dp"
-      android:layout_height="34dp"
-      android:layout_weight="1"
-      android:layout_margin="4dp"
-      android:scaleType="fitCenter"
-      android:src="@drawable/exo_icon_rewind" />
-
-    <ImageView
-      android:id="@+id/widgetPlayPauseButton"
-      android:layout_width="0dp"
-      android:layout_height="34dp"
-      android:layout_weight="1"
-      android:layout_margin="4dp"
-      android:scaleType="fitCenter"
-      android:src="@drawable/ic_media_play_dark" />
-
-    <ImageView
-      android:id="@+id/widgetFastForwardButton"
-      android:layout_width="0dp"
-      android:layout_height="34dp"
-      android:layout_weight="1"
-      android:layout_margin="4dp"
-      android:scaleType="fitCenter"
-      android:src="@drawable/exo_icon_fastforward" />
-
-    <ImageView
-      android:id="@+id/widgetSleepTimerButton"
-      android:layout_width="0dp"
-      android:layout_height="30dp"
-      android:layout_weight="1"
-      android:layout_margin="4dp"
-      android:padding="4dp"
-      android:scaleType="fitCenter"
-      android:src="@drawable/nh_widget_icon_sleep" />
-
-  </LinearLayout>
-
-  <!-- Mirrors the mini player's thin progress track along the very bottom of
-       the card (playerTrack in AudioPlayer.vue). Amber-tinted via
-       progressTint/progressBackgroundTint in Kotlin. -->
-  <ProgressBar
-    android:id="@+id/widgetProgressBar"
-    style="?android:attr/progressBarStyleHorizontal"
-    android:layout_width="match_parent"
-    android:layout_height="4dp"
-    android:max="1000"
-    android:progress="0" />
 
 </LinearLayout>

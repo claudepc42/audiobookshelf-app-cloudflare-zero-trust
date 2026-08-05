@@ -1,7 +1,7 @@
 <template>
   <div v-if="nhThemeActive" class="w-full px-4 py-4">
     <div class="flex items-center mb-3">
-      <h1 class="text-2xl flex-grow">Server Ranking</h1>
+      <h1 class="text-2xl flex-grow">{{ $strings.HeaderServerRanking }}</h1>
       <div v-if="rows.length" class="flex gap-1">
         <button v-for="opt in periods" :key="opt.value" type="button" class="px-2.5 py-1 rounded-lg text-xs" :style="periodBtnStyle(opt.value)" @click="period = opt.value">{{ opt.text }}</button>
       </div>
@@ -10,29 +10,29 @@
     <!-- Non-admin, not yet sharing: explain + offer the opt-in. NH source:
          fsJoin/fsWaiting copy (enhancements.js:9556-9559). -->
     <div v-if="!isAdminOrUp && !settings.familyStats" class="text-sm text-fg-muted py-4">
-      <p class="mb-2">Share your listening time to see how your library's readers compare.</p>
-      <ui-btn small color="primary" :loading="joining" @click="joinSharing">Share My Listening Stats</ui-btn>
+      <p class="mb-2">{{ $strings.MessageShareStatsPrompt }}</p>
+      <ui-btn small color="primary" :loading="joining" @click="joinSharing">{{ $strings.ButtonShareListeningStats }}</ui-btn>
     </div>
     <div v-else-if="!isAdminOrUp && settings.familyStats && !rows.length && !loading" class="text-sm text-fg-muted py-4">
-      <p>Waiting for others to join…</p>
-      <button type="button" class="text-xs underline mt-2" @click="leaveSharing">Stop sharing</button>
+      <p>{{ $strings.MessageWaitingForOthers }}</p>
+      <button type="button" class="text-xs underline mt-2" @click="leaveSharing">{{ $strings.ButtonStopSharing }}</button>
     </div>
 
-    <div v-if="loading" class="text-sm text-fg-muted py-4">Loading…</div>
+    <div v-if="loading" class="text-sm text-fg-muted py-4">{{ $strings.MessageLoading }}</div>
 
     <template v-else-if="rows.length">
       <div class="flex flex-wrap gap-3 mb-4">
         <div class="px-4 py-2 rounded-lg bg-primary text-center">
           <p class="text-lg font-bold">{{ fmt(totalSecs) }}</p>
-          <p class="text-xs text-fg-muted">Total</p>
+          <p class="text-xs text-fg-muted">{{ $strings.LabelTotal }}</p>
         </div>
         <div class="px-4 py-2 rounded-lg bg-primary text-center">
           <p class="text-lg font-bold">{{ activeCount }}</p>
-          <p class="text-xs text-fg-muted">Active listeners</p>
+          <p class="text-xs text-fg-muted">{{ $strings.LabelActiveListeners }}</p>
         </div>
         <div class="px-4 py-2 rounded-lg bg-primary text-center">
           <p class="text-lg font-bold">{{ fmt(avgSecs) }}</p>
-          <p class="text-xs text-fg-muted">Average</p>
+          <p class="text-xs text-fg-muted">{{ $strings.LabelAverage }}</p>
         </div>
       </div>
 
@@ -44,7 +44,7 @@
         <p class="text-sm font-bold">{{ fmt(row.secs) }}</p>
       </div>
 
-      <button v-if="!isAdminOrUp && settings.familyStats" type="button" class="text-xs underline mt-3 text-fg-muted" @click="leaveSharing">Stop sharing</button>
+      <button v-if="!isAdminOrUp && settings.familyStats" type="button" class="text-xs underline mt-3 text-fg-muted" @click="leaveSharing">{{ $strings.ButtonStopSharing }}</button>
     </template>
   </div>
 </template>
@@ -64,12 +64,6 @@ export default {
       loading: false,
       joining: false,
       period: 'week',
-      periods: [
-        { value: 'week', text: 'Week' },
-        { value: 'month', text: 'Month' },
-        { value: 'year', text: 'Year' },
-        { value: 'all', text: 'All' }
-      ],
       users: null,
       stats: {}
     }
@@ -83,6 +77,14 @@ export default {
     },
     isAdminOrUp() {
       return this.$store.getters['user/getIsAdminOrUp']
+    },
+    periods() {
+      return [
+        { value: 'week', text: this.$strings.LabelWeek },
+        { value: 'month', text: this.$strings.LabelMonth },
+        { value: 'year', text: this.$strings.LabelYear },
+        { value: 'all', text: this.$strings.LabelAll }
+      ]
     },
     rows() {
       if (!this.users) return []
@@ -196,7 +198,7 @@ export default {
         await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
         this.load()
       } catch (e) {
-        this.$toast.error('Could not share your stats right now')
+        this.$toast.error(this.$strings.ToastShareStatsFailed)
       }
       this.joining = false
     },

@@ -49,7 +49,7 @@
           @click="openDevPanel"
         >
           <span class="material-symbols" style="font-size: 1rem">tune</span>
-          <span style="font-size: 0.8rem; font-weight: 600">NH UI Glass Effect Tuner</span>
+          <span style="font-size: 0.8rem; font-weight: 600">{{ $strings.ButtonNhGlassTuner }}</span>
         </button>
         <!-- NanoHive / Stock UI toggle -->
         <div class="mb-4 flex items-center justify-between px-1">
@@ -77,7 +77,7 @@
                modal); "Server" when nothing's configured at all — as
                opposed to hardcoding "Cloudflare" regardless. -->
           <template v-if="!serverConnectionConfig.localAddress">
-            <p :class="['text-xs', socketConnected ? 'text-fg/80' : 'text-fg-muted/50']">{{ connectionLabel }} {{ socketConnected ? 'Connected' : 'Disconnected' }}</p>
+            <p :class="['text-xs', socketConnected ? 'text-fg/80' : 'text-fg-muted/50']">{{ connectionLabel }} {{ socketConnected ? $strings.LabelConnected : $strings.LabelDisconnected }}</p>
           </template>
           <template v-else>
             <!-- LAN's highlight used to be just "isOnLan" (whichever address
@@ -181,9 +181,9 @@ export default {
       return !!Object.keys(this.serverConnectionConfig?.customHeaders || {}).length
     },
     connectionLabel() {
-      if (this.serverConnectionConfig?.isSsoAuth) return 'Cloudflare'
-      if (this.hasCustomHeaders) return 'Custom Headers'
-      return 'Server'
+      if (this.serverConnectionConfig?.isSsoAuth) return this.$strings.LabelConnectionCloudflare
+      if (this.hasCustomHeaders) return this.$strings.LabelConnectionCustomHeaders
+      return this.$strings.LabelConnectionServer
     },
     navItems() {
       var items = [
@@ -242,7 +242,7 @@ export default {
       if (this.nhThemeActive) {
         items.push({
           icon: 'tune',
-          text: 'Customizations',
+          text: this.$strings.ButtonNhCustomizations,
           to: '/settings-nanohive'
         })
       }
@@ -270,7 +270,7 @@ export default {
         if (this.hasCfCookies) {
           items.push({
             icon: 'cloud_sync',
-            text: 'Refresh Cloudflare Login',
+            text: this.$strings.ButtonRefreshCloudflareLogin,
             action: 'refreshCf'
           })
         }
@@ -328,11 +328,11 @@ export default {
           }
           const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
           this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
-          this.$toast.success('Cloudflare session refreshed')
+          this.$toast.success(this.$strings.ToastCloudflareRefreshed)
         }
       } catch (e) {
         if (e?.message !== 'cancelled') {
-          this.$toast.error('Cloudflare authentication failed')
+          this.$toast.error(this.$strings.ToastCloudflareRefreshFailed)
         }
       }
     },

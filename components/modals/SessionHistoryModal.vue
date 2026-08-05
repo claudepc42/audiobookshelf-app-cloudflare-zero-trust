@@ -2,7 +2,7 @@
   <modals-modal v-model="show" :width="400" height="100%">
     <template #outer>
       <div class="absolute top-11 left-4 z-40">
-        <p class="text-white text-2xl truncate">Listening History</p>
+        <p class="text-white text-2xl truncate">{{ $strings.HeaderListeningHistory }}</p>
       </div>
     </template>
     <div class="w-full h-full overflow-hidden absolute top-0 left-0 flex items-center justify-center" @click="show = false">
@@ -12,7 +12,7 @@
             <modals-session-history-session-history-item :key="session.startTime" :session="session" :playback-rate="_playbackRate" @click="clickSession" />
           </template>
           <div v-if="!sessions.length" class="flex h-32 items-center justify-center px-6 text-center">
-            <p class="text-lg text-fg-muted">No listening history yet — sessions longer than a few minutes will start showing up here.</p>
+            <p class="text-lg text-fg-muted">{{ $strings.MessageNoListeningHistory }}</p>
           </div>
         </div>
       </div>

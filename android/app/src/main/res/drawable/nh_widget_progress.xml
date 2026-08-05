@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded-corner replacement for the system default horizontal progress
+     drawable (10dp radius, per the freeform mockup's bar-radius slider).
+     Shapes are plain white; NanoHiveMediaPlayerWidget.kt's existing
+     setProgressTintList/setProgressBackgroundTintList calls (API 31+) tint
+     background and progress independently at runtime, same as before. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:id="@android:id/background">
+    <shape android:shape="rectangle">
+      <corners android:radius="10dp"/>
+      <solid android:color="@android:color/white"/>
+    </shape>
+  </item>
+  <item android:id="@android:id/progress">
+    <clip>
+      <shape android:shape="rectangle">
+        <corners android:radius="10dp"/>
+        <solid android:color="@android:color/white"/>
+      </shape>
+    </clip>
+  </item>
+</layer-list>

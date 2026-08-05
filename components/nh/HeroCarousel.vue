@@ -34,7 +34,7 @@
            "Your books are waiting", not "Pick up where you left off" (that string
            is actually t.fallbackDesc, a different string entirely, used for the
            description text when an item has none of its own). -->
-      <p class="text-xs font-semibold flex-shrink-0" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.13em">Your books are waiting</p>
+      <p class="text-xs font-semibold flex-shrink-0" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.13em">{{ $strings.LabelYourBooksAreWaiting }}</p>
 
       <!-- Main row: text LEFT, cover RIGHT -->
       <div class="flex gap-4 mt-2 flex-1 min-h-0" @click="openItem(slide)">
@@ -57,7 +57,7 @@
             <p class="leading-tight line-clamp-2" style="font-family: var(--nh-serif); font-size: 1.70rem; font-weight: 700; color: #f4eee2; letter-spacing: -0.01em; margin-top: 4px">{{ itemTitle(slide) }}</p>
           </div>
           <!-- Author -->
-          <p class="text-xs mt-1 truncate flex-shrink-0" style="color: #9a9085">by {{ itemAuthor(slide) }}</p>
+          <p class="text-xs mt-1 truncate flex-shrink-0" style="color: #9a9085">{{ $getString('LabelByAuthor', [itemAuthor(slide)]) }}</p>
 
           <!-- Metadata pills — each pill is capped and truncated with an
                ellipsis so a long value (e.g. a metadata provider dumping a
@@ -68,7 +68,7 @@
                only prevents a single pill's own text from wrapping. -->
           <div class="flex flex-wrap gap-1.5 mt-2 flex-shrink-0">
             <span v-if="itemDuration(slide)" class="text-xs px-2 py-0.5 rounded-full truncate max-w-[45%]" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemDuration(slide) }}</span>
-            <span v-if="itemNarrator(slide)" class="text-xs px-2 py-0.5 rounded-full truncate max-w-[45%]" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">Narrated by {{ itemNarrator(slide) }}</span>
+            <span v-if="itemNarrator(slide)" class="text-xs px-2 py-0.5 rounded-full truncate max-w-[45%]" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ $getString('LabelNarratedBy', [itemNarrator(slide)]) }}</span>
             <span class="text-xs px-2 py-0.5 rounded-full truncate max-w-[45%]" style="background: rgba(255,255,255,0.10); color: #9a9085; border: 1px solid rgba(255,255,255,0.18)">{{ itemGenre(slide) }}</span>
           </div>
 
@@ -99,7 +99,7 @@
               @click.stop="continueItem(slide)"
             >
               <span class="material-symbols fill" style="font-size: 1.05rem">play_arrow</span>
-              Continue
+              {{ $strings.ButtonContinue }}
             </button>
             <button
               v-else-if="hasEbook(slide)"
@@ -108,7 +108,7 @@
               @click.stop="readItem(slide)"
             >
               <span class="material-symbols fill" style="font-size: 1.05rem">auto_stories</span>
-              Read
+              {{ $strings.ButtonRead }}
             </button>
             <div class="flex-1" />
             <div class="flex-shrink-0" style="width: calc(100% - 144px)">
@@ -182,8 +182,8 @@
         class="flex items-center justify-center rounded-full"
         style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); width: 40px; height: 40px"
         :aria-pressed="heroPaused ? 'true' : 'false'"
-        :aria-label="heroPaused ? 'Play' : 'Pause'"
-        :title="heroPaused ? 'Play' : 'Pause'"
+        :aria-label="heroPaused ? $strings.ButtonPlay : $strings.ButtonPause"
+        :title="heroPaused ? $strings.ButtonPlay : $strings.ButtonPause"
         @click.stop="toggleHeroPause"
       >
         <span class="material-symbols" style="font-size: 1.35rem; color: #d8cfc2">{{ heroPaused ? 'play_arrow' : 'pause' }}</span>
@@ -325,7 +325,7 @@ export default {
         // an ebook-only special case using t.pickup instead (enhancements.js:2274,
         // "Your books are waiting." — avoids "pick up... left off" reading oddly
         // for a book with no audio to physically pick back up).
-        return this.isEbookOnly(item) ? 'Your books are waiting.' : 'Pick up right where you left off.'
+        return this.isEbookOnly(item) ? this.$strings.LabelYourBooksAreWaiting : this.$strings.LabelPickUpWhereYouLeftOff
       }
       // Some ABS descriptions contain literal HTML (e.g. stray <p> tags) that
       // used to show up as visible tag text with plain interpolation. Parsing
@@ -358,7 +358,7 @@ export default {
         const segments = genres[0].split(':')
         return segments[segments.length - 1].trim()
       }
-      return item.mediaType === 'podcast' ? 'Podcast' : 'Audiobook'
+      return item.mediaType === 'podcast' ? this.$strings.LabelPodcast : this.$strings.LabelAudiobook
     },
     // NH source: hasAudio/hasEbook detection (enhancements.js:2242-2244), values
     // ported exactly — audio needs a real duration, not just "has tracks".
@@ -392,7 +392,7 @@ export default {
       const dur = item.media?.duration || 0
       if (!dur) return `${pct}%`
       const remaining = Math.max(0, dur - (prog.currentTime || 0))
-      return `${pct}% · ${this.$elapsedPretty(remaining)} left`
+      return `${pct}% · ${this.$getString('LabelTimeLeft', [this.$elapsedPretty(remaining)])}`
     },
     _getProgress(item) {
       return this.$store.getters['user/getUserMediaProgress'](item.id) || item.userMediaProgress || null

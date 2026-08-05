@@ -139,9 +139,9 @@ export default {
     },
     greetingLine() {
       const hour = new Date().getHours()
-      const time = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
-      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-      return `${days[new Date().getDay()]} · ${time}`
+      const time = hour < 12 ? this.$strings.LabelGoodMorning : hour < 17 ? this.$strings.LabelGoodAfternoon : this.$strings.LabelGoodEvening
+      const day = new Intl.DateTimeFormat(this.$languageCodes.current, { weekday: 'long' }).format(new Date())
+      return `${day} · ${time}`
     },
     displayShelves() {
       if (!this.nhThemeActive) return this.shelves
