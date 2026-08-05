@@ -813,6 +813,12 @@ export default {
       AbsAudioPlayer.closePlayback()
     },
     endPlayback() {
+      // Greptile-found bug: natural completion, playback errors, and native/
+      // explicit close all used to clear playbackSession without ever
+      // calling logSessionStop, leaving that item's last history entry open
+      // forever (no stop time/position). logSessionStop is a no-op if there's
+      // nothing open to close, so it's safe to call unconditionally here.
+      this.logSessionStop()
       this.$store.commit('setPlaybackSession', null)
       this.showFullscreen = false
       this.isEnded = false
@@ -851,66 +857,73 @@ export default {
     // real listen), otherwise stamp it with a stop position.
     //
     // onPlayingUpdate (below) can fire in rapid bursts during buffering/
-    // reconnects — each transition used to spawn its own unguarded async
-    // Preferences round-trip with no protection against overlapping calls,
-    // which piled up native-bridge calls fast enough to freeze the player UI
-    // and eventually crash the app. this._sessionLogBusy makes at most one of
-    // these three run at a time; a burst just skips the extra triggers
-    // instead of queuing them, which is fine — missing one rapid-fire
-    // transition in a burst doesn't matter for this feature.
-    async logSessionStart() {
-      if (this._sessionLogBusy) return
-      this._sessionLogBusy = true
-      try {
-        const itemId = this.sessionHistoryItemId
-        if (!itemId) return
-        const sessions = await this.$localStore.getSessionHistory(itemId)
-        const last = sessions[sessions.length - 1]
-        if (last && Date.now() - last.startTime < 5 * 60 * 1000) return
-        sessions.push({ startTime: Date.now(), startPosition: this.currentTime, stopTime: null, stopPosition: null })
-        while (sessions.length > 10) sessions.shift()
-        this.$store.commit('setSessionHistory', sessions)
-        await this.$localStore.setSessionHistory(itemId, sessions)
-      } catch (e) {
-        console.error('[AudioPlayer] logSessionStart failed', e)
-      } finally {
-        this._sessionLogBusy = false
-      }
-    },
-    async logSessionStop() {
-      if (this._sessionLogBusy) return
-      this._sessionLogBusy = true
-      try {
-        const itemId = this.sessionHistoryItemId
-        if (!itemId) return
-        const sessions = await this.$localStore.getSessionHistory(itemId)
-        const last = sessions[sessions.length - 1]
-        if (!last) return
-        if (Date.now() - last.startTime < 30 * 1000) {
-          sessions.pop()
-        } else {
-          last.stopTime = Date.now()
-          last.stopPosition = this.currentTime
+    // reconnects, and a session can also get replaced mid-transition (new
+    // item starts while the old one's stop hasn't logged yet). Two
+    // Greptile-found bugs here: (1) a shared busy boolean used to just drop
+    // any transition that arrived while another was still in flight — losing
+    // real pause/resume/item-transition history, not just a redundant one;
+    // (2) itemId was captured before the async storage round-trip but
+    // this.currentTime was read after it, so a fast item switch during that
+    // gap could stamp item A's stop record with item B's position. Fixed by
+    // capturing itemId + currentTime synchronously (before any await) in
+    // every caller, and chaining onto a shared promise instead of dropping —
+    // this still serializes the native Preferences round-trips (the actual
+    // cause of the original freeze/crash), but every transition now runs,
+    // each against its own already-captured item/position.
+    logSessionStart() {
+      const itemId = this.sessionHistoryItemId
+      const startPosition = this.currentTime
+      if (!itemId) return
+      this._sessionLogChain = (this._sessionLogChain || Promise.resolve()).then(async () => {
+        try {
+          const sessions = await this.$localStore.getSessionHistory(itemId)
+          const last = sessions[sessions.length - 1]
+          if (last && Date.now() - last.startTime < 5 * 60 * 1000) return
+          sessions.push({ startTime: Date.now(), startPosition, stopTime: null, stopPosition: null })
+          while (sessions.length > 10) sessions.shift()
+          this.$store.commit('setSessionHistory', sessions)
+          await this.$localStore.setSessionHistory(itemId, sessions)
+        } catch (e) {
+          console.error('[AudioPlayer] logSessionStart failed', e)
         }
-        this.$store.commit('setSessionHistory', sessions)
-        await this.$localStore.setSessionHistory(itemId, sessions)
-      } catch (e) {
-        console.error('[AudioPlayer] logSessionStop failed', e)
-      } finally {
-        this._sessionLogBusy = false
-      }
+      })
+      return this._sessionLogChain
     },
-    async loadSessionHistory() {
-      if (this._sessionLogBusy) return
-      this._sessionLogBusy = true
-      try {
-        const itemId = this.sessionHistoryItemId
-        this.$store.commit('setSessionHistory', itemId ? await this.$localStore.getSessionHistory(itemId) : [])
-      } catch (e) {
-        console.error('[AudioPlayer] loadSessionHistory failed', e)
-      } finally {
-        this._sessionLogBusy = false
-      }
+    logSessionStop() {
+      const itemId = this.sessionHistoryItemId
+      const stopPosition = this.currentTime
+      if (!itemId) return
+      this._sessionLogChain = (this._sessionLogChain || Promise.resolve()).then(async () => {
+        try {
+          const sessions = await this.$localStore.getSessionHistory(itemId)
+          const last = sessions[sessions.length - 1]
+          // Already closed (e.g. endPlayback's safety-net call landing after
+          // a normal pause already stopped it) — nothing to do.
+          if (!last || last.stopTime !== null) return
+          if (Date.now() - last.startTime < 30 * 1000) {
+            sessions.pop()
+          } else {
+            last.stopTime = Date.now()
+            last.stopPosition = stopPosition
+          }
+          this.$store.commit('setSessionHistory', sessions)
+          await this.$localStore.setSessionHistory(itemId, sessions)
+        } catch (e) {
+          console.error('[AudioPlayer] logSessionStop failed', e)
+        }
+      })
+      return this._sessionLogChain
+    },
+    loadSessionHistory() {
+      const itemId = this.sessionHistoryItemId
+      this._sessionLogChain = (this._sessionLogChain || Promise.resolve()).then(async () => {
+        try {
+          this.$store.commit('setSessionHistory', itemId ? await this.$localStore.getSessionHistory(itemId) : [])
+        } catch (e) {
+          console.error('[AudioPlayer] loadSessionHistory failed', e)
+        }
+      })
+      return this._sessionLogChain
     },
     //
     // Listeners from audio AbsAudioPlayer
@@ -1028,6 +1041,11 @@ export default {
     // When a playback session is started the native android/ios will send the session
     onPlaybackSession(playbackSession) {
       console.log('onPlaybackSession received', JSON.stringify(playbackSession))
+      // Greptile-found bug: a session can be replaced directly (e.g. autoplay
+      // starting the next book) without an intervening onPlayingUpdate(false)
+      // for the item being replaced — close out its history entry using the
+      // OLD playbackSession/currentTime before it's overwritten below.
+      this.logSessionStop()
       this.autoplayNextTriggered = false
       this.playbackSession = playbackSession
 

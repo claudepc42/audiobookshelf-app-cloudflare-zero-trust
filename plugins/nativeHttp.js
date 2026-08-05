@@ -14,7 +14,15 @@ export default function ({ store, $db, $socket }, inject) {
     // session expired" for a request that actually succeeded; (2) the body has to
     // actually look like an HTML document, not just be non-JSON.
     looksLikeStaleCfResponse(res, url, serverConnectionConfig) {
-      if (!serverConnectionConfig?.isSsoAuth) return false
+      // Greptile-found bug: connection records saved before isSsoAuth existed
+      // have no value for it, so this guard used to treat them as non-CF and
+      // never detect their stale challenge pages. Every place that actually
+      // sets isSsoAuth=true also sets customHeaders.Cookie in the same breath
+      // (see ServerConnectForm.vue's CF flow) — a Cookie header is the same
+      // signal a legacy record would carry, so it's used here as a compatible
+      // fallback instead of requiring a separate migration step.
+      const isCfConnection = serverConnectionConfig?.isSsoAuth || !!serverConnectionConfig?.customHeaders?.Cookie
+      if (!isCfConnection) return false
       if (!url.includes('/api/') || typeof res.data !== 'string') return false
       return /^\s*<(!doctype|html)/i.test(res.data)
     },

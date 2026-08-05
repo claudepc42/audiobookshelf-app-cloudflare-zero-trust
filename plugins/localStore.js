@@ -172,10 +172,25 @@ class LocalStorage {
   // Finished" already feels instant (its data is already in memory from login).
   // Purely a display cache; pages/bookshelf/index.vue's fetchCategories() always
   // still fetches fresh data and overwrites this once it arrives.
+  // Greptile-found bug: this used to be keyed only by libraryId, so a second
+  // account with access to the same library (same server) would hydrate the
+  // first account's cached shelves before its own fresh fetch landed — a
+  // real cross-account data leak if that fetch then failed. Scoping by
+  // server + user id means a different account (or server) always misses
+  // the cache entirely instead of ever seeing someone else's data.
+  _personalizedShelvesCacheKey(libraryId) {
+    const serverId = this.vuexStore.state.user?.serverConnectionConfig?.id
+    const userId = this.vuexStore.state.user?.user?.id
+    if (!serverId || !userId) return null
+    return `personalized-shelves-${serverId}-${userId}-${libraryId}`
+  }
+
   async getPersonalizedShelvesCache(libraryId) {
     if (!libraryId) return null
+    const key = this._personalizedShelvesCacheKey(libraryId)
+    if (!key) return null
     try {
-      var obj = (await Preferences.get({ key: `personalized-shelves-${libraryId}` })) || {}
+      var obj = (await Preferences.get({ key })) || {}
       return obj.value ? JSON.parse(obj.value) : null
     } catch (error) {
       console.error('[LocalStorage] Failed to get personalized-shelves cache', error)
@@ -185,8 +200,10 @@ class LocalStorage {
 
   async setPersonalizedShelvesCache(libraryId, categories) {
     if (!libraryId) return
+    const key = this._personalizedShelvesCacheKey(libraryId)
+    if (!key) return
     try {
-      await Preferences.set({ key: `personalized-shelves-${libraryId}`, value: JSON.stringify(categories) })
+      await Preferences.set({ key, value: JSON.stringify(categories) })
     } catch (error) {
       console.error('[LocalStorage] Failed to set personalized-shelves cache', error)
     }

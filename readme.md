@@ -130,6 +130,8 @@ Toggle it on or off anytime from the side menu (hamburger icon → **NanoHive** 
 - Tidy Authors, a one-tap cleanup tool for authors with no books attached
 - Community ratings & reviews on the item page, a report-a-problem tool, and a server-wide listening ranking on the Stats page — these three require a NanoHive-backed server, not just the theme
 - A custom logo and profile photo, either picked from your device or (for admins) uploaded to the server for everyone; any user can opt into the server's shared logo instead of their own
+- A NanoHive-themed home screen widget (in addition to the original), with tunable opacity and colors that follow your accent/theme customizations
+- Local listening session history — a rolling log of recent play sessions, accessible from a new History button on the fullscreen player, for rolling back to before a stretch of unconscious auto-playback
 
 <p align="center">
   <img src="screenshots/nanohive/drawer-nanohive-on.png" width="240" alt="Side menu open over the series grid, NanoHive on">
