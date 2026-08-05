@@ -209,6 +209,42 @@ class LocalStorage {
     }
   }
 
+  // Last-known NH Recent Series shelf data per library, so the shelf can show
+  // immediately on mount instead of being absent while the fresh fetch is in
+  // flight (or absent permanently if the fetch fails). Same pattern and same
+  // scoping rationale as personalized-shelves above: keyed by server+user+lib
+  // so a second account on the same server never sees the first account's data.
+  _nhRecentSeriesCacheKey(libraryId) {
+    const serverId = this.vuexStore.state.user?.serverConnectionConfig?.id
+    const userId = this.vuexStore.state.user?.user?.id
+    if (!serverId || !userId) return null
+    return `nh-recent-series-${serverId}-${userId}-${libraryId}`
+  }
+
+  async getNhRecentSeriesCache(libraryId) {
+    if (!libraryId) return null
+    const key = this._nhRecentSeriesCacheKey(libraryId)
+    if (!key) return null
+    try {
+      var obj = (await Preferences.get({ key })) || {}
+      return obj.value ? JSON.parse(obj.value) : null
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get nh-recent-series cache', error)
+      return null
+    }
+  }
+
+  async setNhRecentSeriesCache(libraryId, series) {
+    if (!libraryId) return
+    const key = this._nhRecentSeriesCacheKey(libraryId)
+    if (!key) return
+    try {
+      await Preferences.set({ key, value: JSON.stringify(series) })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set nh-recent-series cache', error)
+    }
+  }
+
   // Local-only listening session history — a rolling list of {startTime,
   // startPosition, stopTime, stopPosition} per book, never synced to the
   // server. One key per item, same flat JSON convention as everything else
