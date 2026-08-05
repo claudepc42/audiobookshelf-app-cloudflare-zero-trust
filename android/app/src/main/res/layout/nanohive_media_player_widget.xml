@@ -1,24 +1,34 @@
-<!-- Real layout, not copied absolute coordinates from the freeform mockup
-     tool. The mockup's raw pixel data was hand-dragged and noisy (the
-     cover's own margins landed at 4dp/4dp/6dp on three different sides) —
-     so instead of copying those three different numbers, ONE consistent
-     margin (4dp) is used for the cover's three open sides (left/top/bottom)
-     and reused again as the gap between the cover and the content column.
-     The RIGHT edge is deliberately a different, larger
-     number (9dp, averaged from the mockup's own pSecondary/pTrack right
-     margins of 7dp and 10dp) because content sitting near the frame's 19dp
-     corner radius needs more clearance than the cover does — the cover is
-     an opaque image that can sit closer to a rounded corner without
-     looking clipped, but text and icons can't. Title/author's left edge,
-     the progress bar's left edge, and the content column's left edge are
-     literally the same edge (one box, not independently placed pieces);
-     the transport row is centered horizontally WITHIN that box via
-     gravity, not resized or shifted to fit — icon sizes are the unmodified
-     values from the mockup's own sliders (44dp transport, 18dp
-     bookmark/sleep). Corner rounding on Android 12+ is applied
-     automatically by the system to every widget (see
-     values-v31/themes.xml's appWidgetRadius); nh_widget_border.xml
-     supplies the mini player's subtle edge stroke on top of it. -->
+<!-- Proportional layout: every size/position below is a RATIO of available
+     space, not a fixed dp value — so the same relative design holds
+     whether the widget renders at the nominal 97dp or the much taller
+     size we've measured it actually get on-device (a real launcher can
+     give this widget a different footprint than the declared minHeight,
+     confirmed by measurement — see NanoHiveMediaPlayerWidget.kt history).
+     A fixed-dp version only ever looked right at one specific size; this
+     version scales.
+
+     How: cover width, and the three content rows' heights, are all
+     weighted 0dp+layout_weight fractions of their parent — the WEIGHT
+     NUMBERS are the real measured dp values from the design (cover
+     91dp / gap 4dp / column 169dp; row heights 32dp / 44dp / 33dp), reused
+     as ratios rather than literal sizes. Icon SIZES are never given a
+     fixed dp at all: each icon is android:layout_height="match_parent"
+     (fills whatever height its row's weight resolves to) with
+     android:layout_width="wrap_content" and android:adjustViewBounds="true",
+     so Android derives the icon's width from its own square aspect ratio
+     scaled to that resolved height — the icon's visual size is a pure
+     function of available space, never a hardcoded number. Gaps between
+     the three transport icons are 0dp+weight spacer Views (space-around
+     style) so leftover horizontal room, not a fixed margin, becomes the
+     gap. The two exceptions are: (1) TEXT size (sp), since RemoteViews
+     doesn't reliably support auto-sizing TextViews — these stay fixed,
+     tuned from direct on-device feedback; (2) the root's own
+     padding/corner-radius clearance, which is about staying clear of the
+     frame's fixed-dp corner radius, not a content proportion. Corner
+     rounding on Android 12+ is applied automatically by the system to
+     every widget (see values-v31/themes.xml's appWidgetRadius);
+     nh_widget_border.xml supplies the mini player's subtle edge stroke on
+     top of it. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto"
   android:id="@+id/widgetBackground"
@@ -32,55 +42,47 @@
   android:background="#1a1611"
   android:foreground="@drawable/nh_widget_border">
 
-  <!-- Cover fills the FULL actual height of the widget, top to bottom,
-       minus the root's 2dp top/bottom padding — match_parent, not a fixed
-       dp value. A fixed height only fills the space when the widget
-       happens to render at exactly the nominal 97dp; since the content
-       column can push the real rendered height taller (see note below),
-       a fixed-size cover left a visible gap. This is deliberately no
-       longer a locked square — width stays fixed (content-column math
-       below assumes a stable left edge), height now stretches with
-       whatever the real widget height turns out to be. -->
+  <!-- Cover: weight 91 of a 91:4:169 row split (the real measured cover
+       width : gap : column dp values, reused as ratios). Fills the row's
+       full actual height always, whatever that turns out to be. -->
   <ImageView
     android:id="@+id/widgetAlbumArt"
-    android:layout_width="89dp"
+    android:layout_width="0dp"
     android:layout_height="match_parent"
+    android:layout_weight="91"
     android:scaleType="centerCrop"
     android:src="@drawable/icon" />
 
-  <!-- Everything else lives in this one column: the remaining width after
-       the cover. Its right edge is the root's own end-padding (9dp,
-       deliberately larger than the cover's 4dp — see class-level comment)
-       — not a separately chosen number.
+  <!-- Gap: weight 4, matching the cover's own measured margin — a real
+       spacer rather than a margin, so it scales with the row too. Uses an
+       empty ImageView, not a plain View: RemoteViews only inflates a fixed
+       allowlist of view classes (layout containers + specific widgets like
+       ImageView/TextView/ProgressBar), and bare android.view.View is NOT
+       on it — using one here would crash the widget at inflation instead
+       of just looking wrong. -->
+  <ImageView
+    android:layout_width="0dp"
+    android:layout_height="0dp"
+    android:layout_weight="4" />
 
-       IMPORTANT SIZE NOTE: title/author row (~32dp) + transport row (44dp,
-       the mockup's own slider value) + progress row (~33dp) need ~109dp of
-       vertical space; the column only has 89dp available (97dp frame minus
-       4dp top/bottom padding). Forcing that into three equal-weight thirds
-       (29.7dp each) would clip the 44dp icons — tried that, it looked
-       worse, reverted. Instead every row below is wrap_content: sized to
-       exactly what its content actually needs, nothing shrunk or clipped.
-       The column, and therefore the whole widget, renders TALLER than the
-       nominal 97dp as a result — the same thing the real installed widget
-       was already independently measured doing on an emulator earlier
-       (292x180dp placed vs. 275x110dp declared), so minHeight is a floor
-       the launcher grid can exceed, not a hard clip boundary. -->
+  <!-- Content column: weight 169 (the remaining measured width). Its own
+       three rows split the FULL available height by weight (32:44:33,
+       the real measured row-height dp values) rather than each being
+       wrap_content at a fixed size — this is what lets icons resize
+       instead of clip/overflow when the widget renders taller or
+       shorter than 97dp. -->
   <LinearLayout
     android:layout_width="0dp"
-    android:layout_height="wrap_content"
-    android:layout_weight="1"
-    android:layout_marginStart="4dp"
-    android:layout_gravity="center_vertical"
+    android:layout_height="match_parent"
+    android:layout_weight="169"
     android:orientation="vertical">
 
-    <!-- Title/author on the left, bookmark+sleep pinned to the right of the
-         same row (title text naturally yields the space next to them via
-         its own weight instead of a hardcoded width that happens to stop
-         short). Sized to its natural content height — not stretched or
-         compressed to fit a fraction of the column. -->
+    <!-- Row 1 (weight 32): title/author on the left, bookmark+sleep
+         pinned to the right. -->
     <LinearLayout
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
+      android:layout_height="0dp"
+      android:layout_weight="32"
       android:orientation="horizontal"
       android:gravity="center_vertical">
 
@@ -114,75 +116,84 @@
       <LinearLayout
         android:id="@+id/widgetSecondaryButtonContainer"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
         <ImageView
           android:id="@+id/widgetBookmarkButton"
-          android:layout_width="26dp"
-          android:layout_height="26dp"
+          android:layout_width="wrap_content"
+          android:layout_height="match_parent"
+          android:adjustViewBounds="true"
           android:layout_marginEnd="7dp"
           android:scaleType="fitCenter"
           android:src="@drawable/nh_widget_icon_bookmark" />
 
         <ImageView
           android:id="@+id/widgetSleepTimerButton"
-          android:layout_width="26dp"
-          android:layout_height="26dp"
+          android:layout_width="wrap_content"
+          android:layout_height="match_parent"
+          android:adjustViewBounds="true"
           android:scaleType="fitCenter"
           android:src="@drawable/nh_widget_icon_sleep" />
       </LinearLayout>
     </LinearLayout>
 
-    <!-- Transport row, centered horizontally WITHIN the content column via
-         gravity — never resized to make it fit, never shifted to an
-         independent offset. Icon size (44dp, real, unshrunk) and inter-icon
-         gap (6dp) are the mockup's own slider values. A small fixed gap
-         above separates it from the title row, rather than an equal-weight
-         box that would clip these icons (see note above). -->
+    <!-- Row 2 (weight 44): transport row. Icons are non-weighted
+         (natural width, derived from their own resolved height via
+         adjustViewBounds); the four empty-ImageView spacers ARE weighted
+         (1 each), so leftover horizontal room splits evenly around/between
+         them — space-around, not a fixed dp gap. -->
     <LinearLayout
       android:id="@+id/widgetButtonContainer"
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="3dp"
+      android:layout_height="0dp"
+      android:layout_weight="44"
       android:orientation="horizontal"
-      android:gravity="center_horizontal">
+      android:gravity="center_vertical">
+
+      <ImageView android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
 
       <ImageView
         android:id="@+id/widgetRewindButton"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginEnd="12dp"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="true"
         android:scaleType="fitCenter"
         android:src="@drawable/exo_icon_rewind" />
 
+      <ImageView android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+
       <ImageView
         android:id="@+id/widgetPlayPauseButton"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginEnd="12dp"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="true"
         android:scaleType="fitCenter"
         android:src="@drawable/ic_media_play_dark" />
 
+      <ImageView android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+
       <ImageView
         android:id="@+id/widgetFastForwardButton"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="true"
         android:scaleType="fitCenter"
         android:src="@drawable/exo_icon_fastforward" />
+
+      <ImageView android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
     </LinearLayout>
 
-    <!-- Progress bar fills the column's full width — which, since the
-         column itself is already positioned in "the space left of the
-         cover," makes the bar aligned against that same remaining distance
-         rather than needing its own separate centering. Small fixed gap
-         above, same reasoning as the transport row. -->
+    <!-- Row 3 (weight 33): time labels + progress bar, filling the
+         column's full width (same left edge as title, same right edge
+         as the bookmark/sleep group above). -->
     <LinearLayout
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="3dp"
-      android:orientation="vertical">
+      android:layout_height="0dp"
+      android:layout_weight="33"
+      android:orientation="vertical"
+      android:gravity="center_vertical">
 
       <LinearLayout
         android:layout_width="match_parent"
