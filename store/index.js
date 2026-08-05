@@ -161,7 +161,7 @@ export const NH_GLASS_EFFECT_CONTROLS = [
   // free. DevPanel.vue's apply() special-cases this one prop to also push a
   // native refresh (AbsWidgetUpdater.refresh()) so the change shows up on the
   // home screen immediately instead of waiting for the next play/pause.
-  { group: 'Home Screen Widget', prop: '--nh-widget-opacity', label: 'Opacity', default: 0.9, min: 0, max: 1, step: 0.01, unit: '' }
+  { group: 'Home Screen Widget', prop: '--nh-widget-opacity', label: 'Opacity', default: 0.67, min: 0, max: 1, step: 0.01, unit: '' }
   // Library-switcher button (--nh-libbtn-opacity/--nh-libbtn-blur, defined in
   // nh-theme.css's :root) deliberately has NO tuner entry here for now — the
   // button doesn't visibly respond to either var yet (confirmed on-device: a

@@ -75,13 +75,13 @@ internal val NH_AMBER_COLOR = Color.parseColor("#e0c27a")
 internal fun getNhWidgetOpacity(context: Context): Double {
   return try {
     val prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE)
-    val nhSettingsJson = prefs.getString("nhSettings", null) ?: return 0.9
-    val cssVars = JSONObject(nhSettingsJson).optJSONObject("nhGlassEffect")?.optJSONObject("cssVars") ?: return 0.9
-    val value = cssVars.optDouble("--nh-widget-opacity", 0.9)
-    if (value.isNaN()) 0.9 else value.coerceIn(0.0, 1.0)
+    val nhSettingsJson = prefs.getString("nhSettings", null) ?: return 0.67
+    val cssVars = JSONObject(nhSettingsJson).optJSONObject("nhGlassEffect")?.optJSONObject("cssVars") ?: return 0.67
+    val value = cssVars.optDouble("--nh-widget-opacity", 0.67)
+    if (value.isNaN()) 0.67 else value.coerceIn(0.0, 1.0)
   } catch (e: Exception) {
     Log.w("NanoHiveMediaPlayerWidget", "getNhWidgetOpacity failed, using default", e)
-    0.9
+    0.67
   }
 }
 

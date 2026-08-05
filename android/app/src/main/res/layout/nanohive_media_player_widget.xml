@@ -35,16 +35,18 @@
   android:layout_width="fill_parent"
   android:layout_height="fill_parent"
   android:orientation="horizontal"
-  android:paddingStart="4dp"
-  android:paddingTop="2dp"
-  android:paddingBottom="2dp"
   android:paddingEnd="9dp"
   android:background="#1a1611"
   android:foreground="@drawable/nh_widget_border">
 
   <!-- Cover: weight 91 of a 91:4:169 row split (the real measured cover
-       width : gap : column dp values, reused as ratios). Fills the row's
-       full actual height always, whatever that turns out to be. -->
+       width : gap : column dp values, reused as ratios). No margin at
+       all — touches the top, left, and bottom edges directly. The
+       system already clips every widget's corners to the frame's
+       corner radius on Android 12+ (values-v31/themes.xml's
+       appWidgetRadius), so the cover's own corners get cut by that
+       same clipping rather than an explicit inset — deliberate, not
+       an oversight. -->
   <ImageView
     android:id="@+id/widgetAlbumArt"
     android:layout_width="0dp"
@@ -66,25 +68,37 @@
     android:layout_weight="4" />
 
   <!-- Content column: weight 169 (the remaining measured width). Its own
-       three rows split the FULL available height by weight (32:44:33,
-       the real measured row-height dp values) rather than each being
-       wrap_content at a fixed size — this is what lets icons resize
-       instead of clip/overflow when the widget renders taller or
-       shorter than 97dp. -->
+       top/bottom margin (2dp each) now lives HERE instead of on the root's
+       padding, since the cover no longer wants any top/bottom inset at
+       all — this keeps the column's own text/icons clear of the frame's
+       top-right/bottom-right corner radius without re-adding a margin to
+       the cover too. Its three rows split the FULL available height by
+       weight (32:44:33, the real measured row-height dp values) rather
+       than each being wrap_content at a fixed size — this is what lets
+       icons resize instead of clip/overflow when the widget renders
+       taller or shorter than 97dp. -->
   <LinearLayout
     android:layout_width="0dp"
     android:layout_height="match_parent"
     android:layout_weight="169"
+    android:layout_marginTop="2dp"
+    android:layout_marginBottom="2dp"
     android:orientation="vertical">
 
     <!-- Row 1 (weight 32): title/author on the left, bookmark+sleep
-         pinned to the right. -->
+         pinned to the right. Top-aligned (not centered) within its own
+         weighted box: this row's content is shorter than its box, and
+         top-aligning it pushes that leftover space DOWN, between the
+         author text and the transport row — evening out the previously
+         lopsided gap (title/author was nearly touching the transport row,
+         while row 3 below had a big gap above the time text; row 3 is
+         fixed the same way). -->
     <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="0dp"
       android:layout_weight="32"
       android:orientation="horizontal"
-      android:gravity="center_vertical">
+      android:gravity="top">
 
       <LinearLayout
         android:layout_width="0dp"
@@ -187,13 +201,19 @@
 
     <!-- Row 3 (weight 33): time labels + progress bar, filling the
          column's full width (same left edge as title, same right edge
-         as the bookmark/sleep group above). -->
+         as the bookmark/sleep group above). Top-aligned, not centered —
+         this row has the most leftover space of the three (its content is
+         shorter than a 33-weight box), and top-aligning it puts that
+         content immediately after the transport row instead of leaving a
+         big gap above it; the leftover space moves to the very bottom of
+         the widget instead, which is far less noticeable than a gap
+         between transport and time. -->
     <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="0dp"
       android:layout_weight="33"
       android:orientation="vertical"
-      android:gravity="center_vertical">
+      android:gravity="top">
 
       <LinearLayout
         android:layout_width="match_parent"
