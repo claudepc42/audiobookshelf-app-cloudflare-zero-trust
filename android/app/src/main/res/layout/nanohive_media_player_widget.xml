@@ -32,16 +32,19 @@
   android:background="#1a1611"
   android:foreground="@drawable/nh_widget_border">
 
-  <!-- Square cover, filling the available height so its margin reads as
-       the same 4dp on the left/top/bottom (all from the root's own
-       padding above) — the fourth side is the gap to the content column,
-       a different-purpose space, reusing that same 4dp rather than a
-       separate guessed number. -->
+  <!-- Cover fills the FULL actual height of the widget, top to bottom,
+       minus the root's 4dp top/bottom padding — match_parent, not a fixed
+       dp value. A fixed height only fills the space when the widget
+       happens to render at exactly the nominal 97dp; since the content
+       column can push the real rendered height taller (see note below),
+       a fixed-size cover left a visible gap. This is deliberately no
+       longer a locked square — width stays fixed (content-column math
+       below assumes a stable left edge), height now stretches with
+       whatever the real widget height turns out to be. -->
   <ImageView
     android:id="@+id/widgetAlbumArt"
     android:layout_width="89dp"
-    android:layout_height="89dp"
-    android:layout_gravity="center_vertical"
+    android:layout_height="match_parent"
     android:scaleType="centerCrop"
     android:src="@drawable/icon" />
 
