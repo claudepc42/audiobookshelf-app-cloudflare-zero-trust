@@ -36,7 +36,7 @@
   android:layout_height="fill_parent"
   android:orientation="horizontal"
   android:paddingEnd="9dp"
-  android:background="#1a1611"
+  android:background="#181512"
   android:foreground="@drawable/nh_widget_border">
 
   <!-- Cover: weight 91 of a 91:4:169 row split (the real measured cover
@@ -81,7 +81,7 @@
     android:layout_width="0dp"
     android:layout_height="match_parent"
     android:layout_weight="169"
-    android:layout_marginTop="2dp"
+    android:layout_marginTop="6dp"
     android:layout_marginBottom="2dp"
     android:orientation="vertical">
 
@@ -116,13 +116,17 @@
           android:textSize="14sp"
           android:text="Title"/>
 
+        <!-- Matches the app's real mini player exactly (AudioPlayer.vue's
+             .author-text: "text-fg text-opacity-75", NOT the amber accent —
+             this was wrong before; author text is the same off-white as
+             the title, just at 75% opacity). -->
         <TextView
           android:id="@+id/widgetArtistText"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
           android:ellipsize="end"
           android:maxLines="1"
-          android:textColor="#e0c27a"
+          android:textColor="#BFF4EEE2"
           android:textSize="12sp"
           android:text="Artist"/>
       </LinearLayout>
@@ -134,11 +138,16 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
+        <!-- padding shrinks the effective rendered size by ~10% relative
+             to filling the full row height, per direct request — these
+             stay match_parent + adjustViewBounds (proportional), just
+             with a small inset carved out of that same box. -->
         <ImageView
           android:id="@+id/widgetBookmarkButton"
           android:layout_width="wrap_content"
           android:layout_height="match_parent"
           android:adjustViewBounds="true"
+          android:padding="2dp"
           android:layout_marginEnd="7dp"
           android:scaleType="fitCenter"
           android:src="@drawable/nh_widget_icon_bookmark" />
@@ -148,6 +157,7 @@
           android:layout_width="wrap_content"
           android:layout_height="match_parent"
           android:adjustViewBounds="true"
+          android:padding="2dp"
           android:scaleType="fitCenter"
           android:src="@drawable/nh_widget_icon_sleep" />
       </LinearLayout>
@@ -168,11 +178,15 @@
 
       <ImageView android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
 
+      <!-- Padded down closer to the play button's visual size — the
+           double-arrow skip glyphs read visually larger than play's single
+           triangle at the same bounding box, even at equal height. -->
       <ImageView
         android:id="@+id/widgetRewindButton"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:adjustViewBounds="true"
+        android:padding="6dp"
         android:scaleType="fitCenter"
         android:src="@drawable/exo_icon_rewind" />
 
@@ -193,6 +207,7 @@
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:adjustViewBounds="true"
+        android:padding="6dp"
         android:scaleType="fitCenter"
         android:src="@drawable/exo_icon_fastforward" />
 
