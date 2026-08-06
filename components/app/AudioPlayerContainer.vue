@@ -1,11 +1,11 @@
 <template>
   <div>
-    <app-audio-player ref="audioPlayer" :bookmarks="bookmarks" :session-history="sessionHistory" :sleep-timer-running="isSleepTimerRunning" :sleep-time-remaining="sleepTimeRemaining" :serverLibraryItemId="serverLibraryItemId" @selectPlaybackSpeed="showPlaybackSpeedModal = true" @updateTime="(t) => (currentTime = t)" @showSleepTimer="showSleepTimer" @showBookmarks="showBookmarks" @showSessionHistory="showSessionHistory" />
+    <app-audio-player ref="audioPlayer" :bookmarks="bookmarks" :sleep-timer-running="isSleepTimerRunning" :sleep-time-remaining="sleepTimeRemaining" :serverLibraryItemId="serverLibraryItemId" @selectPlaybackSpeed="showPlaybackSpeedModal = true" @updateTime="(t) => (currentTime = t)" @showSleepTimer="showSleepTimer" @showBookmarks="showBookmarks" @showSessionHistory="showSessionHistory" />
 
     <modals-playback-speed-modal v-model="showPlaybackSpeedModal" :playback-rate.sync="playbackSpeed" @update:playbackRate="updatePlaybackSpeed" @change="changePlaybackSpeed" />
     <modals-sleep-timer-modal v-model="showSleepTimerModal" :current-time="sleepTimeRemaining" :sleep-timer-running="isSleepTimerRunning" :current-end-of-chapter-time="currentEndOfChapterTime" :is-auto="isAutoSleepTimer" @change="selectSleepTimeout" @cancel="cancelSleepTimer" @increase="increaseSleepTimer" @decrease="decreaseSleepTimer" />
     <modals-bookmarks-modal v-model="showBookmarksModal" :bookmarks="bookmarks" :current-time="currentTime" :library-item-id="serverLibraryItemId" :playback-rate="playbackSpeed" @select="selectBookmark" />
-    <modals-session-history-modal v-model="showSessionHistoryModal" :sessions="sessionHistory" :playback-rate="playbackSpeed" @select="selectSession" />
+    <modals-session-history-modal v-model="showSessionHistoryModal" :media-id="currentMediaId" :playback-rate="playbackSpeed" @select="selectSession" />
   </div>
 </template>
 
@@ -48,8 +48,12 @@ export default {
       if (!this.serverLibraryItemId) return []
       return this.$store.getters['user/getUserBookmarksForItem'](this.serverLibraryItemId)
     },
-    sessionHistory() {
-      return this.$store.state.sessionHistory
+    currentMediaId() {
+      const session = this.currentPlaybackSession
+      if (!session) return null
+      const libId = session.libraryItemId
+      if (!libId) return null
+      return session.episodeId ? `${libId}-${session.episodeId}` : libId
     },
     isIos() {
       return this.$platform === 'ios'

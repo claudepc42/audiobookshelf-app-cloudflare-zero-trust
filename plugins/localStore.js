@@ -245,31 +245,6 @@ class LocalStorage {
     }
   }
 
-  // Local-only listening session history — a rolling list of {startTime,
-  // startPosition, stopTime, stopPosition} per book, never synced to the
-  // server. One key per item, same flat JSON convention as everything else
-  // in this file. See components/app/AudioPlayer.vue's onPlayingUpdate for
-  // the write logic and components/modals/SessionHistoryModal.vue for the UI.
-  async getSessionHistory(itemId) {
-    if (!itemId) return []
-    try {
-      var obj = (await Preferences.get({ key: `session-history-${itemId}` })) || {}
-      return obj.value ? JSON.parse(obj.value) : []
-    } catch (error) {
-      console.error('[LocalStorage] Failed to get session-history', error)
-      return []
-    }
-  }
-
-  async setSessionHistory(itemId, sessions) {
-    if (!itemId) return
-    try {
-      await Preferences.set({ key: `session-history-${itemId}`, value: JSON.stringify(sessions) })
-    } catch (error) {
-      console.error('[LocalStorage] Failed to set session-history', error)
-    }
-  }
-
   async setLanguage(lang) {
     try {
       await Preferences.set({ key: 'lang', value: lang })
