@@ -41,11 +41,6 @@
         <p class="text-center" style="color: rgb(247 223 187); opacity: 0.75" :style="{ fontSize: authorFontSize + 'rem' }">{{ authorCleaned }}</p>
       </div>
 
-      <div v-if="showPlayButton" class="absolute -bottom-16 -right-16 rotate-45 w-32 h-32 p-2 bg-gradient-to-r from-transparent to-black to-40% inline-flex justify-start items-center">
-        <div class="hover:text-white text-gray-200 hover:scale-110 transform duration-200 pointer-events-auto -rotate-45" @click.stop.prevent="play">
-          <span class="material-symbols fill">{{ streamIsPlaying ? 'pause_circle' : 'play_circle' }}</span>
-        </div>
-      </div>
     </div>
 
     <!-- Play/pause button for podcast episode -->
@@ -142,12 +137,10 @@ export default {
       default: () => null
     },
     orderBy: String,
-    filterBy: String,
     sortingIgnorePrefix: Boolean
   },
   data() {
     return {
-      isProcessingReadUpdate: false,
       libraryItem: null,
       imageReady: false,
       selected: false,
@@ -200,9 +193,6 @@ export default {
     libraryId() {
       return this._libraryItem.libraryId
     },
-    hasEbook() {
-      return this.media.ebookFile
-    },
     numTracks() {
       return this.media.numTracks
     },
@@ -217,10 +207,6 @@ export default {
     processingBatch() {
       return this.store.state.processingBatch
     },
-    booksInSeries() {
-      // Only added to audiobook object when collapseSeries is enabled
-      return this._libraryItem.booksInSeries
-    },
     hasCover() {
       return !!this.media.coverPath
     },
@@ -233,12 +219,6 @@ export default {
     },
     title() {
       return this.mediaMetadata.title || ''
-    },
-    playIconFontSize() {
-      return Math.max(2, 3 * this.sizeMultiplier)
-    },
-    authors() {
-      return this.mediaMetadata.authors || []
     },
     author() {
       if (this.isPodcast) return this.mediaMetadata.author
@@ -275,10 +255,6 @@ export default {
     },
     seriesSequenceList() {
       return this.collapsedSeries?.seriesSequenceList || null
-    },
-    libraryItemIdsInSeries() {
-      // Only added to item object when collapseSeries is enabled
-      return this.collapsedSeries?.libraryItemIds || []
     },
     displayTitle() {
       if (this.recentEpisode) return this.recentEpisode.title
@@ -365,10 +341,6 @@ export default {
     streamIsPlaying() {
       return this.store.state.playerIsPlaying && this.isStreaming
     },
-    playerIsStartingPlayback() {
-      // Play has been pressed and waiting for native play response
-      return this.store.state.playerIsStartingPlayback
-    },
     playerIsStartingForThisMedia() {
       const mediaId = this.store.state.playerStartingPlaybackMediaId
       return mediaId === this.recentEpisode?.id
@@ -382,26 +354,8 @@ export default {
     isExplicit() {
       return !!this.mediaMetadata.explicit
     },
-    overlayWrapperClasslist() {
-      var classes = []
-      if (this.isSelectionMode) classes.push('bg-opacity-60')
-      else classes.push('bg-opacity-40')
-      if (this.selected) {
-        classes.push('border-2 border-yellow-400')
-      }
-      return classes
-    },
     store() {
       return this.$store || this.$nuxt.$store
-    },
-    userCanUpdate() {
-      return this.store.getters['user/getUserCanUpdate']
-    },
-    userCanDelete() {
-      return this.store.getters['user/getUserCanDelete']
-    },
-    userCanDownload() {
-      return this.store.getters['user/getUserCanDownload']
     },
     titleFontSize() {
       return 0.75 * this.sizeMultiplier
@@ -448,10 +402,6 @@ export default {
       if (this.booksInSeries) return null
       return this._libraryItem.rssFeed || null
     },
-    showPlayButton() {
-      return false
-      // return !this.isMissing && !this.isInvalid && !this.isStreaming && (this.numTracks || this.recentEpisode)
-    }
   },
   methods: {
     setSelectionMode(val) {
@@ -492,7 +442,6 @@ export default {
       // Server books may have a local library item
       this.localLibraryItem = localLibraryItem
     },
-    async play() {},
     async playEpisode() {
       if (this.playerIsStartingPlayback) return
 
@@ -535,28 +484,6 @@ export default {
           }
         }
       }
-    },
-    editClick() {
-      this.$emit('edit', this.libraryItem)
-    },
-    showEditModalTracks() {
-      // More menu func
-      this.store.commit('showEditModalOnTab', { libraryItem: this.libraryItem, tab: 'tracks' })
-    },
-    showEditModalMatch() {
-      // More menu func
-      this.store.commit('showEditModalOnTab', { libraryItem: this.libraryItem, tab: 'match' })
-    },
-    showEditModalDownload() {
-      // More menu func
-      this.store.commit('showEditModalOnTab', { libraryItem: this.libraryItem, tab: 'download' })
-    },
-    openCollections() {
-      this.store.commit('setSelectedLibraryItem', this.libraryItem)
-      this.store.commit('globals/setShowUserCollectionsModal', true)
-    },
-    clickReadEBook() {
-      this.store.commit('showEReader', this.libraryItem)
     },
     selectBtnClick() {
       if (this.processingBatch) return

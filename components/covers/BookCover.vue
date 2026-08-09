@@ -132,9 +132,6 @@ export default {
     titleFontSize() {
       return 0.75 * this.sizeMultiplier
     },
-    authorFontSize() {
-      return 0.6 * this.sizeMultiplier
-    },
     placeholderCoverPadding() {
       if (this.sizeMultiplier < 0.5) return 0
       return this.sizeMultiplier

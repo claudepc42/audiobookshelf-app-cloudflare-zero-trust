@@ -144,9 +144,6 @@ export default {
     isPlayerOpen() {
       return this.$store.getters['getIsPlayerOpen']
     },
-    routeName() {
-      return this.$route.name
-    },
     networkConnected() {
       return this.$store.state.networkConnected
     },
@@ -323,11 +320,6 @@ export default {
       localStorage.setItem('cfzt_dismissed_tag', this.updateLatestTag)
       this.showUpdatePrompt = false
     },
-    initialStream(stream) {
-      if (this.$refs.streamContainer?.audioPlayerReady) {
-        this.$refs.streamContainer.streamOpen(stream)
-      }
-    },
     async loadSavedSettings() {
       const userSavedServerSettings = await this.$localStore.getServerSettings()
       if (userSavedServerSettings) {
@@ -454,9 +446,6 @@ export default {
           this.$router.replace(`/bookshelf`)
         }
       }
-    },
-    socketConnectionFailed(err) {
-      this.$toast.error('Socket connection error: ' + err.message)
     },
     async initLibraries() {
       if (this.inittingLibraries) {
@@ -746,6 +735,7 @@ export default {
 
     this.$socket.on('user_updated', this.userUpdated)
     this.$socket.on('user_media_progress_updated', this.userMediaProgressUpdated)
+    this.$socket.on('item_removed', this.itemRemoved)
 
     if (this.$store.state.isFirstLoad) {
       AbsLogger.info({ tag: 'default', message: `mounted: initializing first load (${this.$platform} v${this.$config.version})` })

@@ -24,9 +24,6 @@ export default {
     return {}
   },
   computed: {
-    sizeMultiplier() {
-      return this.width / (120 * 1.6 * 2)
-    },
     itemCoverWidth() {
       if (this.libraryItemCovers.length === 1) return this.width
       return this.width / 2

@@ -155,7 +155,6 @@ export default {
       failed: false,
       localLibraryItem: null,
       audioTracksCopy: [],
-      removingItem: false,
       folderId: null,
       folder: null,
       showDialog: false,

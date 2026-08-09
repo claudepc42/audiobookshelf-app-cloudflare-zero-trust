@@ -39,7 +39,6 @@ export default {
   },
   data() {
     return {
-      processing: false,
       showFiles: false,
       showMoreMenu: false,
       moreMenuItems: [],
@@ -79,7 +78,6 @@ export default {
       this.showFiles = !this.showFiles
     },
     updateEbookStatus() {
-      this.processing = true
       this.$nativeHttp
         .patch(`/api/items/${this.libraryItemId}/ebook/${this.selectedFile.ino}/status`)
         .then(() => {
@@ -88,9 +86,6 @@ export default {
         .catch((error) => {
           console.error('Failed to update ebook', error)
           this.$toast.error('Failed to update ebook')
-        })
-        .finally(() => {
-          this.processing = false
         })
     }
   },

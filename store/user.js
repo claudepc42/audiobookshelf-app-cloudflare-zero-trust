@@ -165,6 +165,13 @@ export const actions = {
     await AbsLogger.info({ tag: 'user', message: `Logged out from server ${state.serverConnectionConfig?.name || 'Not connected'}` })
   },
   async refreshToken({ getters, commit, state }) {
+    // For CF-protected connections: probe for a stale CF session and refresh
+    // via WebView before hitting /auth/refresh — expired CF cookies would cause
+    // the token endpoint to return a CF login-page redirect instead of a token.
+    // On success this commits the updated config (with fresh cookies) to the
+    // store, so state.serverConnectionConfig?.customHeaders is current below.
+    await this.$nativeHttp.refreshCfSessionIfStale(state.serverConnectionConfig)
+
     const refreshToken = await this.$db.getRefreshToken(getters.getServerConnectionConfigId)
     if (!refreshToken) {
       console.error('No refresh token found')

@@ -14,7 +14,6 @@
 export default {
   data() {
     return {
-      loading: true,
       authors: [],
       loadedLibraryId: null,
       cardWidth: 200

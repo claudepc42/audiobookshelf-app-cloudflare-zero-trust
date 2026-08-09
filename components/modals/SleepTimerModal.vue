@@ -88,9 +88,6 @@ export default {
       if (this.currentTime <= 0) return '0:00'
       return this.$secondsToTimestamp(this.currentTime)
     },
-    isIos() {
-      return this.$platform === 'ios'
-    }
   },
   methods: {
     async clickedChapterOption() {

@@ -16,7 +16,6 @@ export default {
       type: Object,
       default: () => {}
     },
-    search: String
   },
   data() {
     return {}

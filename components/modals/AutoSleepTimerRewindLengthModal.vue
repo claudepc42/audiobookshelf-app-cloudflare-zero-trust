@@ -73,11 +73,6 @@ export default {
     }
   },
   methods: {
-    async clickedChapterOption() {
-      await this.$hapticsImpact()
-      this.show = false
-      this.$nextTick(() => this.$emit('change', 0))
-    },
     async clickedOption(timeoutMin) {
       await this.$hapticsImpact()
       const timeout = timeoutMin * 1000 * 60

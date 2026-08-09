@@ -23,7 +23,6 @@
 <script>
 export default {
   props: {
-    collectionId: String,
     book: {
       type: Object,
       default: () => {}
@@ -31,8 +30,6 @@ export default {
   },
   data() {
     return {
-      isProcessingReadUpdate: false,
-      processingRemove: false
     }
   },
   computed: {
@@ -64,7 +61,6 @@ export default {
       return this.$store.getters['libraries/getBookCoverAspectRatio']
     },
     bookWidth() {
-      if (this.bookCoverAspectRatio === 1) return 50
       return 50
     },
     isMissing() {

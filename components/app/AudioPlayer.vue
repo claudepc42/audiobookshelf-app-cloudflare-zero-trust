@@ -157,7 +157,6 @@ export default {
       isPlaying: false,
       isEnded: false,
       autoplayNextTriggered: false,
-      volume: 0.5,
       readyTrackWidth: 0,
       seekedTime: 0,
       seekLoading: false,
@@ -354,9 +353,6 @@ export default {
     currentChapterDuration() {
       return this.currentChapter ? this.currentChapter.end - this.currentChapter.start : this.totalDuration
     },
-    totalDurationPretty() {
-      return this.$secondsToTimestamp(this.totalDuration)
-    },
     currentTimePretty() {
       let currentTimeToUse = this.isDraggingCursor ? this.draggingCurrentTime : this.currentTime
       if (this.playerSettings.scaleElapsedTimeBySpeed) {
@@ -396,9 +392,6 @@ export default {
       } else {
         return secondsRemaining + 's'
       }
-    },
-    socketConnected() {
-      return this.$store.state.socketConnected
     },
     mediaId() {
       if (this.isPodcast || !this.playbackSession) return null
@@ -471,7 +464,6 @@ export default {
       this.showFullscreen = false
       if (this.titleMarquee) this.titleMarquee.reset()
 
-      this.forceCloseDropdownMenu()
     },
     async jumpNextChapter() {
       await this.$hapticsImpact()
@@ -496,9 +488,6 @@ export default {
       } else {
         this.seek(this.currentChapter.start)
       }
-    },
-    showSleepTimerModal() {
-      this.$emit('showSleepTimer')
     },
     async setPlaybackSpeed(speed) {
       console.log(`[AudioPlayer] Set Playback Rate: ${speed}`)
@@ -793,11 +782,6 @@ export default {
         AbsAudioPlayer.setChapterTrack({ enabled: this.playerSettings.useChapterTrack })
       }
     },
-    forceCloseDropdownMenu() {
-      if (this.$refs.dropdownMenu && this.$refs.dropdownMenu.closeMenu) {
-        this.$refs.dropdownMenu.closeMenu()
-      }
-    },
     closePlayback() {
       this.endPlayback()
       AbsAudioPlayer.closePlayback()
@@ -1077,7 +1061,6 @@ export default {
       this.closePlayback()
     }
 
-    this.forceCloseDropdownMenu()
     this.$eventBus.$off('minimize-player', this.minimizePlayerEvt)
     document.body.removeEventListener('touchstart', this.touchstart)
     document.body.removeEventListener('touchend', this.touchend)

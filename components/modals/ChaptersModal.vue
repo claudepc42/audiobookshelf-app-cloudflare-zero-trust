@@ -81,9 +81,6 @@ export default {
     currentChapterId() {
       return this.currentChapter?.id
     },
-    currentChapterTitle() {
-      return this.currentChapter?.title || null
-    }
   },
   methods: {
     clickedOption(chapter) {

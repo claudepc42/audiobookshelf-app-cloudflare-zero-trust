@@ -67,9 +67,6 @@ export default {
         this.$emit('update:processing', val)
       }
     },
-    title() {
-      return this._podcastData.title
-    },
     currentLibrary() {
       return this.$store.getters['libraries/getCurrentLibrary']
     },
@@ -91,10 +88,6 @@ export default {
     feedMetadata() {
       if (!this.podcastFeedData) return {}
       return this.podcastFeedData.metadata || {}
-    },
-    episodes() {
-      if (!this.podcastFeedData) return []
-      return this.podcastFeedData.episodes || []
     },
     selectedFolder() {
       return this.folders.find((f) => f.id === this.selectedFolderId)

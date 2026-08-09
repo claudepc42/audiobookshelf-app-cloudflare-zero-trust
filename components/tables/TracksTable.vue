@@ -38,7 +38,6 @@ export default {
       type: Array,
       default: () => []
     },
-    libraryItemId: String
   },
   data() {
     return {

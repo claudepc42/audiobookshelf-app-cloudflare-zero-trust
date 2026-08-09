@@ -108,9 +108,6 @@ export default {
     userCanDownload() {
       return this.$store.getters['user/getUserCanDownload']
     },
-    audioFile() {
-      return this.episode.audioFile
-    },
     title() {
       return this.episode.title || ''
     },
@@ -126,9 +123,6 @@ export default {
     episodeType() {
       if (this.episode.episodeType === 'full') return null // only show Trailer/Bonus
       return this.episode.episodeType
-    },
-    duration() {
-      return this.$secondsToTimestamp(this.episode.duration)
     },
     isStreaming() {
       return this.$store.getters['getIsMediaStreaming'](this.libraryItemId, this.episode.id)
@@ -149,14 +143,6 @@ export default {
       if (this.isLocal) return this.$store.getters['globals/getLocalMediaProgressById'](this.libraryItemId, this.episode.id)
       return this.$store.getters['user/getUserMediaProgress'](this.libraryItemId, this.episode.id)
     },
-    localMediaProgress() {
-      if (this.isLocal) return this.$store.getters['globals/getLocalMediaProgressById'](this.libraryItemId, this.episode.id)
-      else if (this.localLibraryItemId && this.localEpisode) {
-        return this.$store.getters['globals/getLocalMediaProgressById'](this.localLibraryItemId, this.localEpisode.id)
-      } else {
-        return null
-      }
-    },
     itemProgressPercent() {
       return this.itemProgress?.progress || 0
     },
@@ -176,9 +162,6 @@ export default {
     downloadItem() {
       return this.$store.getters['globals/getDownloadItem'](this.libraryItemId, this.episode.id)
     },
-    localEpisodeId() {
-      return this.localEpisode?.id || null
-    },
     podcast() {
       return this.episode.podcast || {}
     }
@@ -189,13 +172,6 @@ export default {
     },
     addToPlaylist() {
       this.$emit('addToPlaylist', this.episode)
-    },
-    async selectFolder() {
-      var folderObj = await AbsFileSystem.selectFolder({ mediaType: this.mediaType })
-      if (folderObj.error) {
-        return this.$toast.error(`Error: ${folderObj.error || 'Unknown Error'}`)
-      }
-      return folderObj
     },
     async downloadClick() {
       if (this.downloadItem || this.pendingDownload) return

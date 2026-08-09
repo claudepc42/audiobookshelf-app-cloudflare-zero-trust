@@ -253,13 +253,6 @@ export default {
       const duration = this.userItemProgress.duration || this.episode.duration
       return duration - this.userItemProgress.currentTime
     },
-    timeRemaining() {
-      if (this.playerIsPlaying) return 'Playing'
-      if (!this.progressPercent) return this.$elapsedPretty(this.episode.duration)
-      if (this.userIsFinished) return 'Finished'
-      const remaining = Math.floor(this.userItemProgress.duration - this.userItemProgress.currentTime)
-      return `${this.$elapsedPretty(remaining)} left`
-    },
     publishedAt() {
       return this.episode.publishedAt
     },

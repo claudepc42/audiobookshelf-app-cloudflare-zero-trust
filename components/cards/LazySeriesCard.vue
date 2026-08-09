@@ -56,10 +56,7 @@ export default {
   },
   data() {
     return {
-      series: null,
-      isSelectionMode: false,
-      selected: false,
-      imageReady: false
+      series: null
     }
   },
   computed: {
@@ -137,16 +134,11 @@ export default {
     setEntity(_series) {
       this.series = _series
     },
-    setSelectionMode(val) {
-      this.isSelectionMode = val
-    },
+    setSelectionMode(val) {},
     clickCard() {
       if (!this.series) return
       var router = this.$router || this.$nuxt.$router
       router.push(`/bookshelf/series/${this.seriesId}`)
-    },
-    imageLoaded() {
-      this.imageReady = true
     },
     destroy() {
       // destroy the vue listeners, etc

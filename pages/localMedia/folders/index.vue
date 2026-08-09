@@ -44,7 +44,6 @@ export default {
   data() {
     return {
       localFolders: [],
-      localLibraryItems: [],
       newFolderMediaType: null,
       mediaTypeItems: [
         {
@@ -56,7 +55,6 @@ export default {
           text: this.$strings.LabelPodcasts
         }
       ],
-      syncing: false,
       isAndroid10OrBelow: false,
       overrideFolderRestriction: false
     }

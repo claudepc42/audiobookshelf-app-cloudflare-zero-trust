@@ -165,9 +165,6 @@ export default {
     username() {
       return this.user?.username || ''
     },
-    userIsAdminOrUp() {
-      return this.$store.getters['user/getIsAdminOrUp']
-    },
     socketConnected() {
       return this.$store.state.socketConnected
     },

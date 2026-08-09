@@ -47,21 +47,12 @@ export default {
     }
   },
   computed: {
-    libraryItemId() {
-      return this.libraryItem.id
-    },
     media() {
       return this.libraryItem ? this.libraryItem.media || {} : {}
-    },
-    metadata() {
-      return this.media.metadata || {}
     },
     chapters() {
       return this.media.chapters || []
     },
-    userCanUpdate() {
-      return this.$store.getters['user/getUserCanUpdate']
-    }
   },
   methods: {
     clickBar() {

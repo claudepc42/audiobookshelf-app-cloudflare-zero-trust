@@ -96,9 +96,6 @@ export default {
     user() {
       return this.$store.state.user.user
     },
-    username() {
-      return this.user?.username || 'err'
-    },
     isCasting() {
       return this.$store.state.isCasting
     }

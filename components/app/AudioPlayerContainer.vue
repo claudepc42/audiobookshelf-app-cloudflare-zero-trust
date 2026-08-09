@@ -20,8 +20,6 @@ export default {
       isReady: false,
       settingsLoaded: false,
       audioPlayerReady: false,
-      stream: null,
-      download: null,
       showPlaybackSpeedModal: false,
       showBookmarksModal: false,
       showSessionHistoryModal: false,
@@ -36,7 +34,6 @@ export default {
       onSleepTimerEndedListener: null,
       onSleepTimerSetListener: null,
       onMediaPlayerChangedListener: null,
-      sleepInterval: null,
       currentEndOfChapterTime: 0,
       serverLibraryItemId: null,
       serverEpisodeId: null
@@ -148,30 +145,6 @@ export default {
     async cancelSleepTimer() {
       console.log('Canceling sleep timer')
       await AbsAudioPlayer.cancelSleepTimer()
-    },
-    streamClosed() {
-      console.log('Stream Closed')
-    },
-    streamProgress(data) {
-      if (!data.numSegments) return
-      const chunks = data.chunks
-      if (this.$refs.audioPlayer) {
-        this.$refs.audioPlayer.setChunksReady(chunks, data.numSegments)
-      }
-    },
-    streamReady() {
-      console.log('[StreamContainer] Stream Ready')
-      if (this.$refs.audioPlayer) {
-        this.$refs.audioPlayer.setStreamReady()
-      }
-    },
-    streamReset({ streamId, startTime }) {
-      console.log('received stream reset', streamId, startTime)
-      if (this.$refs.audioPlayer) {
-        if (this.stream && this.stream.id === streamId) {
-          this.$refs.audioPlayer.resetStream(startTime)
-        }
-      }
     },
     updatePlaybackSpeed(speed) {
       if (this.$refs.audioPlayer) {

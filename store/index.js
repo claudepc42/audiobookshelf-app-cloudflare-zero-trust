@@ -238,11 +238,11 @@ export const NH_BOOK_SITE_LOGOS = ['amazon_br', 'amazon_com', 'amazon_de', 'amaz
 // NH source: nhStarStep/nhStarSnap/nhStarText (enhancements.js:5669-5682), values
 // ported exactly. Star precision is a real NH setting (whole/half/quarter stars) —
 // the step governs both what a new rating can BE and how any value is drawn.
-export function nhStarStep(step) {
+function nhStarStep(step) {
   const s = parseFloat(step)
   return s === 1 || s === 0.5 || s === 0.25 ? s : 0.5
 }
-export function nhStarSnap(v, step) {
+function nhStarSnap(v, step) {
   const st = nhStarStep(step)
   return Math.round(Math.max(0, Math.min(5, +v || 0)) / st) * st
 }
@@ -253,7 +253,7 @@ export function nhStarText(v, step) {
 
 // NH source: NH_RT_T (book-details.js:915-918). Only English and Polish exist in
 // NH's own source — not a gap on our part, matches their real scope.
-export const NH_RATING_STRINGS = {
+const NH_RATING_STRINGS = {
   en: { ratingWords: ['rating', 'ratings'], reviewWords: ['review', 'reviews'], yourLabel: 'Your rating:', rateHint: 'Click to rate', ph: 'Add a short review (optional)…', save: 'Save', clear: 'Remove', addReview: 'Add a review', editReview: 'Edit review', you: 'you', err: 'Could not save', del: 'remove' },
   pl: { ratingWords: ['ocena', 'oceny', 'ocen'], reviewWords: ['recenzja', 'recenzje', 'recenzji'], yourLabel: 'Twoja ocena:', rateHint: 'Kliknij, aby ocenić', ph: 'Dodaj krótką recenzję (opcjonalnie)…', save: 'Zapisz', clear: 'Usuń', addReview: 'Dodaj recenzję', editReview: 'Edytuj recenzję', you: 'ty', err: 'Nie udało się zapisać', del: 'usuń' }
 }
@@ -267,7 +267,7 @@ export function nhRatingStrings(lang) {
 // enhancements.js only Object.assigns NH_T_EXTRA into a language that ALREADY
 // exists in PANEL_T (line 756), so every other language in NH_T_EXTRA is dead
 // code in NH's own build. en/pl is NH's real live scope here, not a gap.
-export const NH_NARRATOR_STRINGS = {
+const NH_NARRATOR_STRINGS = {
   en: { search: 'Filter narrators…', sortBooks: 'Most books', sortName: 'Name', narratorForms: ['Narrator', 'Narrators'], bookForms: ['book', 'books'] },
   pl: { search: 'Filtruj lektorów…', sortBooks: 'Najwięcej książek', sortName: 'Nazwa', narratorForms: ['Lektor', 'Lektorzy', 'Lektorów'], bookForms: ['książka', 'książki', 'książek'] }
 }
@@ -278,7 +278,7 @@ export function nhNarratorStrings(lang) {
 
 // NH source: "Rate what you finished" home section strings (NH_T_EXTRA rf* keys,
 // same en/pl-only real scope as above — see NH_NARRATOR_STRINGS comment).
-export const NH_RATE_FINISHED_STRINGS = {
+const NH_RATE_FINISHED_STRINGS = {
   en: { title: 'Rate what you finished', rate: 'Rate', sheetTitle: 'Rate this book', openBook: 'Open book page', pickHint: 'Pick a rating' },
   pl: { title: 'Oceń przeczytane', rate: 'Oceń', sheetTitle: 'Oceń tę książkę', openBook: 'Otwórz stronę książki', pickHint: 'Wybierz ocenę' }
 }
@@ -310,7 +310,7 @@ export function nhRatingWord(n, forms) {
 // NH source: NH_RP_REASONS + NH_RP_T (book-details.js:737-748) — "report a
 // problem" reasons and dialog copy. NH's source has en/pl/de/fr/es; ported all 5.
 export const NH_REPORT_REASONS = ['missing', 'quality', 'play', 'wrong', 'chapters', 'other']
-export const NH_REPORT_STRINGS = {
+const NH_REPORT_STRINGS = {
   en: { menu: 'Report a problem', title: 'Report a problem', what: 'What is wrong?', note: 'Anything else the admin should know? (optional)', send: 'Send report', sent: 'Sent. Thanks.', fail: 'Could not send', missing: 'Missing or incomplete content', quality: 'Bad audio quality', play: 'Will not play', wrong: 'Wrong book, cover or metadata', chapters: 'Chapters are wrong', other: 'Something else' },
   pl: { menu: 'Zgłoś problem', title: 'Zgłoś problem', what: 'Co jest nie tak?', note: 'Coś jeszcze, co powinien wiedzieć administrator? (opcjonalnie)', send: 'Wyślij zgłoszenie', sent: 'Wysłano. Dzięki.', fail: 'Nie udało się wysłać', missing: 'Brakująca lub niepełna treść', quality: 'Zła jakość dźwięku', play: 'Nie odtwarza się', wrong: 'Zła książka, okładka lub metadane', chapters: 'Błędne rozdziały', other: 'Coś innego' },
   de: { menu: 'Problem melden', title: 'Problem melden', what: 'Was stimmt nicht?', note: 'Sonst noch etwas für die Administration? (optional)', send: 'Meldung senden', sent: 'Gesendet. Danke.', fail: 'Senden fehlgeschlagen', missing: 'Fehlender oder unvollständiger Inhalt', quality: 'Schlechte Tonqualität', play: 'Spielt nicht ab', wrong: 'Falsches Buch, Cover oder Metadaten', chapters: 'Kapitel stimmen nicht', other: 'Etwas anderes' },
@@ -327,7 +327,7 @@ export function nhReportStrings(lang) {
 // needed for this part (only an admin-set explicit override needs one, see
 // nhColArt below). English keywords only (NH's own per-language kw extensions
 // live in NH_COL_TPL_T, not ported — a nice-to-have, not the core feature).
-export const NH_COL_TEMPLATES = [
+const NH_COL_TEMPLATES = [
   { name: 'Science Fiction', icon: 'rocket_launch', tint: '#3b5bd9', kw: ['sci-fi', 'science fiction', 'scifi', 'space opera'] },
   { name: 'Fantasy', icon: 'castle', tint: '#7048e8', kw: ['fantasy', 'epic fantasy', 'dragon', 'magic'] },
   { name: 'Mystery & Thriller', icon: 'search', tint: '#d6336c', kw: ['myster', 'thriller', 'detective', 'suspense', 'noir'] },
@@ -404,7 +404,6 @@ export const state = () => ({
   isNetworkUnmetered: true,
   isFirstLoad: true,
   isFirstAudioLoad: true,
-  hasStoragePermission: false,
   selectedLibraryItem: null,
   showReader: false,
   ereaderKeepProgress: false,
@@ -596,9 +595,6 @@ export const mutations = {
   setPlayerDoneStartingPlayback(state) {
     state.playerStartingPlaybackMediaId = null
     state.playerIsStartingPlayback = false
-  },
-  setHasStoragePermission(state, val) {
-    state.hasStoragePermission = val
   },
   setNhHomeCoverUrl(state, val) {
     state.nhHomeCoverUrl = val

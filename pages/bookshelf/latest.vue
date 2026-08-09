@@ -12,10 +12,7 @@
 export default {
   data() {
     return {
-      processing: false,
       recentEpisodes: [],
-      totalEpisodes: 0,
-      currentPage: 0,
       localLibraryItems: [],
       loadedLibraryId: null
     }

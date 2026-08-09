@@ -13,7 +13,7 @@
        bottom of the screen, make room" — so it works regardless of whether
        the platform ever tells the page anything about the keyboard. -->
   <div :class="showForm ? ['self-start', inputFocused ? 'mt-4' : 'mt-36'] : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
-    <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
+    <div class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
         <div v-for="config in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
@@ -117,13 +117,9 @@ import { CapacitorHttp } from '@capacitor/core'
 import { Dialog } from '@capacitor/dialog'
 import { AbsCfZeroTrust } from '../../plugins/capacitor/AbsCfZeroTrust'
 
-// TODO: when backend ready. See validateLoginFormResponse()
-//const requiredServerVersion = '2.5.0'
-
 export default {
   data() {
     return {
-      loggedIn: false,
       showAuth: false,
       processing: false,
       // See the template comment above the top-level div for why this drives
@@ -868,15 +864,6 @@ export default {
         this.error = 'This does not seem to be a Audiobookshelf server'
         console.error('[ServerConnectForm] Received as response from Server:\n', statusData)
         return false
-        //    TODO: delete the if above and comment the ones below out, as soon as the backend is ready to introduce a version check
-        //    } else if (!('app' in statusData.data) || statusData.data.app.toLowerCase() !== 'audiobookshelf') {
-        //      this.error = 'This does not seem to be a Audiobookshelf server'
-        //      console.error('[ServerConnectForm] Received as response from Server:\n', statusData)
-        //      return false
-        //    } else if (!this.isValidVersion(statusData.data.serverVersion, requiredServerVersion)) {
-        //      this.error = `Server version is below minimum required version of ${requiredServerVersion} (${statusData.data.serverVersion})`
-        //      console.error('[ServerConnectForm] Server version is too low: ', statusData.data.serverVersion)
-        //      return false
       } else if (!statusData.data.isInit) {
         this.error = 'Server is not initialized'
         return false

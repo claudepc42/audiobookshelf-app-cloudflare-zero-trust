@@ -71,9 +71,6 @@ export default {
       }
       this.showDialog = false
     },
-    toggleMaskServerAddress() {
-      this.maskServerAddress = !this.maskServerAddress
-    },
     async copyToClipboard() {
       await this.$hapticsImpact()
       this.$copyToClipboard(this.getLogsString()).then(() => {

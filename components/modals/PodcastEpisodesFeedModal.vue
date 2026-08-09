@@ -44,7 +44,6 @@ export default {
   },
   data() {
     return {
-      processing: false,
       selectedEpisodes: {}
     }
   },
@@ -64,9 +63,6 @@ export default {
       set(val) {
         this.$emit('input', val)
       }
-    },
-    allDownloaded() {
-      return !this.episodes.some((episode) => !this.itemEpisodeMap[episode.enclosure.url])
     },
     episodesSelected() {
       return Object.keys(this.selectedEpisodes).filter((key) => !!this.selectedEpisodes[key])
@@ -95,18 +91,15 @@ export default {
         return this.$toast.error(`Request is too large (${sizeInMbPretty}) should be < 5Mb`)
       }
 
-      this.processing = true
       this.$nativeHttp
         .post(`/api/podcasts/${this.libraryItem.id}/download-episodes`, episodesToDownload)
         .then(() => {
-          this.processing = false
           this.$toast.success('Started downloading episodes on server')
           this.show = false
         })
         .catch((error) => {
           var errorMsg = error.response && error.response.data ? error.response.data : 'Failed to download episodes'
           console.error('Failed to download episodes', error)
-          this.processing = false
           this.$toast.error(errorMsg)
 
           this.selectedEpisodes = {}

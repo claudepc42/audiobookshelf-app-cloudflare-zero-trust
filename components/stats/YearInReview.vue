@@ -21,7 +21,6 @@ export default {
   },
   data() {
     return {
-      canvas: null,
       dataUrl: null,
       yearStats: null
     }
@@ -240,7 +239,6 @@ export default {
         }
       }
 
-      this.canvas = canvas
       this.dataUrl = canvas.toDataURL('png')
     },
     refresh() {

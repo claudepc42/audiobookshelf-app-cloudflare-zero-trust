@@ -17,7 +17,6 @@ export default {
   },
   data() {
     return {
-      canvas: null,
       dataUrl: null,
       yearStats: null
     }
@@ -149,7 +148,6 @@ export default {
       addText('books listened to', '20px', 'normal', tanColor, '0px', 400, 155)
       addIcon('local_library', 'white', '42px', 345, 130)
 
-      this.canvas = canvas
       this.dataUrl = canvas.toDataURL('png')
     },
     share() {

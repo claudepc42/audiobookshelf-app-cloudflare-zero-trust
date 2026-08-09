@@ -62,20 +62,16 @@ export default {
       default: 192
     },
     bookCoverAspectRatio: Number,
-    showSequence: Boolean,
-    bookshelfView: Number,
     bookMount: {
       // Book can be passed as prop or set with setEntity()
       type: Object,
       default: () => null
     },
     orderBy: String,
-    filterBy: String,
     sortingIgnorePrefix: Boolean
   },
   data() {
     return {
-      isProcessingReadUpdate: false,
       libraryItem: null,
       imageReady: false,
       selected: false,
@@ -142,9 +138,6 @@ export default {
     localLibraryItemId() {
       return this.localLibraryItem?.id
     },
-    series() {
-      return this.mediaMetadata.series
-    },
     libraryId() {
       return this._libraryItem.libraryId
     },
@@ -157,24 +150,11 @@ export default {
     processingBatch() {
       return this.store.state.processingBatch
     },
-    booksInSeries() {
-      // Only added to audiobook object when collapseSeries is enabled
-      return this._libraryItem.booksInSeries
-    },
-    hasCover() {
-      return !!this.media.coverPath
-    },
-    squareAspectRatio() {
-      return this.bookCoverAspectRatio === 1
-    },
     sizeMultiplier() {
       return Math.min(1, this.width / 364)
     },
     title() {
       return this.mediaMetadata.title || ''
-    },
-    playIconFontSize() {
-      return Math.max(2, 3 * this.sizeMultiplier)
     },
     author() {
       if (this.isPodcast) return this.mediaMetadata.author || 'Unknown'
@@ -226,9 +206,6 @@ export default {
     itemIsFinished() {
       return !!this.userProgress?.isFinished
     },
-    showError() {
-      return this.isMissing || this.isInvalid
-    },
     isStreaming() {
       return this.isPlaying && !this.store.getters['getIsCurrentSessionLocal']
     },
@@ -250,14 +227,8 @@ export default {
     isCasting() {
       return this.store.state.isCasting
     },
-    showReadButton() {
-      return !this.isSelectionMode && !this.showPlayButton && this.hasEbook
-    },
     showPlayButton() {
       return !this.isSelectionMode && !this.isMissing && !this.isInvalid && this.numTracks && !this.isPodcast
-    },
-    showSmallEBookIcon() {
-      return !this.isSelectionMode && this.hasEbook
     },
     isMissing() {
       return this._libraryItem.isMissing

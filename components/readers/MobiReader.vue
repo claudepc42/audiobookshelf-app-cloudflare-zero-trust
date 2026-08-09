@@ -24,16 +24,6 @@ export default {
   },
   computed: {},
   methods: {
-    addHtmlCss() {
-      let iframe = document.getElementsByTagName('iframe')[0]
-      if (!iframe) return
-      let doc = iframe.contentDocument
-      if (!doc) return
-      let style = doc.createElement('style')
-      style.id = 'default-style'
-      style.textContent = defaultCss
-      doc.head.appendChild(style)
-    },
     handleIFrameHeight(iFrame) {
       const isElement = (obj) => !!(obj && obj.nodeType === 1)
 

@@ -14,7 +14,6 @@
 export default {
   props: {
     libraryItemId: String,
-    showFullPath: Boolean,
     file: {
       type: Object,
       default: () => {}

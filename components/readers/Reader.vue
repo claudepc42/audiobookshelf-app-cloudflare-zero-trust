@@ -516,7 +516,7 @@ export default {
       this.initKeepScreenAwake()
     },
     unregisterListeners() {
-      this.$eventBus.$on('close-ebook', this.closeEvt)
+      this.$eventBus.$off('close-ebook', this.closeEvt)
       document.body.removeEventListener('touchstart', this.touchstart)
       document.body.removeEventListener('touchend', this.touchend)
       VolumeButtons.clearWatch().catch((error) => {
