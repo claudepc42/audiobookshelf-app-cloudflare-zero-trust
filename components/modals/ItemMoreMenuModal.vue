@@ -53,8 +53,7 @@ export default {
     moreMenuItems() {
       const items = []
 
-      // TODO: Implement on iOS
-      if (this.$platform !== 'ios' && !this.isPodcast) {
+      if (!this.isPodcast) {
         items.push({
           text: this.$strings.ButtonHistory,
           value: 'history',

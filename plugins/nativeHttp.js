@@ -31,7 +31,8 @@ export default function ({ store, $db, $socket }, inject) {
     // Returns the updated serverConnectionConfig, or null if nothing needed refreshing
     // or the refresh failed/was cancelled.
     async refreshCfSessionIfStale(serverConnectionConfig) {
-      if (Capacitor.getPlatform() !== 'android' || !serverConnectionConfig?.isSsoAuth) return null
+      const platform = Capacitor.getPlatform()
+      if ((platform !== 'android' && platform !== 'ios') || !serverConnectionConfig?.isSsoAuth) return null
       try {
         const probeResult = await AbsCfZeroTrust.probeCfChallenge({
           serverAddress: serverConnectionConfig.address,

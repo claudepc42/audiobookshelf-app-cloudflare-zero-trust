@@ -134,11 +134,10 @@ extension LocalMediaProgress {
             if self.isFinished != finished {
                 self.progress = finished ? 1.0 : 0.0
             }
-            
-            if finished {
-                self.currentTime = 0.0
-            }
 
+            // Deliberately does NOT reset currentTime to 0 on finish (diverges from upstream) —
+            // matches this fork's Android LocalMediaProgress.kt: a "finished" item resumes from
+            // where it was left, not from the start, if reopened.
             if self.startedAt == 0 && finished {
                 self.startedAt = Date().timeIntervalSince1970 * 1000
             }

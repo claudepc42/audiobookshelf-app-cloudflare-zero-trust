@@ -54,13 +54,13 @@
           <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" @focus="inputFocused = true" @blur="inputFocused = false" />
           <h2 class="text-sm leading-7 mt-3 mb-1 text-fg-muted">LAN address (optional)</h2>
           <ui-text-input v-model="serverConfig.localAddress" :disabled="processing || !networkConnected" placeholder="http://192.168.1.x:13378" type="url" class="w-full h-10" @focus="inputFocused = true" @blur="inputFocused = false" />
-          <p v-if="$platform === 'android'" class="text-xs text-fg-muted mt-1">Used automatically when your device is on your home network.</p>
+          <p v-if="$platform === 'android' || $platform === 'ios'" class="text-xs text-fg-muted mt-1">Used automatically when your device is on your home network.</p>
           <div class="flex justify-end items-center mt-6">
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
           <div class="flex justify-center mt-3 space-x-4">
             <a class="text-fg-muted text-sm cursor-pointer rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="addCustomHeaders">Add Custom Headers</a>
-            <a v-if="$platform === 'android'" class="text-fg-muted text-sm cursor-pointer rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="openCfSsoLogin">Login with Cloudflare</a>
+            <a v-if="$platform === 'android' || $platform === 'ios'" class="text-fg-muted text-sm cursor-pointer rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="openCfSsoLogin">Login with Cloudflare</a>
           </div>
         </form>
         <!-- username/password and auth methods -->
@@ -540,7 +540,7 @@ export default {
       // If this server previously used CF SSO, probe the session before doing anything else.
       // checkAndHandleCfZeroTrust returns: undefined (session still valid or no CF), a cookie
       // string (fresh cookies from WebView), or null (user cancelled / error).
-      if (this.$platform === 'android' && config.isSsoAuth) {
+      if ((this.$platform === 'android' || this.$platform === 'ios') && config.isSsoAuth) {
         const cfCookies = await this.checkAndHandleCfZeroTrust(config.address)
         if (cfCookies === null) {
           this.processing = false
@@ -784,7 +784,7 @@ export default {
       this.authMethods = []
 
       // CF Zero Trust detection: probe on every submit so stale sessions are caught early.
-      if (this.$platform === 'android') {
+      if (this.$platform === 'android' || this.$platform === 'ios') {
         const cfCookies = await this.checkAndHandleCfZeroTrust(this.serverConfig.address)
         if (cfCookies === null) {
           this.processing = false

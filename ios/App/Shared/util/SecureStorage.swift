@@ -8,6 +8,12 @@
 import Foundation
 import Security
 
+// Every entry in this file uses the "ThisDeviceOnly" accessibility variant so refresh tokens
+// and CF customHeaders never travel in an encrypted iCloud/iTunes device backup — matching this
+// fork's AndroidManifest.xml android:allowBackup="false", a deliberate hardening choice (Android's
+// own Keystore-backed encryption key wouldn't survive a restore anyway, but disabling backup
+// closes the gap app-wide). The plain "AfterFirstUnlock" variant (without ThisDeviceOnly) WOULD
+// be included in encrypted backups and could be restored onto a different device.
 class SecureStorage {
     private static let tag = "SecureStorage"
     private static let serviceName = "AudiobookshelfRefreshTokens"
@@ -28,7 +34,7 @@ class SecureStorage {
             kSecAttrService as String: Self.serviceName,
             kSecAttrAccount as String: key,
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
         
         // First, try to delete any existing item
@@ -96,6 +102,51 @@ class SecureStorage {
         }
     }
     
+    // MARK: - Custom Headers
+
+    func storeCustomHeaders(serverConnectionConfigId: String, headers: [String: String]) -> Bool {
+        let key = "custom_headers_\(serverConnectionConfigId)"
+        guard let data = try? JSONSerialization.data(withJSONObject: headers) else { return false }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.serviceName,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        SecItemDelete(query as CFDictionary)
+        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+    }
+
+    func getCustomHeaders(serverConnectionConfigId: String) -> [String: String]? {
+        let key = "custom_headers_\(serverConnectionConfigId)"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.serviceName,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data,
+              let headers = try? JSONSerialization.jsonObject(with: data) as? [String: String] else {
+            return nil
+        }
+        return headers
+    }
+
+    func removeCustomHeaders(serverConnectionConfigId: String) -> Bool {
+        let key = "custom_headers_\(serverConnectionConfigId)"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.serviceName,
+            kSecAttrAccount as String: key
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        return status == errSecSuccess || status == errSecItemNotFound
+    }
+
     /**
      * Checks if a refresh token exists for a specific server connection
      */

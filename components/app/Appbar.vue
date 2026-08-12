@@ -122,6 +122,7 @@ export default {
     }
   },
   async mounted() {
+    if (this.$platform === 'ios') return
     AbsAudioPlayer.getIsCastAvailable().then((data) => {
       this.isCastAvailable = data && data.value
     })

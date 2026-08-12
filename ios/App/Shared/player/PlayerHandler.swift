@@ -21,13 +21,19 @@ class PlayerHandler {
         cleanupOldSessions(currentSessionId: sessionId)
         
         // Set now playing info
-        NowPlayingInfo.shared.setSessionMetadata(metadata: NowPlayingMetadata(id: session.id, itemId: session.libraryItemId!, title: session.displayTitle ?? "Unknown title", author: session.displayAuthor, series: nil, isLocal: session.isLocal))
+        NowPlayingInfo.shared.setSessionMetadata(metadata: NowPlayingMetadata(id: session.id, itemId: session.libraryItemId!, title: session.displayTitle ?? "Unknown title", author: session.displayAuthor, series: nil, isLocal: session.isLocal, serverAddress: session.serverAddress))
         
         // Create the audio player
         player = AudioPlayer(sessionId: sessionId, playWhenReady: playWhenReady, playbackRate: playbackRate)
     }
     
     public static func stopPlayback(currentSessionId: String? = nil) {
+        // Matches MediaProgressSyncer.kt's stop(): a real session close fires "Stop", distinct
+        // from the "Pause" the line below also fires as a side effect of syncing progress first.
+        if let session = player?.getPlaybackSession() {
+            MediaEventManager.stopEvent(session)
+        }
+
         // Pause playback first, so we can sync our current progress
         player?.pause()
         resetPlayer()

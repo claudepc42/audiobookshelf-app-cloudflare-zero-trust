@@ -78,7 +78,7 @@ extension DownloadItemPart {
         self.ebookFile = EBookFile.detachCopy(of: ebookFile)
         
         let config = Store.serverConfig!
-        var downloadUrl = "\(config.address)\(serverPath)?token=\(config.token)"
+        var downloadUrl = "\(Store.effectiveAddress)\(serverPath)?token=\(config.token)"
         if (serverPath.hasSuffix("/cover")) {
             downloadUrl += "&format=jpeg" // For cover images force to jpeg
         }

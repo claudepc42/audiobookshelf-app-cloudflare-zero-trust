@@ -172,7 +172,7 @@ export default {
       return !!this.effectiveAddress && !!this.serverConnectionConfig?.localAddress && this.effectiveAddress === this.serverConnectionConfig.localAddress
     },
     hasCfCookies() {
-      return this.$platform === 'android' && !!(this.serverConnectionConfig?.isSsoAuth)
+      return (this.$platform === 'android' || this.$platform === 'ios') && !!(this.serverConnectionConfig?.isSsoAuth)
     },
     hasCustomHeaders() {
       return !!Object.keys(this.serverConnectionConfig?.customHeaders || {}).length
@@ -388,7 +388,7 @@ export default {
       this.touchEvent = null
     },
     async refreshEffectiveAddress() {
-      if (this.$platform !== 'android' || !this.serverConnectionConfig?.localAddress) {
+      if ((this.$platform !== 'android' && this.$platform !== 'ios') || !this.serverConnectionConfig?.localAddress) {
         this.effectiveAddress = null
         return
       }

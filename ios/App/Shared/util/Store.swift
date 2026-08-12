@@ -9,6 +9,19 @@ import Foundation
 import RealmSwift
 
 class Store {
+    // In-memory custom headers for the active server connection (CF cookies, service tokens, etc.).
+    // Not persisted in Realm — loaded from Keychain by AbsDatabase on login/init, cleared on logout.
+    public static var customHeaders: [String: String]? = nil
+
+    /// The address to actually make requests against — the resolved LAN address when
+    /// reachable and verified as ABS, otherwise the server's primary address. Mirrors
+    /// DeviceManager.serverAddress on Android (EndpointResolver.effectiveAddress with
+    /// a fallback to serverConfig.address while nothing has been resolved yet).
+    public static var effectiveAddress: String {
+        let resolved = EndpointResolver.shared.effectiveAddress
+        return resolved.isEmpty ? (serverConfig?.address ?? "") : resolved
+    }
+
     public static var serverConfig: ServerConnectionConfig? {
         get {
             do {

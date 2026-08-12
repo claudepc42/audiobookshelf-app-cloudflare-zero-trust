@@ -201,8 +201,7 @@ export default {
     },
     menuItems() {
       const items = []
-      // TODO: Implement on iOS
-      if (this.$platform !== 'ios' && !this.isPodcast && this.mediaId) {
+      if (!this.isPodcast && this.mediaId) {
         items.push({
           text: this.$strings.ButtonHistory,
           value: 'history',

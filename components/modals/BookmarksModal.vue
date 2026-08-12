@@ -99,7 +99,7 @@ export default {
     // Avoids a generic "failed to create bookmark" error when the real cause is CF session expiry.
     async ensureCfSessionValid() {
       const serverConfig = this.$store.state.user.serverConnectionConfig
-      if (this.$platform !== 'android' || !serverConfig?.isSsoAuth) return
+      if ((this.$platform !== 'android' && this.$platform !== 'ios') || !serverConfig?.isSsoAuth) return
 
       try {
         const probeResult = await AbsCfZeroTrust.probeCfChallenge({

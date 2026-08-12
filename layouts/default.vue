@@ -362,7 +362,7 @@ export default {
       // Cold-start authorize has no CF session awareness of its own — refresh a stale
       // CF session before authorizing, instead of authorizing against a CF login page
       // returned as HTML and failing with no explanation or auto-reauth.
-      if (this.$platform === 'android' && serverConfig.isSsoAuth) {
+      if ((this.$platform === 'android' || this.$platform === 'ios') && serverConfig.isSsoAuth) {
         try {
           const probeResult = await AbsCfZeroTrust.probeCfChallenge({
             serverAddress: serverConfig.address,
@@ -555,7 +555,7 @@ export default {
           // Reload local media progresses
           await this.$store.dispatch('globals/loadLocalMediaProgress')
           // Re-resolve LAN vs remote endpoint after being out of focus
-          if (this.$platform === 'android') {
+          if (this.$platform === 'android' || this.$platform === 'ios') {
             this.$db.resolveEndpoint().catch(() => {})
           }
         }
@@ -569,7 +569,7 @@ export default {
       }
     },
     async handleCfExpired() {
-      if (this.cfRefreshInProgress || this.$platform !== 'android') return
+      if (this.cfRefreshInProgress || (this.$platform !== 'android' && this.$platform !== 'ios')) return
       const serverConfig = this.$store.state.user.serverConnectionConfig
       if (!serverConfig?.address) return
       this.cfRefreshInProgress = true
@@ -729,7 +729,7 @@ export default {
     this.$eventBus.$on('change-lang', this.changeLanguage)
     this.$eventBus.$on('open-nh-dev-panel', () => { this.showNhDevPanel = true })
     document.addEventListener('visibilitychange', this.visibilityChanged)
-    if (this.$platform === 'android') {
+    if (this.$platform === 'android' || this.$platform === 'ios') {
       this.cfSessionListener = await AbsCfZeroTrust.addListener('cfSessionExpired', this.handleCfExpired)
     }
 

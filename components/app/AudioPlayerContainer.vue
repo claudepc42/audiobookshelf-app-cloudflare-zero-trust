@@ -66,6 +66,16 @@ export default {
     // already used for the Cloudflare SSO callback), landing here through the
     // same 'url-open' eventBus event. See NanoHiveMediaPlayerWidget.kt's
     // widgetActionPendingIntent for the native side.
+    //
+    // play-pause/rewind/fast-forward are Android-only here — on Android those
+    // three go through MediaButtonReceiver PendingIntents instead (true
+    // background control, no app launch needed). The iOS WidgetKit widget has
+    // no equivalent — a widget extension runs in its own process and can't
+    // reach this app's live AudioPlayer — so on iOS ALL five widget buttons,
+    // including transport controls, launch the app via this same deep link
+    // and get handled here. Known parity gap: tapping play/pause on the iOS
+    // widget briefly foregrounds the app instead of controlling playback
+    // silently in the background.
     onWidgetUrlOpen(url) {
       if (!url || !url.startsWith('audiobookshelf://widget-action')) return
       let type
@@ -76,6 +86,9 @@ export default {
       }
       if (type === 'bookmark') this.showBookmarks()
       else if (type === 'sleep-timer') this.showSleepTimer()
+      else if (type === 'play-pause') this.$refs.audioPlayer?.playPauseClick()
+      else if (type === 'rewind') this.$refs.audioPlayer?.jumpBackwards()
+      else if (type === 'fast-forward') this.$refs.audioPlayer?.jumpForward()
     },
     showBookmarks() {
       this.showBookmarksModal = true

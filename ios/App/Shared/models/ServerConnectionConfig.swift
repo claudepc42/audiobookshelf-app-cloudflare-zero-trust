@@ -17,6 +17,7 @@ class ServerConnectionConfig: Object {
     @Persisted var userId: String = ""
     @Persisted var username: String = ""
     @Persisted var token: String = ""
+    @Persisted var localAddress: String? = nil
 }
 
 class ServerConnectionConfigActiveIndex: Object {
@@ -24,8 +25,8 @@ class ServerConnectionConfigActiveIndex: Object {
     @Persisted(primaryKey: true) var index: Int?
 }
 
-func convertServerConnectionConfigToJSON(config: ServerConnectionConfig) -> Dictionary<String, Any> {
-    return [
+func convertServerConnectionConfigToJSON(config: ServerConnectionConfig, customHeaders: [String: String]? = nil) -> Dictionary<String, Any> {
+    var dict: [String: Any] = [
         "id": config.id,
         "name": config.name,
         "index": config.index,
@@ -34,5 +35,11 @@ func convertServerConnectionConfigToJSON(config: ServerConnectionConfig) -> Dict
         "userId": config.userId,
         "username": config.username,
         "token": config.token,
+        "localAddress": config.localAddress as Any,
     ]
+    if let customHeaders = customHeaders, !customHeaders.isEmpty {
+        dict["customHeaders"] = customHeaders
+        dict["isSsoAuth"] = customHeaders["Cookie"] != nil
+    }
+    return dict
 }

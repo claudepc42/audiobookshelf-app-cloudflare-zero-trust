@@ -476,7 +476,7 @@ export default {
     },
     async startDownload(localFolder) {
       const serverConfig = this.$store.state.user.serverConnectionConfig
-      if (this.$platform === 'android' && serverConfig?.isSsoAuth) {
+      if ((this.$platform === 'android' || this.$platform === 'ios') && serverConfig?.isSsoAuth) {
         try {
           const probeResult = await AbsCfZeroTrust.probeCfChallenge({
             serverAddress: serverConfig.address,
