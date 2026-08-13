@@ -372,21 +372,28 @@ class ApiClient {
      * way (probe-confirmed, not gated on connection type) avoids a false positive if a non-CF
      * server ever returns a genuine HTML error page on a 2xx status.
      */
-    private static func checkForStaleCfChallenge(statusCode: Int?, data: Data?) {
+    /// Returns true when the "successful" 2xx body actually looks like a CF challenge/login
+    /// page rather than real content — callers that only check HTTP success (no decode step
+    /// to fail on unexpected HTML) must use this to avoid reporting a stale CF redirect as a
+    /// real success.
+    @discardableResult
+    private static func checkForStaleCfChallenge(statusCode: Int?, data: Data?) -> Bool {
         guard let statusCode = statusCode, (200...299).contains(statusCode),
               let data = data, !data.isEmpty,
-              let bodyString = String(data: data, encoding: .utf8) else { return }
+              let bodyString = String(data: data, encoding: .utf8) else { return false }
         let trimmed = bodyString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard trimmed.hasPrefix("<!doctype") || trimmed.hasPrefix("<html") else { return }
+        guard trimmed.hasPrefix("<!doctype") || trimmed.hasPrefix("<html") else { return false }
 
         let address = Store.effectiveAddress
-        guard !address.isEmpty else { return }
-        DispatchQueue.global(qos: .background).async {
-            if AbsCfZeroTrust.doProbeCfChallenge(serverAddress: address) {
-                AbsLogger.info(message: "ApiClient: makeRequest: CF session expired — notifying JS")
-                AbsCfZeroTrust.notifyCfSessionExpired()
+        if !address.isEmpty {
+            DispatchQueue.global(qos: .background).async {
+                if AbsCfZeroTrust.doProbeCfChallenge(serverAddress: address) {
+                    AbsLogger.info(message: "ApiClient: makeRequest: CF session expired — notifying JS")
+                    AbsCfZeroTrust.notifyCfSessionExpired()
+                }
             }
         }
+        return true
     }
 
     // MARK: - Enhanced API Methods with Token Refresh
@@ -483,9 +490,10 @@ class ApiClient {
                 switch response.result {
                 case .success(_):
                     // Unlike the *Decodable variants, this one has no decode step to fail on a
-                    // stale CF HTML page — a 2xx here would otherwise be treated as success.
-                    checkForStaleCfChallenge(statusCode: response.response?.statusCode, data: response.data)
-                    callback?(true)
+                    // stale CF HTML page — without checking the return value, a 2xx here would
+                    // be treated as success even when the body is actually a CF login page.
+                    let isStaleCfChallenge = checkForStaleCfChallenge(statusCode: response.response?.statusCode, data: response.data)
+                    callback?(!isStaleCfChallenge)
                 case .failure(let error):
                     if !isRetry, fallbackFromLanIfNetworkError(error) {
                         AbsLogger.info(message: "postResourceWithTokenRefresh: LAN request failed, retrying on primary address")
@@ -520,8 +528,11 @@ class ApiClient {
             } else {
                 switch response.result {
                 case .success(_):
-                    checkForStaleCfChallenge(statusCode: response.response?.statusCode, data: response.data)
-                    callback?(true)
+                    // Same reasoning as postResourceWithTokenRefresh's success/failure-only
+                    // variant: no decode step to fail on a stale CF HTML page, so the return
+                    // value must be checked to avoid reporting a CF redirect as success.
+                    let isStaleCfChallenge = checkForStaleCfChallenge(statusCode: response.response?.statusCode, data: response.data)
+                    callback?(!isStaleCfChallenge)
                 case .failure(let error):
                     if !isRetry, fallbackFromLanIfNetworkError(error) {
                         AbsLogger.info(message: "patchResourceWithTokenRefresh: LAN request failed, retrying on primary address")

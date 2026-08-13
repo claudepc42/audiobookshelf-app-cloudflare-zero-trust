@@ -107,8 +107,12 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
 
         Store.serverConfig = config
         let savedConfig = Store.serverConfig
+        // Re-fetch Store.serverConfig inside the async closure rather than passing savedConfig
+        // across the thread boundary — it's a live Realm object created on this (calling)
+        // thread, and EndpointResolver.resolve reads its properties, which is a thread-
+        // confinement violation Realm crashes on. Matches resolveEndpoint's pattern below.
         DispatchQueue.global(qos: .utility).async {
-            EndpointResolver.shared.resolve(config: savedConfig)
+            EndpointResolver.shared.resolve(config: Store.serverConfig)
         }
         call.resolve(convertServerConnectionConfigToJSON(config: savedConfig!, customHeaders: Store.customHeaders))
     }
