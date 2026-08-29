@@ -7,7 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0F1ADA3164A34BD055A493A0 /* MediaEventManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E44C32704D2BD0A60BA042F3 /* MediaEventManager.swift */; };
+		14FA4870C96819B078FD6038 /* AbsWidgetUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B01F59BDDC5DC8E880EFB4 /* AbsWidgetUpdater.swift */; };
+		1BC98A90B7D0869DB5316ED5 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F875452C249D733CD0895AF /* WidgetSnapshot.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		3432D2AF7BA6BA428A925119 /* WidgetDataBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0522A3FA525979CD4E59EE /* WidgetDataBridge.swift */; };
 		3A200C1527D64D7E00CBF02E /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A200C1427D64D7E00CBF02E /* AudioPlayer.swift */; };
 		3A90295F280968E700E1D427 /* PlaybackReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A90295E280968E700E1D427 /* PlaybackReport.swift */; };
 		3AB34053280829BF0039308B /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AB34052280829BF0039308B /* Extensions.swift */; };
@@ -29,14 +33,20 @@
 		4DF6C7172DB58ABF004059F1 /* AbsLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF6C7162DB58ABF004059F1 /* AbsLogger.swift */; };
 		4DF74912287105C600AC7814 /* DeviceSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF74911287105C600AC7814 /* DeviceSettings.swift */; };
 		4DFE2DA32D345C390000B204 /* MyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DFE2DA22D345C390000B204 /* MyViewController.swift */; };
+		4FBE62A4D4DDD0C35079A9C8 /* EndpointResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C1EBE8B8BD49EF22F8F26DA /* EndpointResolver.swift */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		5D3527483A659B9B38BB9892 /* AbsCfZeroTrust.swift in Sources */ = {isa = PBXBuildFile; fileRef = E28A72EE2211107C758DE13E /* AbsCfZeroTrust.swift */; };
+		61AF433C054A786031B724F0 /* Pods_AudiobookshelfUnitTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 842C54660F903C502F21A3DD /* Pods_AudiobookshelfUnitTests.framework */; };
 		65643F4DAA661FB0B247247E /* Pods_Audiobookshelf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8F9A7CCC479333E44DC314BE /* Pods_Audiobookshelf.framework */; };
 		6F2516272E68DA3000F40541 /* LogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2516262E68DA3000F40541 /* LogEntry.swift */; };
+		82F368752402DEF5D4B480DF /* MediaItemHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226A0E4C9E7DF7F8A7AA8A09 /* MediaItemHistory.swift */; };
+		A87E0004FC7CC23FC49DCD6E /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5EAC25C7306A10A2A849C06 /* SceneDelegate.swift */; };
+		CCC32CA651414ED2909232B3 /* MediaItemEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F40102C0A49394EF1C29ED8 /* MediaItemEvent.swift */; };
 		E9D5504628AC1A3900C746DD /* LibraryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9D5504528AC1A3900C746DD /* LibraryItem.swift */; };
 		E9D5504828AC1A7A00C746DD /* MediaType.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9D5504728AC1A7A00C746DD /* MediaType.swift */; };
 		E9D5504A28AC1AA600C746DD /* Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9D5504928AC1AA600C746DD /* Metadata.swift */; };
@@ -81,7 +91,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		18B01F59BDDC5DC8E880EFB4 /* AbsWidgetUpdater.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AbsWidgetUpdater.swift; sourceTree = "<group>"; };
+		226A0E4C9E7DF7F8A7AA8A09 /* MediaItemHistory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MediaItemHistory.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		390E2E81D232CA1B719E8605 /* Pods-AudiobookshelfUnitTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AudiobookshelfUnitTests.debug.xcconfig"; path = "Target Support Files/Pods-AudiobookshelfUnitTests/Pods-AudiobookshelfUnitTests.debug.xcconfig"; sourceTree = "<group>"; };
 		3A200C1427D64D7E00CBF02E /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		3A90295E280968E700E1D427 /* PlaybackReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackReport.swift; sourceTree = "<group>"; };
 		3AB34052280829BF0039308B /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
@@ -104,6 +117,7 @@
 		4DF6C7162DB58ABF004059F1 /* AbsLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsLogger.swift; sourceTree = "<group>"; };
 		4DF74911287105C600AC7814 /* DeviceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSettings.swift; sourceTree = "<group>"; };
 		4DFE2DA22D345C390000B204 /* MyViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyViewController.swift; sourceTree = "<group>"; };
+		4F875452C249D733CD0895AF /* WidgetSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* Audiobookshelf.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Audiobookshelf.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -113,9 +127,16 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		6F2516262E68DA3000F40541 /* LogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogEntry.swift; sourceTree = "<group>"; };
+		7F40102C0A49394EF1C29ED8 /* MediaItemEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MediaItemEvent.swift; sourceTree = "<group>"; };
+		842C54660F903C502F21A3DD /* Pods_AudiobookshelfUnitTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_AudiobookshelfUnitTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F9A7CCC479333E44DC314BE /* Pods_Audiobookshelf.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Audiobookshelf.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C1EBE8B8BD49EF22F8F26DA /* EndpointResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EndpointResolver.swift; sourceTree = "<group>"; };
+		9F8E2ECDA9418FFFB9062DFD /* Pods-AudiobookshelfUnitTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AudiobookshelfUnitTests.release.xcconfig"; path = "Target Support Files/Pods-AudiobookshelfUnitTests/Pods-AudiobookshelfUnitTests.release.xcconfig"; sourceTree = "<group>"; };
+		BD0522A3FA525979CD4E59EE /* WidgetDataBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetDataBridge.swift; sourceTree = "<group>"; };
 		BE96D57E131924D520D57057 /* Pods-Audiobookshelf.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Audiobookshelf.debug.xcconfig"; path = "Target Support Files/Pods-Audiobookshelf/Pods-Audiobookshelf.debug.xcconfig"; sourceTree = "<group>"; };
 		D2F7F575384A63F1C47DE984 /* Pods-Audiobookshelf.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Audiobookshelf.release.xcconfig"; path = "Target Support Files/Pods-Audiobookshelf/Pods-Audiobookshelf.release.xcconfig"; sourceTree = "<group>"; };
+		E28A72EE2211107C758DE13E /* AbsCfZeroTrust.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AbsCfZeroTrust.swift; sourceTree = "<group>"; };
+		E44C32704D2BD0A60BA042F3 /* MediaEventManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MediaEventManager.swift; sourceTree = "<group>"; };
 		E9D5504528AC1A3900C746DD /* LibraryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryItem.swift; sourceTree = "<group>"; };
 		E9D5504728AC1A7A00C746DD /* MediaType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaType.swift; sourceTree = "<group>"; };
 		E9D5504928AC1AA600C746DD /* Metadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metadata.swift; sourceTree = "<group>"; };
@@ -148,6 +169,7 @@
 		EACB38112BCCA1330060DA4A /* AudioPlayerRateManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AudioPlayerRateManager.swift; sourceTree = "<group>"; };
 		EACB38132BCCA1410060DA4A /* LegacyAudioPlayerRateManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LegacyAudioPlayerRateManager.swift; sourceTree = "<group>"; };
 		EACB38152BCCA1500060DA4A /* DefaultedAudioPlayerRateManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DefaultedAudioPlayerRateManager.swift; sourceTree = "<group>"; };
+		F5EAC25C7306A10A2A849C06 /* SceneDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -163,6 +185,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				61AF433C054A786031B724F0 /* Pods_AudiobookshelfUnitTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +196,7 @@
 			isa = PBXGroup;
 			children = (
 				8F9A7CCC479333E44DC314BE /* Pods_Audiobookshelf.framework */,
+				842C54660F903C502F21A3DD /* Pods_AudiobookshelfUnitTests.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -182,6 +206,8 @@
 			children = (
 				BE96D57E131924D520D57057 /* Pods-Audiobookshelf.debug.xcconfig */,
 				D2F7F575384A63F1C47DE984 /* Pods-Audiobookshelf.release.xcconfig */,
+				390E2E81D232CA1B719E8605 /* Pods-AudiobookshelfUnitTests.debug.xcconfig */,
+				9F8E2ECDA9418FFFB9062DFD /* Pods-AudiobookshelfUnitTests.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -219,6 +245,8 @@
 				4D66B953282EE87C008272D4 /* AbsDownloader.swift */,
 				4D66B957282EEA14008272D4 /* AbsFileSystem.swift */,
 				4DF6C7162DB58ABF004059F1 /* AbsLogger.swift */,
+				E28A72EE2211107C758DE13E /* AbsCfZeroTrust.swift */,
+				18B01F59BDDC5DC8E880EFB4 /* AbsWidgetUpdater.swift */,
 			);
 			path = plugins;
 			sourceTree = "<group>";
@@ -237,6 +265,9 @@
 				E9D5506328AC1D3F00C746DD /* server */,
 				E9D5506428AC1D5800C746DD /* local */,
 				E9D5506D28AC1E7400C746DD /* download */,
+				7F40102C0A49394EF1C29ED8 /* MediaItemEvent.swift */,
+				226A0E4C9E7DF7F8A7AA8A09 /* MediaItemHistory.swift */,
+				4F875452C249D733CD0895AF /* WidgetSnapshot.swift */,
 			);
 			path = models;
 			sourceTree = "<group>";
@@ -253,6 +284,9 @@
 				3AB34052280829BF0039308B /* Extensions.swift */,
 				3AB34054280832720039308B /* PlayerEvents.swift */,
 				E9D5507228AC218300C746DD /* DaoExtensions.swift */,
+				9C1EBE8B8BD49EF22F8F26DA /* EndpointResolver.swift */,
+				E44C32704D2BD0A60BA042F3 /* MediaEventManager.swift */,
+				BD0522A3FA525979CD4E59EE /* WidgetDataBridge.swift */,
 			);
 			path = util;
 			sourceTree = "<group>";
@@ -292,6 +326,7 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				4D8D412C26E187E400BA5F0D /* App-Bridging-Header.h */,
 				4DFE2DA22D345C390000B204 /* MyViewController.swift */,
+				F5EAC25C7306A10A2A849C06 /* SceneDelegate.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -404,6 +439,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = E9E8814228DA5DE500D750C1 /* Build configuration list for PBXNativeTarget "AudiobookshelfUnitTests" */;
 			buildPhases = (
+				0C021F6237C4D4FFB5C4CD45 /* [CP] Check Pods Manifest.lock */,
 				E9E8813628DA5DE500D750C1 /* Sources */,
 				E9E8813728DA5DE500D750C1 /* Frameworks */,
 				E9E8813828DA5DE500D750C1 /* Resources */,
@@ -482,6 +518,28 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		0C021F6237C4D4FFB5C4CD45 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-AudiobookshelfUnitTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
 		C5582D6256D39377D737E21E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -579,6 +637,15 @@
 				E9E8814A28DA644F00D750C1 /* PlayerTimeUtils.swift in Sources */,
 				3AB34055280832720039308B /* PlayerEvents.swift in Sources */,
 				E9D5506C28AC1E2100C746DD /* LocalMediaProgress.swift in Sources */,
+				CCC32CA651414ED2909232B3 /* MediaItemEvent.swift in Sources */,
+				82F368752402DEF5D4B480DF /* MediaItemHistory.swift in Sources */,
+				1BC98A90B7D0869DB5316ED5 /* WidgetSnapshot.swift in Sources */,
+				4FBE62A4D4DDD0C35079A9C8 /* EndpointResolver.swift in Sources */,
+				0F1ADA3164A34BD055A493A0 /* MediaEventManager.swift in Sources */,
+				3432D2AF7BA6BA428A925119 /* WidgetDataBridge.swift in Sources */,
+				5D3527483A659B9B38BB9892 /* AbsCfZeroTrust.swift in Sources */,
+				14FA4870C96819B078FD6038 /* AbsWidgetUpdater.swift in Sources */,
+				A87E0004FC7CC23FC49DCD6E /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -671,7 +738,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -725,7 +792,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
@@ -743,7 +810,7 @@
 				CURRENT_PROJECT_VERSION = 43;
 				DEVELOPMENT_TEAM = 7UFJ7D8V6A;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 0.13.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
@@ -767,7 +834,7 @@
 				CURRENT_PROJECT_VERSION = 43;
 				DEVELOPMENT_TEAM = 7UFJ7D8V6A;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 0.13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.audiobookshelf.app;
@@ -781,6 +848,7 @@
 		};
 		E9E8814028DA5DE500D750C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 390E2E81D232CA1B719E8605 /* Pods-AudiobookshelfUnitTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -788,7 +856,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -803,6 +871,7 @@
 		};
 		E9E8814128DA5DE500D750C1 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9F8E2ECDA9418FFFB9062DFD /* Pods-AudiobookshelfUnitTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -810,7 +879,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.audiobookshelf.AudiobookshelfUnitTests;
