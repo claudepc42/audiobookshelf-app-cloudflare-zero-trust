@@ -106,6 +106,78 @@ expected).
   LAN auto-routing, actual deep-link opens) — only static/headless
   verification so far.
 
+### 2026-08-30
+
+Fixed the 3 Greptile findings still open on PR #14 and PR #15 (pulled fresh
+from the PR bodies + inline review comments directly, not from a pasted
+summary). Also merged `origin/wip` into `wip-macos-ios` first (fast, clean —
+only conflict was `CLAUDE_SYNC.md` itself, resolved by keeping both dated
+entries rather than picking a side).
+
+1. **CF credentials to LAN (PR #14, `ApiClient.swift`)**: the prior fix's
+   `requestTargetIsPrimaryServer()` only compared `URL.host`, so a same-host-
+   different-port LAN address or a matching subdomain still passed. Replaced
+   with an exact-origin check (scheme + host + effective port, defaulting
+   443/80 by scheme when unspecified). **Went further than the PR #14 finding
+   asked**: `AudioPlayer.swift`'s `requestHostMatchesServer` had the
+   byte-for-byte identical host-only/subdomain-suffix bug — it's literally
+   what `ApiClient.swift`'s version was copied from — but Greptile's
+   diff-scoped review didn't flag it since that function wasn't touched in
+   the diff being reviewed. Same vulnerability, different call path
+   (streaming/download AVURLAsset headers instead of plain API requests).
+   Extracted one shared, correct implementation —
+   `Store.requestTargetIsPrimaryServer(_:)` — and made both `ApiClient.swift`
+   and `AudioPlayer.swift` delegate to it instead of keeping two independent
+   copies of security-sensitive matching logic.
+   *Verified by*: tracing both call sites' actual argument values by hand
+   (a LAN address on a different port, and a subdomain of the primary host)
+   through the new exact-match logic step by step, confirming both now
+   correctly return false. Did not exercise this against a live server —
+   flagging per the "don't just re-read the diff" instruction, since that's
+   a real gap between "traced correct" and "observed correct."
+
+2. **Lost stop-sync (PR #14, `PlayerHandler.swift`)**: the previous fix
+   traded a symptom for a worse, quieter bug exactly as flagged — capturing
+   a frozen session for the *history event* was fine, but the sync Task
+   still called `PlayerProgress.syncFromPlayer` with no session reference,
+   which internally re-resolves via `PlayerHandler.getPlaybackSession()` —
+   returning nil once `resetPlayer(firing:)` had already nil'd `player`
+   two lines earlier. So the sync silently no-op'd entirely (local session
+   never updated, server never called) instead of just losing the event,
+   exactly per the finding. **Fixed as suggested**: gave
+   `PlayerProgress.syncFromPlayer` an explicit optional `sessionId` param
+   that, when present, resolves via `Database.shared.getPlaybackSession(id:)`
+   directly instead of going through `PlayerHandler`. `resetPlayer(firing:)`
+   now passes the already-captured frozen session's `id`.
+   *Verified the other 3 callers don't break*: read every existing call site
+   of `syncFromPlayer` (`AudioPlayer.swift`'s 15s periodic save-timer,
+   `play()`, and `pause()`) — none of them call `destroy()`/nil `player`
+   before their sync Task runs, so all three keep using the no-`sessionId`
+   fallback and still resolve correctly via `PlayerHandler.player`. This
+   was actually checked, not assumed, per the instruction to verify rather
+   than re-read-and-conclude.
+
+3. **`SceneDelegate` dropping extra deep links (PR #15)**: `.first` on all
+   three set-valued delivery points (`connectionOptions.urlContexts`,
+   `connectionOptions.userActivities`, `openURLContexts`'s `URLContexts`)
+   silently discarded everything after the first. Changed all three to
+   `for ... in` loops forwarding every member to
+   `ApplicationDelegateProxy.shared`.
+   *Verified*: confirmed all three are genuinely `Set`-typed (not
+   single-value) directly from UIKit's `UIScene.ConnectionOptions` /
+   `UISceneDelegate` signatures, so the multi-delivery scenario Greptile's
+   T-Rex proved is real or possible on any of the three, not just the one
+   it happened to execute against.
+
+**Verification method note**: per your instruction this round, skipped
+Simulator/manual exercise entirely — confirmed only that this builds clean
+(`xcodebuild build`, `BUILD SUCCEEDED`) and verified each fix by tracing the
+actual code paths and call sites by hand rather than re-reading my own diff
+and assuming it's correct. Flagging explicitly which fixes got real
+execution-level verification (none, this round) vs. hand-traced logic
+verification (all three) so the Windows side knows exactly what "verified"
+means here before re-triggering Greptile.
+
 ---
 
 ## From Windows Claude

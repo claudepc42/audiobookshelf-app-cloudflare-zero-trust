@@ -19,13 +19,20 @@ class PlayerProgress {
     
     // MARK: - SYNC HOOKS
     
+    /// - Parameter sessionId: When provided, resolves the session directly via
+    ///   Database.shared.getPlaybackSession(id:) instead of PlayerHandler.getPlaybackSession().
+    ///   Needed by callers that sync *after* PlayerHandler.player has already been cleared
+    ///   (PlayerHandler.resetPlayer(firing:) tears the player down before this runs, so the
+    ///   default PlayerHandler.player-based lookup would resolve to nil and the sync would
+    ///   silently no-op). Callers where the player is still the active one (pause(), play(),
+    ///   the periodic 15s save-timer) can omit this and keep resolving via PlayerHandler.player.
     @discardableResult
-    public func syncFromPlayer(currentTime: Double, includesPlayProgress: Bool, isStopping: Bool) async -> MediaSyncResult? {
+    public func syncFromPlayer(currentTime: Double, includesPlayProgress: Bool, isStopping: Bool, sessionId: String? = nil) async -> MediaSyncResult? {
         let backgroundToken = await UIApplication.shared.beginBackgroundTask(withName: "ABS:syncFromPlayer")
         var syncResult: MediaSyncResult? = nil
         do {
-            let session = try updateLocalSessionFromPlayer(currentTime: currentTime, includesPlayProgress: includesPlayProgress)
-            try updateLocalMediaProgressFromLocalSession()
+            let session = try updateLocalSessionFromPlayer(currentTime: currentTime, includesPlayProgress: includesPlayProgress, sessionId: sessionId)
+            try updateLocalMediaProgressFromLocalSession(sessionId: sessionId)
             if let session = session {
                 syncResult = try await updateServerSessionFromLocalSession(session, rateLimitSync: !isStopping)
             }
@@ -35,12 +42,21 @@ class PlayerProgress {
         await UIApplication.shared.endBackgroundTask(backgroundToken)
         return syncResult
     }
-    
-    
+
+
     // MARK: - SYNC LOGIC
-    
-    private func updateLocalSessionFromPlayer(currentTime: Double, includesPlayProgress: Bool) throws -> PlaybackSession? {
-        guard let session = PlayerHandler.getPlaybackSession() else { return nil }
+
+    /// sessionId, when provided, bypasses PlayerHandler.getPlaybackSession() (which depends on
+    /// PlayerHandler.player still being set) and fetches the session directly instead.
+    private func resolveSession(sessionId: String?) -> PlaybackSession? {
+        if let sessionId = sessionId {
+            return Database.shared.getPlaybackSession(id: sessionId)
+        }
+        return PlayerHandler.getPlaybackSession()
+    }
+
+    private func updateLocalSessionFromPlayer(currentTime: Double, includesPlayProgress: Bool, sessionId: String? = nil) throws -> PlaybackSession? {
+        guard let session = resolveSession(sessionId: sessionId) else { return nil }
         guard !currentTime.isNaN else { return nil } // Prevent bad data on player stop
         
         try session.update {
@@ -63,8 +79,8 @@ class PlayerProgress {
         return session.freeze()
     }
     
-    private func updateLocalMediaProgressFromLocalSession() throws {
-        guard let session = PlayerHandler.getPlaybackSession() else { return }
+    private func updateLocalMediaProgressFromLocalSession(sessionId: String? = nil) throws {
+        guard let session = resolveSession(sessionId: sessionId) else { return }
         guard session.isLocal else { return }
         
         let localMediaProgress = try LocalMediaProgress.fetchOrCreateLocalMediaProgress(localMediaProgressId: session.localMediaProgressId, localLibraryItemId: session.localLibraryItem?.id, localEpisodeId: session.episodeId)
