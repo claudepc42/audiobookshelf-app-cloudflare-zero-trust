@@ -35,6 +35,7 @@ class Database {
                     existing.userId = config.userId
                     existing.username = config.username
                     existing.token = config.token
+                    existing.localAddress = config.localAddress
                 }
             } catch {
                 AbsLogger.error("setServerConn", message: "failed to update server config")
@@ -98,6 +99,42 @@ class Database {
     public func getServerConnectionConfigs() -> [ServerConnectionConfig] {
         let realm = try! Realm()
         return Array(realm.objects(ServerConnectionConfig.self))
+    }
+
+    // MARK: - Media Item History
+
+    public func getMediaItemHistory(id: String) -> MediaItemHistory? {
+        let realm = try! Realm()
+        return realm.object(ofType: MediaItemHistory.self, forPrimaryKey: id)?.freeze()
+    }
+
+    /// Appends an event to the history record for the given media item, creating the record
+    /// (with metadata from the session) if it doesn't exist yet. Mirrors
+    /// MediaEventManager.kt's getMediaItemHistoryMediaItem + createMediaItemHistoryForSession.
+    public func addMediaItemEvent(mediaItemId: String, event: MediaItemEvent, session: PlaybackSession) {
+        let realm = try! Realm()
+        do {
+            try realm.write {
+                if let existing = realm.object(ofType: MediaItemHistory.self, forPrimaryKey: mediaItemId) {
+                    existing.events.append(event)
+                } else {
+                    let history = MediaItemHistory()
+                    history.id = mediaItemId
+                    history.mediaDisplayTitle = session.displayTitle ?? "Unset"
+                    history.libraryItemId = session.libraryItemId ?? ""
+                    history.episodeId = session.episodeId
+                    history.isLocal = false // local-only items are not supported, matches Android
+                    history.serverConnectionConfigId = session.serverConnectionConfigId
+                    history.serverAddress = session.serverAddress
+                    history.serverUserId = session.userId
+                    history.createdAt = Date().timeIntervalSince1970 * 1000
+                    history.events.append(event)
+                    realm.add(history)
+                }
+            }
+        } catch {
+            AbsLogger.error(message: "addMediaItemEvent: failed to save event for \(mediaItemId)", error: error)
+        }
     }
     
     public func setLastActiveConfigIndexToNil() {

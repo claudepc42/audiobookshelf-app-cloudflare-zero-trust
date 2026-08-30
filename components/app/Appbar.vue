@@ -96,9 +96,6 @@ export default {
     user() {
       return this.$store.state.user.user
     },
-    username() {
-      return this.user?.username || 'err'
-    },
     isCasting() {
       return this.$store.state.isCasting
     }
@@ -125,6 +122,7 @@ export default {
     }
   },
   async mounted() {
+    if (this.$platform === 'ios') return
     AbsAudioPlayer.getIsCastAvailable().then((data) => {
       this.isCastAvailable = data && data.value
     })

@@ -25,7 +25,6 @@ import { nhNarratorStrings, nhRatingWord } from '@/store/index'
 export default {
   data() {
     return {
-      loading: true,
       narrators: [],
       itemsByName: {},
       loadedLibraryId: null,

@@ -1,19 +1,7 @@
-const DownloadStatus = {
-  PENDING: 0,
-  READY: 1,
-  EXPIRED: 2,
-  FAILED: 3
-}
-
 const SyncStatus = {
   UNSET: 0,
   SUCCESS: 1,
   FAILED: 2
-}
-
-const CoverDestination = {
-  METADATA: 0,
-  AUDIOBOOK: 1
 }
 
 const BookCoverAspectRatio = {
@@ -36,9 +24,7 @@ const PlayerState = {
 }
 
 const Constants = {
-  DownloadStatus,
   SyncStatus,
-  CoverDestination,
   BookCoverAspectRatio,
   PlayMethod,
   PlayerState

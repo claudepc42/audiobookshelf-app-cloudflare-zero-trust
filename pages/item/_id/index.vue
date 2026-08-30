@@ -284,7 +284,6 @@ export default {
       showMoreMenu: false,
       showFullscreenCover: false,
       coverRgb: null,
-      coverBgIsLight: false,
       windowWidth: 0,
       descriptionClamped: false,
       showFullDescription: false,
@@ -686,7 +685,6 @@ export default {
       const avg = await getAverageColorFromCoverUrl(this, fullCoverUrl)
       if (!avg) return
       this.coverRgb = avg.rgba
-      this.coverBgIsLight = avg.isLight
     },
     moreButtonPress() {
       this.showMoreMenu = true
@@ -866,7 +864,7 @@ export default {
     },
     async startDownload(localFolder = null) {
       const serverConfig = this.$store.state.user.serverConnectionConfig
-      if (this.$platform === 'android' && serverConfig?.isSsoAuth) {
+      if ((this.$platform === 'android' || this.$platform === 'ios') && serverConfig?.isSsoAuth) {
         try {
           const probeResult = await AbsCfZeroTrust.probeCfChallenge({
             serverAddress: serverConfig.address,
@@ -933,13 +931,13 @@ export default {
     rssFeedOpen(data) {
       if (data.entityId === this.serverLibraryItemId) {
         console.log('RSS Feed Opened', data)
-        this.rssFeed = data
+        this.$set(this.libraryItem, 'rssFeed', data)
       }
     },
     rssFeedClosed(data) {
       if (data.entityId === this.serverLibraryItemId) {
         console.log('RSS Feed Closed', data)
-        this.rssFeed = null
+        this.$set(this.libraryItem, 'rssFeed', null)
       }
     },
     async setLibrary() {

@@ -53,7 +53,7 @@
     android:layout_height="match_parent"
     android:layout_weight="91"
     android:scaleType="centerCrop"
-    android:src="@drawable/icon" />
+    android:src="@drawable/nh_logo" />
 
   <!-- Gap: weight 4, matching the cover's own measured margin — a real
        spacer rather than a margin, so it scales with the row too. Uses an

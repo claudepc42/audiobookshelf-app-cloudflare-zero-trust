@@ -41,9 +41,6 @@ export default {
     mediaType() {
       return this.libraryItem ? this.libraryItem.mediaType : null
     },
-    isPodcast() {
-      return this.mediaType === 'podcast'
-    },
     title() {
       return this.episode?.title || 'No Title'
     },

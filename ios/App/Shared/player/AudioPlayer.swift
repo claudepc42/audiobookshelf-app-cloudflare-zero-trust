@@ -51,6 +51,7 @@ class AudioPlayer: NSObject {
     internal var sleepTimeChapterToken: Any?
     internal var sleepTimer: Timer?
     internal var sleepTimeRemaining: Double?
+    internal var fadeOutTimer: Timer?
     
     internal var currentTrackIndex = 0
     private var allPlayerItems:[AVPlayerItem] = []
@@ -139,7 +140,11 @@ class AudioPlayer: NSObject {
         // Pause is not synchronous causing this error on below lines:
         // AVAudioSession_iOS.mm:1206  Deactivating an audio session that has running I/O. All I/O should be stopped or paused prior to deactivating the audio session
         // It is related to L79 `AVAudioSession.sharedInstance().setActive(false)`
-        self.pause()
+        // Uses pauseAudioOnly(), not the full pause(): the sole caller of destroy(),
+        // PlayerHandler.resetPlayer(firing:), already performs its own sync + history
+        // event using a frozen pre-destroy snapshot, so a second full pause() here would
+        // only fire a redundant, wasted sync.
+        self.pauseAudioOnly()
         self.audioPlayer.replaceCurrentItem(with: nil)
         
         do {
@@ -212,10 +217,18 @@ class AudioPlayer: NSObject {
                 
                 guard let currentTime = self.getCurrentTime() else { return }
                 let isPlaying = self.isPlaying()
-                
+
                 Task {
                     // Let the player update the current playback positions
-                    await PlayerProgress.shared.syncFromPlayer(currentTime: currentTime, includesPlayProgress: isPlaying, isStopping: false)
+                    let syncResult = await PlayerProgress.shared.syncFromPlayer(currentTime: currentTime, includesPlayProgress: isPlaying, isStopping: false)
+
+                    // Matches MediaProgressSyncer.kt's listening-timer tick, which fires a
+                    // "Save" history event on every 15s sync while actually playing (this
+                    // periodic time observer only fires while the timeline is advancing, i.e.
+                    // during playback, so no extra isPlaying guard is needed here).
+                    if let session = self.getPlaybackSession() {
+                        MediaEventManager.saveEvent(session, syncResult: syncResult)
+                    }
                 }
             }
             // Update the sleep timer every second
@@ -300,6 +313,21 @@ class AudioPlayer: NSObject {
         } else if (playerItem.status == .failed) {
             AbsLogger.error(message:"queueStatusObserver: FAILED \(playerItem.error?.localizedDescription ?? "")")
             NotificationCenter.default.post(name: NSNotification.Name(PlayerEvents.failed.rawValue), object: nil)
+
+            // Mirrors PlayerListener.kt's onPlayerError: probe for a stale CF session on any
+            // playback failure — a CF challenge redirect during a media request surfaces here
+            // as a generic AVPlayerItem failure, not a distinguishable error code, so this is
+            // the same "probe first, only notify if confirmed" approach Android uses rather
+            // than assuming every playback failure is CF-related.
+            let address = Store.effectiveAddress
+            if !address.isEmpty {
+                DispatchQueue.global(qos: .background).async {
+                    if AbsCfZeroTrust.doProbeCfChallenge(serverAddress: address) {
+                        AbsLogger.info(message: "AudioPlayer: CF session expired — notifying JS")
+                        AbsCfZeroTrust.notifyCfSessionExpired()
+                    }
+                }
+            }
         }
     }
     
@@ -313,7 +341,11 @@ class AudioPlayer: NSObject {
         
         // Determine where we are starting playback
         let currentTime = allowSeekBack ? PlayerTimeUtils.calcSeekBackTime(currentTime: session.currentTime, lastPlayedMs: session.updatedAt) : session.currentTime
-        
+
+        // Matches MediaProgressSyncer.kt's play(): fires unconditionally on every call,
+        // including the very first play of a new session.
+        MediaEventManager.playEvent(session)
+
         // Sync our new playback position
         Task { await PlayerProgress.shared.syncFromPlayer(currentTime: currentTime, includesPlayProgress: self.isPlaying(), isStopping: false) }
 
@@ -346,31 +378,64 @@ class AudioPlayer: NSObject {
         self.handleTrackChangeForChapterSleepTimer()
     }
     
-    public func pause() {
+    /// Physically pauses playback (AVPlayer, audio session, status, Now Playing info)
+    /// without the sync-and-record-a-history-event flow pause() also does. Used by
+    /// PlayerHandler.stopPlayback(), which needs audio to stop immediately but performs
+    /// its own sync + Stop event separately — see stopPlayback()'s comment for why.
+    func pauseAudioOnly() {
         guard self.isInitialized() else { return }
-        
-        AbsLogger.info(message:"PAUSE: Pausing playback")
         DispatchQueue.runOnMainQueue {
             self.audioPlayer.pause()
         }
         self.markAudioSessionAs(active: false)
-        
-        Task {
-            if let currentTime = self.getCurrentTime() {
-                await PlayerProgress.shared.syncFromPlayer(currentTime: currentTime, includesPlayProgress: self.isPlaying(), isStopping: true)
-            }
-        }
-        
-        
         self.status = .paused
         updateNowPlaying()
     }
 
+    public func pause() {
+        guard self.isInitialized() else { return }
+
+        // Captured before self.status is mutated below — reading self.isPlaying() from
+        // inside the Task instead would race against the synchronous `status = .paused`
+        // a few lines down (the Task may resume after it), silently undercounting the
+        // final seconds of listening time on every pause.
+        let wasPlaying = self.isPlaying()
+
+        AbsLogger.info(message:"PAUSE: Pausing playback")
+        self.pauseAudioOnly()
+
+        // Matches MediaProgressSyncer.kt's pause(): syncs first, then fires "Pause" carrying
+        // whatever sync result came back — a session with currentTime <= 0 (nothing to sync)
+        // still fires the event, just with a nil syncResult, same as Android's else-branch.
+        // The session is frozen and captured before the Task, not re-fetched by ID inside it
+        // after the await: Realm objects are thread-confined so it can't cross unfrozen, AND
+        // PlayerProgress.syncFromPlayer's own "delete session after a successful sync of a
+        // no-longer-active session" cleanup can remove the live row before this continuation
+        // resumes — re-fetching by ID at that point would silently find nothing and drop the
+        // event. A frozen snapshot stays valid regardless. Only the history-event write is
+        // gated on wasPlaying, since destroy() unconditionally calls pauseAudioOnly() to stop
+        // I/O before deactivating the audio session even if already paused, and that redundant
+        // call shouldn't append a duplicate "Pause" row to Session History.
+        let session = self.getPlaybackSession()?.freeze()
+        Task {
+            var syncResult: MediaSyncResult? = nil
+            if let currentTime = self.getCurrentTime() {
+                syncResult = await PlayerProgress.shared.syncFromPlayer(currentTime: currentTime, includesPlayProgress: wasPlaying, isStopping: true)
+            }
+            if wasPlaying, let session = session {
+                MediaEventManager.pauseEvent(session, syncResult: syncResult)
+            }
+        }
+    }
+
     public func startFadeOut() {
         guard self.isInitialized() else { return }
+        // Already fading — avoid stacking a second overlapping fade timer if
+        // decrementSleepTimerIfRunning's <= 60 check fires again on a later tick.
+        guard self.fadeOutTimer == nil else { return }
         guard let currentTime = self.getCurrentTime() else { return }
         AbsLogger.info(message:"fadeOut: Fading out playback")
-        
+
         // Define fade parameters.
         let fadeDuration: Float = 60.0  // total fade duration in seconds
         let interval: Float = 1.0      // timer interval in seconds
@@ -389,17 +454,19 @@ class AudioPlayer: NSObject {
         // (targetVolume - initialVolume) is negative since target < initial.
         let step = (targetVolume - initialVolume) * interval / fadeDuration
         
-        // Schedule a timer on the main queue to adjust the volume.
+        // Schedule a timer on the main queue to adjust the volume. Stored on self.fadeOutTimer
+        // so removeSleepTimer() (cancel / extend / shorten the sleep timer) can invalidate it —
+        // previously this was a local variable with no way to cancel it once started.
         DispatchQueue.runOnMainQueue { [weak self] in
-            var timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(interval), repeats: true) { t in
+            self?.fadeOutTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(interval), repeats: true) { t in
                 guard let self = self else {
                     t.invalidate()
                     return
                 }
-                
+
                 // Calculate the new volume.
                 let newVolume = self.audioPlayer.volume + step
-                
+
                 // Check if the next step would go below zero.
                 if newVolume > targetVolume {
                     self.audioPlayer.volume = newVolume
@@ -407,6 +474,7 @@ class AudioPlayer: NSObject {
                     // Ensure volume is exactly zero and end fade.
                     self.audioPlayer.volume = targetVolume
                     t.invalidate()
+                    self.fadeOutTimer = nil
                     AbsLogger.info(message:"Fadeout: Fade complete, pausing playback")
                     self.pause()
                     self.audioPlayer.volume = initialVolume
@@ -420,6 +488,14 @@ class AudioPlayer: NSObject {
         AbsLogger.info(message:"SEEK: Seek to \(to) from \(from)")
 
         guard let playbackSession = self.getPlaybackSession() else { return }
+
+        // Matches MediaProgressSyncer.kt's seekEvent, fired from PlayerListener.kt's
+        // onPositionDiscontinuity(DISCONTINUITY_REASON_SEEK) — a real seek the user or a
+        // remote command asked for, not an internal position-alignment seek this class does
+        // on its own (e.g. queueItemStatusObserver's pre-play seek, or fadeOut's rewind).
+        if from == "handler" || from == "remote" {
+            MediaEventManager.seekEvent(playbackSession)
+        }
 
         let indexOfSeek = getItemIndexForTime(time: to)
         AbsLogger.info(message:"SEEK: Seek to index \(indexOfSeek) | Current index \(self.currentTrackIndex)")
@@ -555,35 +631,70 @@ class AudioPlayer: NSObject {
     }
 
     // MARK: - Private
+
+    // Mirrors HostFilteredHttpDataSource.kt's serverHost check: only inject customHeaders
+    // (CF cookies, service tokens) when the request host actually matches the server's
+    // PRIMARY (CF-fronted) address host. A LAN address bypasses Cloudflare entirely — there's
+    // no CF in that path — so cookies aren't needed there either, matching Android's own
+    // serverHost derivation from config.address (not the LAN-resolved effective address).
+    // KNOWN GAP vs Android: this only gates the *initial* manifest/file request. Android's
+    // HostFilteredHttpDataSource re-checks the host on every individual request the player
+    // makes, including HLS segment requests that can point to a different host (e.g. an
+    // external CDN). AVFoundation has no equivalent per-request hook without a custom
+    // AVAssetResourceLoaderDelegate, which is NOT implemented here — if an HLS manifest ever
+    // references segments on a different host than the manifest itself, those segment
+    // requests would still receive these headers via AVFoundation's default propagation
+    // behavior. Flagged for on-device verification / follow-up.
+    private func requestHostMatchesServer(_ urlString: String) -> Bool {
+        guard let requestHost = URL(string: urlString)?.host,
+              let serverHost = URL(string: Store.serverConfig?.address ?? "")?.host,
+              !serverHost.isEmpty else {
+            return false
+        }
+        return requestHost == serverHost || requestHost.hasSuffix(".\(serverHost)")
+    }
+
     private func createAsset(itemId:String, track:AudioTrack, ino:String) -> AVAsset? {
         guard let playbackSession = self.getPlaybackSession() else { return nil }
-        
+        // Sessions freeze the effective (LAN-or-primary) address at creation time,
+        // same as Android's PlaybackSession.serverAddress — mirrors DeviceManager.serverAddress.
+        let address = playbackSession.serverAddress ?? Store.effectiveAddress
+
         if (playbackSession.playMethod == PlayMethod.directplay.rawValue) {
             // As of v2.22.0 tracks use a different endpoint
             // See: https://github.com/advplyr/audiobookshelf/pull/4263
             let contentUrl: String
             if Store.isServerVersionGreaterThanOrEqualTo("2.22.0") {
-                contentUrl = "\(Store.serverConfig!.address)/public/session/\(playbackSession.id)/track/\(track.index ?? 1)"
+                contentUrl = "\(address)/public/session/\(playbackSession.id)/track/\(track.index ?? 1)"
             } else {
-                contentUrl = "\(Store.serverConfig!.address)/api/items/\(itemId)/file/\(ino)?token=\(Store.serverConfig!.token)"
+                contentUrl = "\(address)/api/items/\(itemId)/file/\(ino)?token=\(Store.serverConfig!.token)"
             }
             let url = URL(string: contentUrl)!
+            // When CF cookies are active use header-based auth so CF sees the Cookie header —
+            // but only when this request is actually going to the CF-fronted server host.
+            if let customHeaders = Store.customHeaders, !customHeaders.isEmpty, requestHostMatchesServer(contentUrl) {
+                var headers: [String: String] = ["Authorization": "Bearer \(Store.serverConfig!.token)"]
+                for (key, value) in customHeaders { headers[key] = value }
+                return AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+            }
             return AVURLAsset(url: url)
         } else if (playbackSession.playMethod == PlayMethod.local.rawValue) {
             guard let localFile = track.getLocalFile() else {
                 // Worst case we can stream the file
                 AbsLogger.info(message:"Unable to play local file. Resulting to streaming \(track.localFileId ?? "Unknown")")
-                let urlstr = "\(Store.serverConfig!.address)/api/items/\(itemId)/file/\(ino)?token=\(Store.serverConfig!.token)"
+                let urlstr = "\(address)/api/items/\(itemId)/file/\(ino)?token=\(Store.serverConfig!.token)"
                 let url = URL(string: urlstr)!
                 return AVURLAsset(url: url)
             }
             return AVURLAsset(url: localFile.contentPath)
         } else { // HLS Transcode
-            let headers: [String: String] = [
+            var headers: [String: String] = [
                 "Authorization": "Bearer \(Store.serverConfig!.token)"
             ]
-            
-            let contentUrl = "\(Store.serverConfig!.address)\(track.contentUrl ?? "")"
+            let contentUrl = "\(address)\(track.contentUrl ?? "")"
+            if let customHeaders = Store.customHeaders, requestHostMatchesServer(contentUrl) {
+                for (key, value) in customHeaders { headers[key] = value }
+            }
             return AVURLAsset(url: URL(string: contentUrl)!, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
         }
     }

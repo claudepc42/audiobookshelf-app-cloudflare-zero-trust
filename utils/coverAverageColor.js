@@ -6,7 +6,7 @@ import { imageHttpDataToBlob } from '@/utils/imageHttpBlob'
  * True when the cover URL is http(s) and not same-origin with the WebView (or browser tab).
  * Same-origin URLs (e.g. Capacitor file bridge on localhost) can use FastAverageColor directly.
  */
-export function shouldFetchCoverViaNativeHttp(coverUrl) {
+function shouldFetchCoverViaNativeHttp(coverUrl) {
   if (!coverUrl || typeof coverUrl !== 'string') return false
   if (!coverUrl.startsWith('http://') && !coverUrl.startsWith('https://')) return false
   try {

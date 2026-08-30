@@ -202,9 +202,7 @@ class AbsAudioPlayerWeb extends WebPlugin {
   evtPause() {
     this.notifyListeners('onPlayingUpdate', { value: false })
   }
-  evtProgress() {
-    // var lastBufferTime = this.getLastBufferedTime()
-  }
+  evtProgress() {}
   evtEnded() {
     if (this.currentTrackIndex < this.audioTracks.length - 1) {
       // Has next track

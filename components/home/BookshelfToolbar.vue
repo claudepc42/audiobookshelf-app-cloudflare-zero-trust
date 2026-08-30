@@ -61,9 +61,6 @@ export default {
     seriesBookPage() {
       return this.$route.name == 'bookshelf-series-id'
     },
-    routeQuery() {
-      return this.$route.query || {}
-    },
     entityTitle() {
       if (this.page === 'library') {
         return this.isPodcast ? this.$strings.LabelPodcasts : this.$strings.LabelBooks

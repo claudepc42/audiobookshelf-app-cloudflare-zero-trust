@@ -17,21 +17,14 @@ export default {
     },
     width: Number,
     height: Number,
-    groupTo: String,
     bookCoverAspectRatio: Number
   },
   data() {
     return {
       noValidCovers: false,
       coverDiv: null,
-      isHovering: false,
       coverWrapperEl: null,
       coverImageEls: [],
-      coverWidth: 0,
-      offsetIncrement: 0,
-      isFannedOut: false,
-      isDetached: false,
-      isAttaching: false,
       isInit: false
     }
   },
@@ -54,9 +47,6 @@ export default {
     store() {
       return this.$store || this.$nuxt.$store
     },
-    router() {
-      return this.$router || this.$nuxt.$router
-    }
   },
   methods: {
     getCoverUrl(book) {
@@ -166,9 +156,6 @@ export default {
         coverWidth = this.height / this.bookCoverAspectRatio
         widthPer = (this.width - coverWidth) / (validCovers.length - 1)
       }
-      this.coverWidth = coverWidth
-      this.offsetIncrement = widthPer
-
       var outerdiv = document.createElement('div')
       outerdiv.id = `group-cover-${this.id}`
       this.coverWrapperEl = outerdiv

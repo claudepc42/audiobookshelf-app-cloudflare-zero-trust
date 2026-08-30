@@ -51,6 +51,17 @@ export default {
     coverSrc(book) {
       return this.$store.getters['globals/getLibraryItemCoverSrc'](book) || ''
     },
+    mapResults(results) {
+      return results.map((s) => {
+        const books = s.books || []
+        return {
+          id: s.id,
+          name: s.name,
+          count: books.length,
+          covers: books.slice(0, 3).map((b) => this.coverSrc(b))
+        }
+      })
+    },
     async fetchSeries() {
       const libId = this.currentLibraryId
       if (!libId) {
@@ -62,28 +73,25 @@ export default {
 
       const res = await this.$nativeHttp.get(`/api/libraries/${libId}/series?sort=addedAt&desc=1&limit=${this.recentSeriesCount}&page=0`).catch(() => null)
       if (!res || !res.results) {
-        // Don't set lastKey on failure — leaves the guard open so the next
-        // mount/navigation/settings change can retry instead of silently
-        // leaving the shelf empty until libId or recentSeriesCount changes.
-        this.series = []
+        // Fetch failed — leave lastKey unset so the next navigation/settings
+        // change retries, and keep whatever is already showing (cache or prior
+        // fetch) rather than blanking the shelf.
         return
       }
       this.lastKey = key
-      this.series = res.results.map((s) => {
-        const books = s.books || []
-        return {
-          id: s.id,
-          name: s.name,
-          count: books.length,
-          covers: books.slice(0, 3).map((b) => this.coverSrc(b))
-        }
-      })
+      this.series = this.mapResults(res.results)
+      this.$localStore.setNhRecentSeriesCache(libId, this.series)
     },
     openSeries(s) {
       this.$router.push(`/bookshelf/series/${s.id}`)
     }
   },
-  mounted() {
+  async mounted() {
+    const libId = this.currentLibraryId
+    if (libId) {
+      const cached = await this.$localStore.getNhRecentSeriesCache(libId)
+      if (cached && cached.length) this.series = cached
+    }
     this.fetchSeries()
   }
 }

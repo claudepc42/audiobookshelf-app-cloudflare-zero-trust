@@ -92,14 +92,6 @@ export default {
     daySpacing() {
       return this.chartContentWidth / 7
     },
-    linePositions() {
-      var poses = []
-      for (let i = 7; i > 0; i--) {
-        poses.push(i * this.lineSpacing)
-      }
-      poses.push(0)
-      return poses
-    },
     last7Days() {
       var days = []
       for (let i = 6; i >= 0; i--) {

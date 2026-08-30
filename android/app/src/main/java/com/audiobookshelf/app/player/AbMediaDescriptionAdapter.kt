@@ -20,6 +20,10 @@ class AbMediaDescriptionAdapter (private val controller: MediaControllerCompat, 
   private var currentIconUri: Uri? = null
   private var currentBitmap: Bitmap? = null
 
+  // Local-cover blur cache — avoids re-blurring on every notification refresh
+  private var currentLocalSourceBitmap: Bitmap? = null
+  private var currentLocalBlurredBitmap: Bitmap? = null
+
   private val serviceJob = SupervisorJob()
   private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
 
@@ -39,7 +43,11 @@ class AbMediaDescriptionAdapter (private val controller: MediaControllerCompat, 
 
     // For local cover images, bitmap is set in PlayerNotificationService TimelineQueueNavigator.getMediaDescription
     if (albumBitmap != null) {
-      return albumBitmap
+      if (albumBitmap !== currentLocalSourceBitmap) {
+        currentLocalSourceBitmap = albumBitmap
+        currentLocalBlurredBitmap = blurBitmap(albumBitmap)
+      }
+      return currentLocalBlurredBitmap
     }
 
     return if (currentIconUri != albumArtUri || currentBitmap == null) {
@@ -73,13 +81,14 @@ class AbMediaDescriptionAdapter (private val controller: MediaControllerCompat, 
   private suspend fun resolveUriAsBitmap(uri: Uri): Bitmap? {
     return withContext(Dispatchers.IO) {
       try {
-        Glide.with(playerNotificationService)
+        val cover = Glide.with(playerNotificationService)
           .asBitmap()
           .load(uri)
           .placeholder(R.drawable.icon)
           .error(R.drawable.icon)
           .submit()
           .get()
+        blurBitmap(cover)
       } catch (e: Exception) {
         e.printStackTrace()
 
@@ -90,5 +99,15 @@ class AbMediaDescriptionAdapter (private val controller: MediaControllerCompat, 
           .get()
       }
     }
+  }
+
+  private fun blurBitmap(src: Bitmap): Bitmap {
+    val scaleFactor = 8
+    val w = maxOf(1, src.width / scaleFactor)
+    val h = maxOf(1, src.height / scaleFactor)
+    val small = Bitmap.createScaledBitmap(src, w, h, true)
+    val blurred = Bitmap.createScaledBitmap(small, src.width, src.height, true)
+    small.recycle()
+    return blurred
   }
 }

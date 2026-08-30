@@ -37,9 +37,7 @@ export default {
   },
   data() {
     return {
-      collection: null,
-      isSelectionMode: false,
-      selected: false
+      collection: null
     }
   },
   computed: {
@@ -59,9 +57,6 @@ export default {
     },
     store() {
       return this.$store || this.$nuxt.$store
-    },
-    currentLibraryId() {
-      return this.store.state.libraries.currentLibraryId
     },
     nhThemeActive() {
       return this.store.state.nhThemeActive
@@ -100,9 +95,7 @@ export default {
           this.store.commit('setNhCollectionArt', {})
         })
     },
-    setSelectionMode(val) {
-      this.isSelectionMode = val
-    },
+    setSelectionMode(val) {},
     clickCard() {
       if (!this.collection) return
       var router = this.$router || this.$nuxt.$router

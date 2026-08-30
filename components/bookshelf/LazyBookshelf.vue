@@ -76,9 +76,6 @@ export default {
     showBookshelfListView() {
       return this.isBookEntity && this.bookshelfListView
     },
-    sortingIgnorePrefix() {
-      return this.$store.getters['getServerSetting']('sortingIgnorePrefix')
-    },
     entityName() {
       return this.page
     },
@@ -293,20 +290,6 @@ export default {
         }
       }
     },
-    setDownloads() {
-      if (this.entityName === 'books') {
-        this.entities = []
-        // TOOD: Sort and filter here
-        this.totalEntities = this.entities.length
-        this.totalShelves = Math.ceil(this.totalEntities / this.entitiesPerShelf)
-      } else {
-        // TODO: Support offline series and collections
-        this.entities = []
-        this.totalEntities = 0
-        this.totalShelves = 0
-      }
-      this.$eventBus.$emit('bookshelf-total-entities', this.totalEntities)
-    },
     async resetEntities() {
       if (this.isFetchingEntities) {
         this.pendingReset = true
@@ -330,18 +313,6 @@ export default {
       } else {
         // Local only
       }
-    },
-    remountEntities() {
-      // Remount when an entity is removed
-      for (const key in this.entityComponentRefs) {
-        if (this.entityComponentRefs[key]) {
-          this.entityComponentRefs[key].destroy()
-        }
-      }
-      this.entityComponentRefs = {}
-      this.entityIndexesMounted.forEach((i) => {
-        this.cardsHelpers.mountEntityCard(i)
-      })
     },
     initSizeData() {
       var bookshelf = document.getElementById('bookshelf')

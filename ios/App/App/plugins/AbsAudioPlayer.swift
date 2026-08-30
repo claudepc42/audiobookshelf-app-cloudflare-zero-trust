@@ -47,6 +47,7 @@ public class AbsAudioPlayer: CAPPlugin, CAPBridgedPlugin {
         NotificationCenter.default.addObserver(self, selector: #selector(sendSleepTimerEnded), name: NSNotification.Name(PlayerEvents.sleepEnded.rawValue), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(onPlaybackFailed), name: NSNotification.Name(PlayerEvents.failed.rawValue), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(onLocalMediaProgressUpdate), name: NSNotification.Name(PlayerEvents.localProgress.rawValue), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(onMediaItemHistoryUpdated(_:)), name: NSNotification.Name(PlayerEvents.mediaItemHistoryUpdated.rawValue), object: nil)
 
         self.bridge?.webView?.allowsBackForwardNavigationGestures = true;
         self.bridge?.webView?.scrollView.alwaysBounceVertical = false;
@@ -265,6 +266,13 @@ public class AbsAudioPlayer: CAPPlugin, CAPBridgedPlugin {
         guard let progressUpdate = try? localMediaProgress.asDictionary() else { return }
         AbsLogger.info(message: "Sending local progress back to the UI")
         self.notifyListeners("onLocalMediaProgressUpdate", data: progressUpdate)
+    }
+
+    @objc func onMediaItemHistoryUpdated(_ notification: Notification) {
+        guard let mediaItemId = notification.object as? String else { return }
+        guard let history = Database.shared.getMediaItemHistory(id: mediaItemId) else { return }
+        guard let dict = try? history.asDictionary() else { return }
+        self.notifyListeners("onMediaItemHistoryUpdated", data: dict)
     }
 
     @objc func onPlaybackFailed() {

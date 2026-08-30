@@ -32,6 +32,8 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
     public var jsName = "AbsDatabase"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "setCurrentServerConnectionConfig", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "resolveEndpoint", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getEffectiveAddress", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "removeServerConnectionConfig", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getRefreshToken", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clearRefreshToken", returnType: CAPPluginReturnPromise),
@@ -47,7 +49,9 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "syncLocalSessionsWithServer", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateLocalMediaProgressFinished", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateDeviceSettings", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "updateLocalEbookProgress", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "updateLocalEbookProgress", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getMediaItemHistory", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getLocalMediaProgressForServerItem", returnType: CAPPluginReturnPromise)
     ]
 
     private let secureStorage = SecureStorage()
@@ -69,18 +73,26 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
         let username = call.getString("username", "")
         let token = call.getString("token", "")
         let refreshToken = call.getString("refreshToken", "") // Refresh only sent after login or refresh
+        let customHeaders = call.getObject("customHeaders") as? [String: String]
+        let localAddress = call.getString("localAddress")
 
         let name = "\(address) (\(username))"
-        
+
         if id == nil {
             id = "\(address)@\(username)".toBase64()
         }
-        
+
         if (refreshToken != "") {
-            // Store refresh token securely if provided
             let hasRefreshToken = secureStorage.storeRefreshToken(serverConnectionConfigId: id ?? "", refreshToken: refreshToken)
             AbsLogger.info(message: "Refresh token secured = \(hasRefreshToken)")
         }
+
+        if let customHeaders = customHeaders, !customHeaders.isEmpty {
+            _ = secureStorage.storeCustomHeaders(serverConnectionConfigId: id ?? "", headers: customHeaders)
+        } else {
+            _ = secureStorage.removeCustomHeaders(serverConnectionConfigId: id ?? "")
+        }
+        Store.customHeaders = customHeaders?.isEmpty == false ? customHeaders : nil
 
         let config = ServerConnectionConfig()
         config.id = id ?? ""
@@ -91,18 +103,47 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
         config.userId = userId
         config.username = username
         config.token = token
+        config.localAddress = localAddress
 
         Store.serverConfig = config
-        let savedConfig = Store.serverConfig // Fetch the latest value
-        call.resolve(convertServerConnectionConfigToJSON(config: savedConfig!))
+        let savedConfig = Store.serverConfig
+        // Re-fetch Store.serverConfig inside the async closure rather than passing savedConfig
+        // across the thread boundary — it's a live Realm object created on this (calling)
+        // thread, and EndpointResolver.resolve reads its properties, which is a thread-
+        // confinement violation Realm crashes on. Matches resolveEndpoint's pattern below.
+        DispatchQueue.global(qos: .utility).async {
+            EndpointResolver.shared.resolve(config: Store.serverConfig)
+        }
+        call.resolve(convertServerConnectionConfigToJSON(config: savedConfig!, customHeaders: Store.customHeaders))
     }
-    
+
+    @objc func resolveEndpoint(_ call: CAPPluginCall) {
+        DispatchQueue.global(qos: .utility).async {
+            EndpointResolver.shared.resolve(config: Store.serverConfig)
+            call.resolve()
+        }
+    }
+
+    @objc func getEffectiveAddress(_ call: CAPPluginCall) {
+        call.resolve(["address": Store.effectiveAddress])
+    }
+
     @objc func removeServerConnectionConfig(_ call: CAPPluginCall) {
         let id = call.getString("serverConnectionConfigId", "")
-        
-        // Remove refresh token if it exists
+
+        // Remove refresh token and custom headers if they exist
         _ = secureStorage.removeRefreshToken(serverConnectionConfigId: id)
-        
+        _ = secureStorage.removeCustomHeaders(serverConnectionConfigId: id)
+
+        // Matches Android's explicit DeviceManager.serverConnectionConfig = null when the
+        // removed config is the active one — deleting the Realm object alone makes
+        // Store.serverConfig's getter correctly resolve to nil, but Store.customHeaders is a
+        // plain in-memory cache with no automatic tie to the Realm object, so it needs
+        // clearing here explicitly.
+        if Store.serverConfig?.id == id {
+            Store.customHeaders = nil
+        }
+
         Database.shared.deleteServerConnectionConfig(id: id)
         call.resolve()
     }
@@ -127,6 +168,7 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
 
     @objc func logout(_ call: CAPPluginCall) {
         Store.serverConfig = nil
+        Store.customHeaders = nil
         call.resolve()
     }
 
@@ -134,10 +176,19 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
         let configs = Database.shared.getServerConnectionConfigs()
         let index = Database.shared.getLastActiveConfigIndex()
         let settings = Database.shared.getDeviceSettings()
+        let activeId = configs.first { $0.index == index }?.id
+
+        // Rehydrate customHeaders from Keychain for the active config and cache in Store
+        if let activeId = activeId {
+            Store.customHeaders = secureStorage.getCustomHeaders(serverConnectionConfigId: activeId)
+        }
 
         call.resolve([
-            "serverConnectionConfigs": configs.map { config in convertServerConnectionConfigToJSON(config: config) },
-            "lastServerConnectionConfigId": configs.first { config in config.index == index }?.id as Any,
+            "serverConnectionConfigs": configs.map { config in
+                let headers = config.id == activeId ? Store.customHeaders : nil
+                return convertServerConnectionConfigToJSON(config: config, customHeaders: headers)
+            },
+            "lastServerConnectionConfigId": activeId as Any,
             "deviceSettings": deviceSettingsToJSON(settings: settings)
         ])
     }
@@ -356,6 +407,34 @@ public class AbsDatabase: CAPPlugin, CAPBridgedPlugin {
             debugPrint(error)
             call.resolve(["error": "Failed to update ebook progress"])
             return
+        }
+    }
+
+    @objc func getLocalMediaProgressForServerItem(_ call: CAPPluginCall) {
+        let libraryItemId = call.getString("libraryItemId", "")
+        let episodeIdRaw = call.getString("episodeId", "")
+        let episodeId: String? = episodeIdRaw.isEmpty ? nil : episodeIdRaw
+
+        let match = Database.shared.getAllLocalMediaProgress().first { progress in
+            progress.libraryItemId == libraryItemId && (episodeId == nil || progress.episodeId == episodeId)
+        }
+        guard let match = match, let dict = try? match.asDictionary() else {
+            call.resolve()
+            return
+        }
+        call.resolve(dict)
+    }
+
+    @objc func getMediaItemHistory(_ call: CAPPluginCall) {
+        let mediaId = call.getString("mediaId") ?? ""
+        guard let history = Database.shared.getMediaItemHistory(id: mediaId) else {
+            call.resolve()
+            return
+        }
+        if let dict = try? history.asDictionary() {
+            call.resolve(dict)
+        } else {
+            call.resolve()
         }
     }
 }

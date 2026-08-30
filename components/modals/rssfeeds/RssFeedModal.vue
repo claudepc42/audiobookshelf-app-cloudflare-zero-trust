@@ -1,7 +1,6 @@
 <template>
   <modals-fullscreen-modal v-model="show" :processing="processing">
     <div class="flex items-end justify-end h-24 pr-4 pb-2">
-      <!-- <h1 class="text-lg">RSS Feed</h1> -->
       <button class="flex" @click="show = false">
         <span class="material-symbols">close</span>
       </button>
@@ -109,9 +108,6 @@ export default {
     },
     hasEpisodesWithoutPubDate() {
       return !!this.rssFeedEntity.hasEpisodesWithoutPubDate
-    },
-    title() {
-      return this.rssFeedEntity.name
     },
     userIsAdminOrUp() {
       return this.$store.getters['user/getIsAdminOrUp']

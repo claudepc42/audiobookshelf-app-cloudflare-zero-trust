@@ -28,7 +28,6 @@ export default {
   data() {
     return {
       playlist: null,
-      isSelectionMode: false
     }
   },
   computed: {
@@ -49,17 +48,12 @@ export default {
     store() {
       return this.$store || this.$nuxt.$store
     },
-    currentLibraryId() {
-      return this.store.state.libraries.currentLibraryId
-    }
   },
   methods: {
     setEntity(playlist) {
       this.playlist = playlist
     },
-    setSelectionMode(val) {
-      this.isSelectionMode = val
-    },
+    setSelectionMode(val) {},
     clickCard() {
       if (!this.playlist) return
       var router = this.$router || this.$nuxt.$router

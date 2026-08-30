@@ -13,7 +13,7 @@
        bottom of the screen, make room" — so it works regardless of whether
        the platform ever tells the page anything about the keyboard. -->
   <div :class="showForm ? ['self-start', inputFocused ? 'mt-4' : 'mt-36'] : ''" class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
-    <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
+    <div class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
         <div v-for="config in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
@@ -54,13 +54,13 @@
           <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" @focus="inputFocused = true" @blur="inputFocused = false" />
           <h2 class="text-sm leading-7 mt-3 mb-1 text-fg-muted">LAN address (optional)</h2>
           <ui-text-input v-model="serverConfig.localAddress" :disabled="processing || !networkConnected" placeholder="http://192.168.1.x:13378" type="url" class="w-full h-10" @focus="inputFocused = true" @blur="inputFocused = false" />
-          <p v-if="$platform === 'android'" class="text-xs text-fg-muted mt-1">Used automatically when your device is on your home network.</p>
+          <p v-if="$platform === 'android' || $platform === 'ios'" class="text-xs text-fg-muted mt-1">Used automatically when your device is on your home network.</p>
           <div class="flex justify-end items-center mt-6">
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
           <div class="flex justify-center mt-3 space-x-4">
             <a class="text-fg-muted text-sm cursor-pointer rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="addCustomHeaders">Add Custom Headers</a>
-            <a v-if="$platform === 'android'" class="text-fg-muted text-sm cursor-pointer rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="openCfSsoLogin">Login with Cloudflare</a>
+            <a v-if="$platform === 'android' || $platform === 'ios'" class="text-fg-muted text-sm cursor-pointer rounded-lg" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25)" @click="openCfSsoLogin">Login with Cloudflare</a>
           </div>
         </form>
         <!-- username/password and auth methods -->
@@ -117,13 +117,9 @@ import { CapacitorHttp } from '@capacitor/core'
 import { Dialog } from '@capacitor/dialog'
 import { AbsCfZeroTrust } from '../../plugins/capacitor/AbsCfZeroTrust'
 
-// TODO: when backend ready. See validateLoginFormResponse()
-//const requiredServerVersion = '2.5.0'
-
 export default {
   data() {
     return {
-      loggedIn: false,
       showAuth: false,
       processing: false,
       // See the template comment above the top-level div for why this drives
@@ -544,7 +540,7 @@ export default {
       // If this server previously used CF SSO, probe the session before doing anything else.
       // checkAndHandleCfZeroTrust returns: undefined (session still valid or no CF), a cookie
       // string (fresh cookies from WebView), or null (user cancelled / error).
-      if (this.$platform === 'android' && config.isSsoAuth) {
+      if ((this.$platform === 'android' || this.$platform === 'ios') && config.isSsoAuth) {
         const cfCookies = await this.checkAndHandleCfZeroTrust(config.address)
         if (cfCookies === null) {
           this.processing = false
@@ -788,7 +784,7 @@ export default {
       this.authMethods = []
 
       // CF Zero Trust detection: probe on every submit so stale sessions are caught early.
-      if (this.$platform === 'android') {
+      if (this.$platform === 'android' || this.$platform === 'ios') {
         const cfCookies = await this.checkAndHandleCfZeroTrust(this.serverConfig.address)
         if (cfCookies === null) {
           this.processing = false
@@ -868,15 +864,6 @@ export default {
         this.error = 'This does not seem to be a Audiobookshelf server'
         console.error('[ServerConnectForm] Received as response from Server:\n', statusData)
         return false
-        //    TODO: delete the if above and comment the ones below out, as soon as the backend is ready to introduce a version check
-        //    } else if (!('app' in statusData.data) || statusData.data.app.toLowerCase() !== 'audiobookshelf') {
-        //      this.error = 'This does not seem to be a Audiobookshelf server'
-        //      console.error('[ServerConnectForm] Received as response from Server:\n', statusData)
-        //      return false
-        //    } else if (!this.isValidVersion(statusData.data.serverVersion, requiredServerVersion)) {
-        //      this.error = `Server version is below minimum required version of ${requiredServerVersion} (${statusData.data.serverVersion})`
-        //      console.error('[ServerConnectForm] Server version is too low: ', statusData.data.serverVersion)
-        //      return false
       } else if (!statusData.data.isInit) {
         this.error = 'Server is not initialized'
         return false

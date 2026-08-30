@@ -201,9 +201,7 @@ export default {
       return this.$store.getters['libraries/getCurrentLibraryMediaType']
     }
   },
-  methods: {
-    isSelected(item) {}
-  },
+  methods: {},
   mounted() {}
 }
 </script>

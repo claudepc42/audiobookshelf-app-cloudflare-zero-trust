@@ -19,18 +19,21 @@ class PlayerProgress {
     
     // MARK: - SYNC HOOKS
     
-    public func syncFromPlayer(currentTime: Double, includesPlayProgress: Bool, isStopping: Bool) async {
+    @discardableResult
+    public func syncFromPlayer(currentTime: Double, includesPlayProgress: Bool, isStopping: Bool) async -> MediaSyncResult? {
         let backgroundToken = await UIApplication.shared.beginBackgroundTask(withName: "ABS:syncFromPlayer")
+        var syncResult: MediaSyncResult? = nil
         do {
             let session = try updateLocalSessionFromPlayer(currentTime: currentTime, includesPlayProgress: includesPlayProgress)
             try updateLocalMediaProgressFromLocalSession()
             if let session = session {
-                try await updateServerSessionFromLocalSession(session, rateLimitSync: !isStopping)
+                syncResult = try await updateServerSessionFromLocalSession(session, rateLimitSync: !isStopping)
             }
         } catch {
             AbsLogger.error(message: "Failed to syncFromPlayer \(error)", error: error)
         }
         await UIApplication.shared.endBackgroundTask(backgroundToken)
+        return syncResult
     }
     
     
@@ -84,30 +87,31 @@ class PlayerProgress {
             for session in try Realm(queue: nil).objects(PlaybackSession.self).where({ $0.serverConnectionConfigId == Store.serverConfig?.id }) {
                 let session = session.freeze()
                 group.addTask {
-                    try await self.updateServerSessionFromLocalSession(session)
+                    _ = try await self.updateServerSessionFromLocalSession(session)
                 }
             }
             try await group.waitForAll()
         }
     }
     
-    private func updateServerSessionFromLocalSession(_ session: PlaybackSession, rateLimitSync: Bool = false) async throws {
+    @discardableResult
+    private func updateServerSessionFromLocalSession(_ session: PlaybackSession, rateLimitSync: Bool = false) async throws -> MediaSyncResult {
         if ProcessInfo.processInfo.isLowPowerModeEnabled == true {
             PlayerProgress.TIME_BETWEEN_SESSION_SYNC_IN_SECONDS = 60.0
         } else {
             PlayerProgress.TIME_BETWEEN_SESSION_SYNC_IN_SECONDS = 15.0
         }
         var safeToSync = true
-        
-        guard var session = session.thaw() else { return }
-        
+
+        guard var session = session.thaw() else { return MediaSyncResult(serverSyncAttempted: false, serverSyncSuccess: nil, serverSyncMessage: nil) }
+
         // We need to update and check the server time in a transaction for thread-safety
         try session.update {
             session.realm?.refresh()
-            
+
             let nowInMilliseconds = Date().timeIntervalSince1970 * 1000
             let lastUpdateInMilliseconds = session.serverUpdatedAt
-            
+
             // If required, rate limit requests based on session last update
             if rateLimitSync {
                 let timeSinceLastSync = nowInMilliseconds - lastUpdateInMilliseconds
@@ -117,14 +121,14 @@ class PlayerProgress {
                     return // This only exits the update block
                 }
             }
-            
+
             session.serverUpdatedAt = nowInMilliseconds
         }
         session = session.freeze()
-        
-        guard safeToSync else { return }
+
+        guard safeToSync else { return MediaSyncResult(serverSyncAttempted: false, serverSyncSuccess: nil, serverSyncMessage: nil) }
         AbsLogger.info(message:"Sending sessionId(\(session.id)) to server with currentTime(\(session.currentTime))")
-        
+
         var success = false
         if session.isLocal {
             success = await ApiClient.reportLocalPlaybackProgress(session)
@@ -140,14 +144,16 @@ class PlayerProgress {
                 }
             }
         }
-        
-        
+
+
         // Remove old sessions after they synced with the server
         if success && !session.isActiveSession {
             if let session = session.thaw() {
                 try session.delete()
             }
         }
+
+        return MediaSyncResult(serverSyncAttempted: true, serverSyncSuccess: success, serverSyncMessage: success ? nil : "Failed to sync playback progress")
     }
     
     // TODO: Unused for now

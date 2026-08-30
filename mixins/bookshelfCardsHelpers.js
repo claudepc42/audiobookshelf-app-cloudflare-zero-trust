@@ -60,14 +60,7 @@ export default {
       // var _this = this
       var instance = new ComponentClass({
         propsData: props,
-        created() {
-          // this.$on('edit', (entity) => {
-          //   if (_this.editEntity) _this.editEntity(entity)
-          // })
-          // this.$on('select', (entity) => {
-          //   if (_this.selectEntity) _this.selectEntity(entity)
-          // })
-        }
+        created() {}
       })
       this.entityComponentRefs[index] = instance
       instance.$mount()

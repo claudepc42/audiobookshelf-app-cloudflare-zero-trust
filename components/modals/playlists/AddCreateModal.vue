@@ -48,9 +48,6 @@
 
 <script>
 export default {
-  props: {
-    libraryItemId: String
-  },
   data() {
     return {
       showPlaylistNameInput: false,

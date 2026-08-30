@@ -1,11 +1,11 @@
 <template>
   <div>
-    <app-audio-player ref="audioPlayer" :bookmarks="bookmarks" :session-history="sessionHistory" :sleep-timer-running="isSleepTimerRunning" :sleep-time-remaining="sleepTimeRemaining" :serverLibraryItemId="serverLibraryItemId" @selectPlaybackSpeed="showPlaybackSpeedModal = true" @updateTime="(t) => (currentTime = t)" @showSleepTimer="showSleepTimer" @showBookmarks="showBookmarks" @showSessionHistory="showSessionHistory" />
+    <app-audio-player ref="audioPlayer" :bookmarks="bookmarks" :sleep-timer-running="isSleepTimerRunning" :sleep-time-remaining="sleepTimeRemaining" :serverLibraryItemId="serverLibraryItemId" @selectPlaybackSpeed="showPlaybackSpeedModal = true" @updateTime="(t) => (currentTime = t)" @showSleepTimer="showSleepTimer" @showBookmarks="showBookmarks" @showSessionHistory="showSessionHistory" />
 
     <modals-playback-speed-modal v-model="showPlaybackSpeedModal" :playback-rate.sync="playbackSpeed" @update:playbackRate="updatePlaybackSpeed" @change="changePlaybackSpeed" />
     <modals-sleep-timer-modal v-model="showSleepTimerModal" :current-time="sleepTimeRemaining" :sleep-timer-running="isSleepTimerRunning" :current-end-of-chapter-time="currentEndOfChapterTime" :is-auto="isAutoSleepTimer" @change="selectSleepTimeout" @cancel="cancelSleepTimer" @increase="increaseSleepTimer" @decrease="decreaseSleepTimer" />
     <modals-bookmarks-modal v-model="showBookmarksModal" :bookmarks="bookmarks" :current-time="currentTime" :library-item-id="serverLibraryItemId" :playback-rate="playbackSpeed" @select="selectBookmark" />
-    <modals-session-history-modal v-model="showSessionHistoryModal" :sessions="sessionHistory" :playback-rate="playbackSpeed" @select="selectSession" />
+    <modals-session-history-modal v-model="showSessionHistoryModal" :media-id="currentMediaId" :playback-rate="playbackSpeed" @select="selectSession" />
   </div>
 </template>
 
@@ -20,8 +20,6 @@ export default {
       isReady: false,
       settingsLoaded: false,
       audioPlayerReady: false,
-      stream: null,
-      download: null,
       showPlaybackSpeedModal: false,
       showBookmarksModal: false,
       showSessionHistoryModal: false,
@@ -36,7 +34,6 @@ export default {
       onSleepTimerEndedListener: null,
       onSleepTimerSetListener: null,
       onMediaPlayerChangedListener: null,
-      sleepInterval: null,
       currentEndOfChapterTime: 0,
       serverLibraryItemId: null,
       serverEpisodeId: null
@@ -48,8 +45,12 @@ export default {
       if (!this.serverLibraryItemId) return []
       return this.$store.getters['user/getUserBookmarksForItem'](this.serverLibraryItemId)
     },
-    sessionHistory() {
-      return this.$store.state.sessionHistory
+    currentMediaId() {
+      const session = this.currentPlaybackSession
+      if (!session) return null
+      const libId = session.libraryItemId
+      if (!libId) return null
+      return session.episodeId ? `${libId}-${session.episodeId}` : libId
     },
     isIos() {
       return this.$platform === 'ios'
@@ -65,6 +66,16 @@ export default {
     // already used for the Cloudflare SSO callback), landing here through the
     // same 'url-open' eventBus event. See NanoHiveMediaPlayerWidget.kt's
     // widgetActionPendingIntent for the native side.
+    //
+    // play-pause/rewind/fast-forward are Android-only here — on Android those
+    // three go through MediaButtonReceiver PendingIntents instead (true
+    // background control, no app launch needed). The iOS WidgetKit widget has
+    // no equivalent — a widget extension runs in its own process and can't
+    // reach this app's live AudioPlayer — so on iOS ALL five widget buttons,
+    // including transport controls, launch the app via this same deep link
+    // and get handled here. Known parity gap: tapping play/pause on the iOS
+    // widget briefly foregrounds the app instead of controlling playback
+    // silently in the background.
     onWidgetUrlOpen(url) {
       if (!url || !url.startsWith('audiobookshelf://widget-action')) return
       let type
@@ -75,6 +86,9 @@ export default {
       }
       if (type === 'bookmark') this.showBookmarks()
       else if (type === 'sleep-timer') this.showSleepTimer()
+      else if (type === 'play-pause') this.$refs.audioPlayer?.playPauseClick()
+      else if (type === 'rewind') this.$refs.audioPlayer?.jumpBackwards()
+      else if (type === 'fast-forward') this.$refs.audioPlayer?.jumpForward()
     },
     showBookmarks() {
       this.showBookmarksModal = true
@@ -144,30 +158,6 @@ export default {
     async cancelSleepTimer() {
       console.log('Canceling sleep timer')
       await AbsAudioPlayer.cancelSleepTimer()
-    },
-    streamClosed() {
-      console.log('Stream Closed')
-    },
-    streamProgress(data) {
-      if (!data.numSegments) return
-      const chunks = data.chunks
-      if (this.$refs.audioPlayer) {
-        this.$refs.audioPlayer.setChunksReady(chunks, data.numSegments)
-      }
-    },
-    streamReady() {
-      console.log('[StreamContainer] Stream Ready')
-      if (this.$refs.audioPlayer) {
-        this.$refs.audioPlayer.setStreamReady()
-      }
-    },
-    streamReset({ streamId, startTime }) {
-      console.log('received stream reset', streamId, startTime)
-      if (this.$refs.audioPlayer) {
-        if (this.stream && this.stream.id === streamId) {
-          this.$refs.audioPlayer.resetStream(startTime)
-        }
-      }
     },
     updatePlaybackSpeed(speed) {
       if (this.$refs.audioPlayer) {

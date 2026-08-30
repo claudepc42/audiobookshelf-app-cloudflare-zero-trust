@@ -88,28 +88,42 @@ extension AudioPlayer {
         self.removeChapterSleepTimer()
         guard let sleepTimeRemaining = self.sleepTimeRemaining else { return }
         self.sleepTimeRemaining = sleepTimeRemaining + extraTimeInSeconds
-        
+        self.cancelFadeOutIfActive()
+
         // Update the UI
         NotificationCenter.default.post(name: NSNotification.Name(PlayerEvents.sleepSet.rawValue), object: nil)
     }
-    
+
     public func decreaseSleepTime(removeTimeInSeconds: Double) {
         self.removeChapterSleepTimer()
         guard let sleepTimeRemaining = self.sleepTimeRemaining else { return }
         self.sleepTimeRemaining = sleepTimeRemaining - removeTimeInSeconds
-        
+        self.cancelFadeOutIfActive()
+
         // Update the UI
         NotificationCenter.default.post(name: NSNotification.Name(PlayerEvents.sleepSet.rawValue), object: nil)
     }
-    
+
     public func removeSleepTimer() {
         self.sleepTimer?.invalidate()
         self.sleepTimer = nil
         self.removeChapterSleepTimer()
         self.sleepTimeRemaining = nil
-        
+        self.cancelFadeOutIfActive()
+
         // Update the UI
         NotificationCenter.default.post(name: NSNotification.Name(PlayerEvents.sleepEnded.rawValue), object: self)
+    }
+
+    // Matches SleepTimerManager.kt's clearSleepTimer()/increaseSleepTime()/decreaseSleepTime(),
+    // which all call setVolume(1f) unconditionally on any timer adjustment — cancel an
+    // in-progress fade-out (if any) and restore full volume. A fresh fade will restart on its
+    // own via decrementSleepTimerIfRunning if remaining time drops to <= 60 again.
+    private func cancelFadeOutIfActive() {
+        guard self.fadeOutTimer != nil else { return }
+        self.fadeOutTimer?.invalidate()
+        self.fadeOutTimer = nil
+        self.audioPlayer.volume = 1.0
     }
     
     
@@ -126,7 +140,11 @@ extension AudioPlayer {
             sleepTimeRemaining -= 1
             self.sleepTimeRemaining = sleepTimeRemaining
           
-            if sleepTimeRemaining == 60 && self.isSleepTimerFadeOutEnabled() {
+            // <= rather than == 60: increaseSleepTime/decreaseSleepTime can jump the remaining
+            // time by an arbitrary delta (not just the -1/tick this timer itself applies), so
+            // an exact-equality check could skip past 60 entirely and never start the fade.
+            // startFadeOut() itself guards against being called again while already fading.
+            if sleepTimeRemaining <= 60 && self.isSleepTimerFadeOutEnabled() {
                 self.startFadeOut()
             }
           

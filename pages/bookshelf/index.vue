@@ -99,12 +99,6 @@ export default {
     networkConnected() {
       return this.$store.state.networkConnected
     },
-    isIos() {
-      return this.$platform === 'ios'
-    },
-    currentLibraryName() {
-      return this.$store.getters['libraries/getCurrentLibraryName']
-    },
     currentLibraryId() {
       return this.$store.state.libraries.currentLibraryId
     },
@@ -116,9 +110,6 @@ export default {
     },
     altViewEnabled() {
       return this.$store.getters['getAltViewEnabled']
-    },
-    localMediaProgress() {
-      return this.$store.state.globals.localMediaProgress
     },
     attemptingConnection() {
       return this.$store.state.attemptingConnection
@@ -437,46 +428,6 @@ export default {
         console.log(`[categories] libraryChanged so fetching categories`)
         this.fetchCategories()
       }
-    },
-    audiobookAdded(audiobook) {
-      // TODO: Check if audiobook would be on this shelf
-      if (!this.search) {
-        this.fetchCategories()
-      }
-    },
-    audiobookUpdated(audiobook) {
-      this.shelves.forEach((shelf) => {
-        if (shelf.type === 'books') {
-          shelf.entities = shelf.entities.map((ent) => {
-            if (ent.id === audiobook.id) {
-              return audiobook
-            }
-            return ent
-          })
-        } else if (shelf.type === 'series') {
-          shelf.entities.forEach((ent) => {
-            ent.books = ent.books.map((book) => {
-              if (book.id === audiobook.id) return audiobook
-              return book
-            })
-          })
-        }
-      })
-    },
-    removeBookFromShelf(audiobook) {
-      this.shelves.forEach((shelf) => {
-        if (shelf.type === 'books') {
-          shelf.entities = shelf.entities.filter((ent) => {
-            return ent.id !== audiobook.id
-          })
-        } else if (shelf.type === 'series') {
-          shelf.entities.forEach((ent) => {
-            ent.books = ent.books.filter((book) => {
-              return book.id !== audiobook.id
-            })
-          })
-        }
-      })
     },
     initListeners() {
       this.$eventBus.$on('library-changed', this.libraryChanged)

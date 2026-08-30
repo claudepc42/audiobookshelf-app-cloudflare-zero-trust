@@ -155,7 +155,6 @@ export default {
       failed: false,
       localLibraryItem: null,
       audioTracksCopy: [],
-      removingItem: false,
       folderId: null,
       folder: null,
       showDialog: false,
@@ -435,7 +434,13 @@ export default {
       this.audioTracksCopy = this.audioTracks.map((at) => ({ ...at }))
 
       this.folderId = this.localLibraryItem.folderId
-      this.folder = await this.$db.getLocalFolder(this.folderId)
+      // iOS has no SAF-style user-selectable folder concept — downloaded items always live in
+      // one fixed sandboxed location, so localLibraryItem.folderId is never set there. Guard
+      // instead of calling $db.getLocalFolder() with an undefined id, which has no iOS
+      // implementation at all (this page is reachable from iOS via pages/downloads.vue).
+      if (this.folderId) {
+        this.folder = await this.$db.getLocalFolder(this.folderId)
+      }
     }
   },
   mounted() {

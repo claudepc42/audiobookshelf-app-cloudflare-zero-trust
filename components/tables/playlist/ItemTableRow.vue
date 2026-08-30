@@ -34,7 +34,6 @@
 <script>
 export default {
   props: {
-    playlistId: String,
     item: {
       type: Object,
       default: () => {}
@@ -72,9 +71,6 @@ export default {
     mediaType() {
       return this.libraryItem.mediaType
     },
-    isPodcast() {
-      return this.mediaType === 'podcast'
-    },
     tracks() {
       if (this.episode) return []
       return this.media.tracks || []
@@ -106,9 +102,6 @@ export default {
     },
     bookCoverAspectRatio() {
       return this.$store.getters['libraries/getBookCoverAspectRatio']
-    },
-    coverWidth() {
-      return 50
     },
     showPlayBtn() {
       return !this.isMissing && !this.isInvalid && (this.tracks.length || this.episode)

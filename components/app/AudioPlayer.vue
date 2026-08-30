@@ -50,11 +50,11 @@
     <div id="playerContent" class="playerContainer w-full z-20 absolute bottom-0 left-0 right-0 p-2 pointer-events-auto transition-all" :style="{ backgroundColor: showFullscreen ? '' : coverRgb }" @click="clickContainer">
       <div v-if="showFullscreen" class="absolute bottom-4 left-0 right-0 w-full pb-4 pt-2 mx-auto px-6" style="max-width: 414px">
         <div class="flex items-center justify-between pointer-events-auto">
-          <span v-if="!isPodcast && serverLibraryItemId && socketConnected" class="material-symbols text-3xl text-fg-muted cursor-pointer" :class="{ fill: bookmarks.length }" @click="$emit('showBookmarks')">bookmark</span>
+          <span v-if="!isPodcast && serverLibraryItemId" class="material-symbols text-3xl text-fg-muted cursor-pointer" :class="{ fill: bookmarks.length }" @click="$emit('showBookmarks')">bookmark</span>
           <!-- hidden for podcasts but still using this as a placeholder -->
           <span v-else class="material-symbols text-3xl text-white text-opacity-0">bookmark</span>
 
-          <span class="material-symbols text-3xl text-fg-muted cursor-pointer" :class="{ fill: sessionHistory.length }" @click="$emit('showSessionHistory')">history</span>
+          <span class="material-symbols text-3xl text-fg-muted cursor-pointer" @click="$emit('showSessionHistory')">history</span>
 
           <span class="font-mono text-fg-muted cursor-pointer" style="font-size: 1.35rem" @click="$emit('selectPlaybackSpeed')">{{ currentPlaybackRate }}x</span>
           <svg v-if="!sleepTimerRunning" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-fg-muted cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor" @click.stop="$emit('showSleepTimer')">
@@ -72,8 +72,8 @@
       <div id="playerControls" class="absolute right-0 bottom-0 mx-auto" style="max-width: 414px">
         <div class="flex items-center max-w-full" :class="playerSettings.lockUi ? 'justify-center' : 'justify-between'">
           <!-- Bookmark — mini player only, mirrors the fullscreen bookmark button -->
-          <span v-show="!showFullscreen && !playerSettings.lockUi && !isPodcast && serverLibraryItemId && socketConnected" class="material-symbols text-fg-muted cursor-pointer" :class="{ fill: bookmarks.length }" style="font-size: 1.35rem; min-width: 32px; text-align: center" @click.stop="$emit('showBookmarks')">bookmark</span>
-          <span v-show="!showFullscreen && !playerSettings.lockUi && (isPodcast || !serverLibraryItemId || !socketConnected)" class="material-symbols text-fg text-opacity-0" style="font-size: 1.35rem; min-width: 32px; text-align: center">bookmark</span>
+          <span v-show="!showFullscreen && !playerSettings.lockUi && !isPodcast && serverLibraryItemId" class="material-symbols text-fg-muted cursor-pointer" :class="{ fill: bookmarks.length }" style="font-size: 1.35rem; min-width: 32px; text-align: center" @click.stop="$emit('showBookmarks')">bookmark</span>
+          <span v-show="!showFullscreen && !playerSettings.lockUi && (isPodcast || !serverLibraryItemId)" class="material-symbols text-fg text-opacity-0" style="font-size: 1.35rem; min-width: 32px; text-align: center">bookmark</span>
           <span v-show="showFullscreen && !playerSettings.lockUi" class="material-symbols next-icon text-fg cursor-pointer" :class="showLoadingState ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpChapterStart">first_page</span>
           <div v-show="!playerSettings.lockUi" class="jump-icon text-fg cursor-pointer flex flex-col items-center" :class="showLoadingState ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpBackwards">
             <span class="material-symbols text-3xl leading-none">replay</span>
@@ -136,10 +136,6 @@ export default {
       type: Array,
       default: () => []
     },
-    sessionHistory: {
-      type: Array,
-      default: () => []
-    },
     sleepTimerRunning: Boolean,
     sleepTimeRemaining: Number,
     serverLibraryItemId: String
@@ -161,7 +157,6 @@ export default {
       isPlaying: false,
       isEnded: false,
       autoplayNextTriggered: false,
-      volume: 0.5,
       readyTrackWidth: 0,
       seekedTime: 0,
       seekLoading: false,
@@ -206,8 +201,7 @@ export default {
     },
     menuItems() {
       const items = []
-      // TODO: Implement on iOS
-      if (this.$platform !== 'ios' && !this.isPodcast && this.mediaId) {
+      if (!this.isPodcast && this.mediaId) {
         items.push({
           text: this.$strings.ButtonHistory,
           value: 'history',
@@ -358,9 +352,6 @@ export default {
     currentChapterDuration() {
       return this.currentChapter ? this.currentChapter.end - this.currentChapter.start : this.totalDuration
     },
-    totalDurationPretty() {
-      return this.$secondsToTimestamp(this.totalDuration)
-    },
     currentTimePretty() {
       let currentTimeToUse = this.isDraggingCursor ? this.draggingCurrentTime : this.currentTime
       if (this.playerSettings.scaleElapsedTimeBySpeed) {
@@ -401,9 +392,6 @@ export default {
         return secondsRemaining + 's'
       }
     },
-    socketConnected() {
-      return this.$store.state.socketConnected
-    },
     mediaId() {
       if (this.isPodcast || !this.playbackSession) return null
       if (this.playbackSession.libraryItemId) {
@@ -414,12 +402,6 @@ export default {
 
       return this.playbackSession.localEpisodeId ? `${localLibraryItem.id}-${this.playbackSession.localEpisodeId}` : localLibraryItem.id
     },
-    // Stable per-book key for local-only session history — unlike bookmarks
-    // (server-synced, server items only), this works for local-only playback
-    // and podcasts too, since it never leaves the device.
-    sessionHistoryItemId() {
-      return this.serverLibraryItemId || this.libraryItem?.id || this.localLibraryItem?.id || null
-    }
   },
   methods: {
     showSyncsFailedDialog() {
@@ -481,7 +463,6 @@ export default {
       this.showFullscreen = false
       if (this.titleMarquee) this.titleMarquee.reset()
 
-      this.forceCloseDropdownMenu()
     },
     async jumpNextChapter() {
       await this.$hapticsImpact()
@@ -506,9 +487,6 @@ export default {
       } else {
         this.seek(this.currentChapter.start)
       }
-    },
-    showSleepTimerModal() {
-      this.$emit('showSleepTimer')
     },
     async setPlaybackSpeed(speed) {
       console.log(`[AudioPlayer] Set Playback Rate: ${speed}`)
@@ -803,22 +781,11 @@ export default {
         AbsAudioPlayer.setChapterTrack({ enabled: this.playerSettings.useChapterTrack })
       }
     },
-    forceCloseDropdownMenu() {
-      if (this.$refs.dropdownMenu && this.$refs.dropdownMenu.closeMenu) {
-        this.$refs.dropdownMenu.closeMenu()
-      }
-    },
     closePlayback() {
       this.endPlayback()
       AbsAudioPlayer.closePlayback()
     },
     endPlayback() {
-      // Greptile-found bug: natural completion, playback errors, and native/
-      // explicit close all used to clear playbackSession without ever
-      // calling logSessionStop, leaving that item's last history entry open
-      // forever (no stop time/position). logSessionStop is a no-op if there's
-      // nothing open to close, so it's safe to call unconditionally here.
-      this.logSessionStop()
       this.$store.commit('setPlaybackSession', null)
       this.showFullscreen = false
       this.isEnded = false
@@ -849,82 +816,6 @@ export default {
     savePlayerSettings() {
       return this.$localStore.setPlayerSettings({ ...this.playerSettings })
     },
-    // Local-only listening session history — see plugins/localStore.js. Purely
-    // event-driven off actual play/pause transitions, no polling/background
-    // timers: on play, log a new start unless the last one started under 5
-    // minutes ago (still effectively the same session); on pause, drop the
-    // last entry if it started under 30 seconds ago (accidental tap, not a
-    // real listen), otherwise stamp it with a stop position.
-    //
-    // onPlayingUpdate (below) can fire in rapid bursts during buffering/
-    // reconnects, and a session can also get replaced mid-transition (new
-    // item starts while the old one's stop hasn't logged yet). Two
-    // Greptile-found bugs here: (1) a shared busy boolean used to just drop
-    // any transition that arrived while another was still in flight — losing
-    // real pause/resume/item-transition history, not just a redundant one;
-    // (2) itemId was captured before the async storage round-trip but
-    // this.currentTime was read after it, so a fast item switch during that
-    // gap could stamp item A's stop record with item B's position. Fixed by
-    // capturing itemId + currentTime synchronously (before any await) in
-    // every caller, and chaining onto a shared promise instead of dropping —
-    // this still serializes the native Preferences round-trips (the actual
-    // cause of the original freeze/crash), but every transition now runs,
-    // each against its own already-captured item/position.
-    logSessionStart() {
-      const itemId = this.sessionHistoryItemId
-      const startPosition = this.currentTime
-      if (!itemId) return
-      this._sessionLogChain = (this._sessionLogChain || Promise.resolve()).then(async () => {
-        try {
-          const sessions = await this.$localStore.getSessionHistory(itemId)
-          const last = sessions[sessions.length - 1]
-          if (last && Date.now() - last.startTime < 5 * 60 * 1000) return
-          sessions.push({ startTime: Date.now(), startPosition, stopTime: null, stopPosition: null })
-          while (sessions.length > 10) sessions.shift()
-          this.$store.commit('setSessionHistory', sessions)
-          await this.$localStore.setSessionHistory(itemId, sessions)
-        } catch (e) {
-          console.error('[AudioPlayer] logSessionStart failed', e)
-        }
-      })
-      return this._sessionLogChain
-    },
-    logSessionStop() {
-      const itemId = this.sessionHistoryItemId
-      const stopPosition = this.currentTime
-      if (!itemId) return
-      this._sessionLogChain = (this._sessionLogChain || Promise.resolve()).then(async () => {
-        try {
-          const sessions = await this.$localStore.getSessionHistory(itemId)
-          const last = sessions[sessions.length - 1]
-          // Already closed (e.g. endPlayback's safety-net call landing after
-          // a normal pause already stopped it) — nothing to do.
-          if (!last || last.stopTime !== null) return
-          if (Date.now() - last.startTime < 30 * 1000) {
-            sessions.pop()
-          } else {
-            last.stopTime = Date.now()
-            last.stopPosition = stopPosition
-          }
-          this.$store.commit('setSessionHistory', sessions)
-          await this.$localStore.setSessionHistory(itemId, sessions)
-        } catch (e) {
-          console.error('[AudioPlayer] logSessionStop failed', e)
-        }
-      })
-      return this._sessionLogChain
-    },
-    loadSessionHistory() {
-      const itemId = this.sessionHistoryItemId
-      this._sessionLogChain = (this._sessionLogChain || Promise.resolve()).then(async () => {
-        try {
-          this.$store.commit('setSessionHistory', itemId ? await this.$localStore.getSessionHistory(itemId) : [])
-        } catch (e) {
-          console.error('[AudioPlayer] loadSessionHistory failed', e)
-        }
-      })
-      return this._sessionLogChain
-    },
     //
     // Listeners from audio AbsAudioPlayer
     //
@@ -933,11 +824,6 @@ export default {
       const wasPlaying = this.isPlaying
       this.isPlaying = !!data.value
       this.$store.commit('setPlayerPlaying', this.isPlaying)
-      if (this.isPlaying && !wasPlaying) {
-        this.logSessionStart()
-      } else if (!this.isPlaying && wasPlaying) {
-        this.logSessionStop()
-      }
       if (this.isPlaying) {
         this.startPlayInterval()
       } else {
@@ -1041,11 +927,6 @@ export default {
     // When a playback session is started the native android/ios will send the session
     onPlaybackSession(playbackSession) {
       console.log('onPlaybackSession received', JSON.stringify(playbackSession))
-      // Greptile-found bug: a session can be replaced directly (e.g. autoplay
-      // starting the next book) without an intervening onPlayingUpdate(false)
-      // for the item being replaced — close out its history entry using the
-      // OLD playbackSession/currentTime before it's overwritten below.
-      this.logSessionStop()
       this.autoplayNextTriggered = false
       this.playbackSession = playbackSession
 
@@ -1053,7 +934,6 @@ export default {
       this.isLoading = true
       this.syncStatus = 0
       this.$store.commit('setPlaybackSession', this.playbackSession)
-      this.loadSessionHistory()
 
       // Set track width
       this.$nextTick(() => {
@@ -1180,7 +1060,6 @@ export default {
       this.closePlayback()
     }
 
-    this.forceCloseDropdownMenu()
     this.$eventBus.$off('minimize-player', this.minimizePlayerEvt)
     document.body.removeEventListener('touchstart', this.touchstart)
     document.body.removeEventListener('touchend', this.touchend)

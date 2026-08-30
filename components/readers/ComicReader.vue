@@ -65,7 +65,6 @@ export default {
       loadTimeout: null,
       loadedFirstPage: false,
       comicMetadata: null,
-      pageMenuWidth: 256
     }
   },
   watch: {
@@ -121,9 +120,6 @@ export default {
       // Validate ebookLocation is a number
       if (!this.userItemProgress?.ebookLocation || isNaN(this.userItemProgress.ebookLocation)) return 0
       return Number(this.userItemProgress.ebookLocation)
-    },
-    selectedCleanedPage() {
-      return this.cleanedPageNames[this.page - 1]
     },
     cleanedPageNames() {
       return (
@@ -274,7 +270,6 @@ export default {
       document.body.appendChild(pEl)
       const textWidth = pEl.getBoundingClientRect()?.width
       if (textWidth) {
-        this.pageMenuWidth = textWidth + (16 + 5 + 2 + 5)
       }
       pEl.remove()
 

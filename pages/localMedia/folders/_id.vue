@@ -47,7 +47,6 @@ export default {
     return {
       localLibraryItems: [],
       folder: null,
-      removingFolder: false,
       showDialog: false
     }
   },
@@ -104,9 +103,7 @@ export default {
         message: deleteMessage
       })
       if (value) {
-        this.removingFolder = true
         await AbsFileSystem.removeFolder({ folderId: this.folderId })
-        this.removingFolder = false
         this.$router.replace('/localMedia/folders')
       }
     },

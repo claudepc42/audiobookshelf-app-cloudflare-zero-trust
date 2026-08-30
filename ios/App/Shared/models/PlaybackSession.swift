@@ -68,7 +68,15 @@ class PlaybackSession: Object, Codable, Deletable {
     }
     
     var progress: Double { self.currentTime / self.totalDuration }
-    
+
+    // Matches PlaybackSession.kt's mediaItemId exactly — the key MediaItemHistory records are
+    // stored under (one history record per book or per podcast episode, not per session).
+    var mediaItemId: String {
+        guard let episodeId = self.episodeId, !episodeId.isEmpty else { return self.libraryItemId ?? "" }
+        return "\(self.libraryItemId ?? "")-\(episodeId)"
+    }
+
+
     internal init(id: String, userId: String? = nil, libraryItemId: String? = nil, episodeId: String? = nil, mediaType: String, mediaMetadata: Metadata?, chapters: List<Chapter> = List<Chapter>(), displayTitle: String? = nil, displayAuthor: String? = nil, coverPath: String? = nil, duration: Double, playMethod: Int, startedAt: Double? = nil, updatedAt: Double? = nil, timeListening: Double, audioTracks: List<AudioTrack> = List<AudioTrack>(), currentTime: Double, libraryItem: LibraryItem? = nil, localLibraryItem: LocalLibraryItem? = nil, serverConnectionConfigId: String? = nil, serverAddress: String? = nil) {
         self.id = id
         self.userId = userId

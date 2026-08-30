@@ -84,9 +84,6 @@ export default {
     user() {
       return this.$store.state.user.user
     },
-    username() {
-      return this.user ? this.user.username : ''
-    },
     currentLibraryId() {
       return this.$store.state.libraries.currentLibraryId
     },

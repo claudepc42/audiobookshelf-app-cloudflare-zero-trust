@@ -10,7 +10,37 @@ import Alamofire
 
 class ApiClient {
     private static let secureStorage = SecureStorage()
-    
+
+    private static func baseHeaders() -> HTTPHeaders {
+        var headers: HTTPHeaders = [
+            "Authorization": "Bearer \(Store.serverConfig!.token)"
+        ]
+        // Mirrors AudioPlayer.swift's requestHostMatchesServer: CF Zero Trust cookies/
+        // service-token headers are only meant for the primary (Cloudflare-fronted)
+        // address. Store.effectiveAddress can resolve to a LAN address instead when
+        // LAN routing is active, and without this check those credentials would be
+        // sent to the LAN host too — a real credential-disclosure bug, not just a
+        // wasted header, since the LAN connection isn't behind Cloudflare at all.
+        if let customHeaders = Store.customHeaders, !customHeaders.isEmpty, requestTargetIsPrimaryServer() {
+            for (key, value) in customHeaders {
+                headers.add(name: key, value: value)
+            }
+        }
+        return headers
+    }
+
+    /// True when Store.effectiveAddress (what every request in this file actually
+    /// targets) resolves to the same host as the primary, Cloudflare-fronted server
+    /// address — i.e. we are NOT currently routed via the LAN address.
+    private static func requestTargetIsPrimaryServer() -> Bool {
+        guard let requestHost = URL(string: Store.effectiveAddress)?.host,
+              let serverHost = URL(string: Store.serverConfig?.address ?? "")?.host,
+              !serverHost.isEmpty else {
+            return false
+        }
+        return requestHost == serverHost || requestHost.hasSuffix(".\(serverHost)")
+    }
+
     public static func getData(from url: URL, completion: @escaping (UIImage?) -> Void) {
         URLSession.shared.dataTask(with: url, completionHandler: {(data, response, error) in
             if let data = data {
@@ -25,11 +55,9 @@ class ApiClient {
             return
         }
         
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
+        let headers = baseHeaders()
         
-        AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .post, parameters: parameters, encoding: JSONEncoding.default, headers: headers).responseDecodable(of: decodable) { response in
+        AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .post, parameters: parameters, encoding: JSONEncoding.default, headers: headers).responseDecodable(of: decodable) { response in
             switch response.result {
             case .success(let obj):
                 callback?(obj)
@@ -46,11 +74,9 @@ class ApiClient {
             return
         }
         
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
+        let headers = baseHeaders()
         
-        AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers).responseDecodable(of: decodable) { response in
+        AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers).responseDecodable(of: decodable) { response in
             switch response.result {
             case .success(let obj):
                 callback?(obj)
@@ -76,11 +102,9 @@ class ApiClient {
             return
         }
         
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
+        let headers = baseHeaders()
         
-        AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers).response { response in
+        AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers).response { response in
             switch response.result {
             case .success(_):
                 callback?(true)
@@ -100,11 +124,9 @@ class ApiClient {
             return
         }
         
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
+        let headers = baseHeaders()
         
-        AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .patch, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers).response { response in
+        AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .patch, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers).response { response in
             switch response.result {
             case .success(_):
                 callback?(true)
@@ -131,11 +153,9 @@ class ApiClient {
             return
         }
         
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
+        let headers = baseHeaders()
         
-        AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .get, encoding: JSONEncoding.default, headers: headers).responseDecodable(of: decodable) { response in
+        AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .get, encoding: JSONEncoding.default, headers: headers).responseDecodable(of: decodable) { response in
             switch response.result {
                 case .success(let obj):
                     callback?(obj)
@@ -176,13 +196,15 @@ class ApiClient {
         
         AbsLogger.info(message: "handleTokenRefresh: Retrieved refresh token, attempting to refresh access token")
         
-        // Create refresh token request
-        let refreshHeaders: HTTPHeaders = [
+        var refreshHeaders: HTTPHeaders = [
             "x-refresh-token": refreshToken,
             "Content-Type": "application/json"
         ]
-        
-        let refreshRequest = AF.request("\(serverConfig.address)/auth/refresh", method: .post, headers: refreshHeaders)
+        if let customHeaders = Store.customHeaders, !customHeaders.isEmpty, requestTargetIsPrimaryServer() {
+            for (key, value) in customHeaders { refreshHeaders.add(name: key, value: value) }
+        }
+
+        let refreshRequest = AF.request("\(Store.effectiveAddress)/auth/refresh", method: .post, headers: refreshHeaders)
         
         refreshRequest.responseDecodable(of: RefreshResponse.self) { response in
             switch response.result {
@@ -245,28 +267,31 @@ class ApiClient {
             return
         }
         
-        let headers: HTTPHeaders = [
+        var headers: HTTPHeaders = [
             "Authorization": "Bearer \(newAccessToken)"
         ]
+        if let customHeaders = Store.customHeaders, !customHeaders.isEmpty, requestTargetIsPrimaryServer() {
+            for (key, value) in customHeaders { headers.add(name: key, value: value) }
+        }
         
         let retryRequest: DataRequest
         
         switch method {
         case .get:
-            retryRequest = AF.request("\(serverConfig.address)/\(endpoint)", method: .get, headers: headers)
+            retryRequest = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .get, headers: headers)
         case .post:
             if let parameters = parameters as? [String: Any] {
-                retryRequest = AF.request("\(serverConfig.address)/\(endpoint)", method: .post, parameters: parameters, encoding: JSONEncoding.default, headers: headers)
+                retryRequest = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .post, parameters: parameters, encoding: JSONEncoding.default, headers: headers)
             } else if let encodableParams = parameters as? Encodable {
-                retryRequest = AF.request("\(serverConfig.address)/\(endpoint)", method: .post, parameters: encodableParams, encoder: JSONParameterEncoder.default, headers: headers)
+                retryRequest = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .post, parameters: encodableParams, encoder: JSONParameterEncoder.default, headers: headers)
             } else {
-                retryRequest = AF.request("\(serverConfig.address)/\(endpoint)", method: .post, headers: headers)
+                retryRequest = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .post, headers: headers)
             }
         case .patch:
             if let encodableParams = parameters as? Encodable {
-                retryRequest = AF.request("\(serverConfig.address)/\(endpoint)", method: .patch, parameters: encodableParams, encoder: JSONParameterEncoder.default, headers: headers)
+                retryRequest = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .patch, parameters: encodableParams, encoder: JSONParameterEncoder.default, headers: headers)
             } else {
-                retryRequest = AF.request("\(serverConfig.address)/\(endpoint)", method: .patch, headers: headers)
+                retryRequest = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .patch, headers: headers)
             }
         default:
             AbsLogger.error(message: "retryOriginalRequest: Unsupported method \(method)")
@@ -279,18 +304,26 @@ class ApiClient {
             if let statusCode = response.response?.statusCode, (200...299).contains(statusCode) {
                 // Check if response has data
                 if let data = response.data, !data.isEmpty {
-                    // If it is a string return nil (e.g. express returns OK for 200 status codes)
-                    if let responseString = String(data: data, encoding: .utf8) {
-                        AbsLogger.info(message: "retryOriginalRequest: Got string response '\(responseString)'")
+                    // Some endpoints (e.g. PATCH /api/me/progress/:id) return a plain-text "OK"
+                    // instead of JSON — matches Android's `bodyString == "OK"` special case in
+                    // ApiHandler.kt's makeRequest. Every other UTF8-decodable body (which is most
+                    // of them, since JSON *is* valid UTF8 text) still needs a real decode attempt
+                    // below — checking "is this valid UTF8" here would wrongly short-circuit on
+                    // legitimate JSON responses too.
+                    let trimmedString = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmedString == "OK" {
                         callback?(nil)
                         return
                     }
-                    
-                    // If not a string, try JSON
+
                     do {
                         let decodedObject = try JSONDecoder().decode(decodable, from: data)
                         callback?(decodedObject)
                     } catch {
+                        // Matches ApiHandler.kt's retryOriginalRequest exactly: no stale-CF probe
+                        // here — that only happens on the first attempt (makeRequest's catch
+                        // block). A bad response on the retry-after-refresh path is reported as
+                        // a plain decode failure, same as Android.
                         AbsLogger.error(message: "retryOriginalRequest: JSON decode failed: \(error)", error: error)
                         callback?(nil)
                     }
@@ -327,21 +360,73 @@ class ApiClient {
         }
     }
     
+    // MARK: - LAN fallback on network failure
+
+    /**
+     * Mirrors ApiHandler.kt's makeRequest LAN-fallback: if the request that just failed
+     * was sent to the resolved localAddress, mark it unhealthy and fall back to the
+     * primary address so the caller's retry goes out to the right host. Returns true
+     * only when a LAN→primary fallback actually happened (i.e. a retry is worthwhile).
+     */
+    private static func fallbackFromLanIfNetworkError(_ error: AFError) -> Bool {
+        guard error.isSessionTaskError || error.isRequestAdaptationError || error.underlyingError is URLError else { return false }
+        guard let config = Store.serverConfig, let local = config.localAddress, !local.isEmpty else { return false }
+        guard Store.effectiveAddress == local else { return false }
+        EndpointResolver.shared.markUnhealthyAndFallback(config: config)
+        return true
+    }
+
+    // MARK: - Stale CF session detection
+
+    /**
+     * Mirrors ApiHandler.kt's makeRequest exactly: a "successful" (2xx) response whose body
+     * is HTML instead of the expected JSON/plain-text usually means a CF challenge/login page
+     * was silently returned. Android's native layer does NOT pre-gate this on isSsoAuth/
+     * customHeaders — it always attempts a live probe on JSON-parse failure and only fires
+     * notifyCfSessionExpired() if that probe confirms a real cloudflareaccess.com redirect.
+     * (nativeHttp.js's JS-layer looksLikeStaleCfResponse — a cheaper pattern-match with no
+     * live confirmation — is a DIFFERENT, JS-only check; this native method mirrors
+     * ApiHandler.kt instead, since that's the actual native-layer counterpart.) Doing it this
+     * way (probe-confirmed, not gated on connection type) avoids a false positive if a non-CF
+     * server ever returns a genuine HTML error page on a 2xx status.
+     */
+    /// Returns true when the "successful" 2xx body actually looks like a CF challenge/login
+    /// page rather than real content — callers that only check HTTP success (no decode step
+    /// to fail on unexpected HTML) must use this to avoid reporting a stale CF redirect as a
+    /// real success.
+    @discardableResult
+    private static func checkForStaleCfChallenge(statusCode: Int?, data: Data?) -> Bool {
+        guard let statusCode = statusCode, (200...299).contains(statusCode),
+              let data = data, !data.isEmpty,
+              let bodyString = String(data: data, encoding: .utf8) else { return false }
+        let trimmed = bodyString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard trimmed.hasPrefix("<!doctype") || trimmed.hasPrefix("<html") else { return false }
+
+        let address = Store.effectiveAddress
+        if !address.isEmpty {
+            DispatchQueue.global(qos: .background).async {
+                if AbsCfZeroTrust.doProbeCfChallenge(serverAddress: address) {
+                    AbsLogger.info(message: "ApiClient: makeRequest: CF session expired — notifying JS")
+                    AbsCfZeroTrust.notifyCfSessionExpired()
+                }
+            }
+        }
+        return true
+    }
+
     // MARK: - Enhanced API Methods with Token Refresh
-    
-    public static func getResourceWithTokenRefresh<T: Decodable>(endpoint: String, decodable: T.Type = T.self, callback: ((_ param: T?) -> Void)?) {
+
+    public static func getResourceWithTokenRefresh<T: Decodable>(endpoint: String, decodable: T.Type = T.self, isRetry: Bool = false, callback: ((_ param: T?) -> Void)?) {
         if (Store.serverConfig == nil) {
             AbsLogger.error(message: "Server config not set")
             callback?(nil)
             return
         }
-        
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
-        
-        let request = AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .get, headers: headers)
-        
+
+        let headers = baseHeaders()
+
+        let request = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .get, headers: headers)
+
         request.responseDecodable(of: decodable) { response in
             if let statusCode = response.response?.statusCode, statusCode == 401 {
                 AbsLogger.info(message: "getResourceWithTokenRefresh: 401 Unauthorized for request to \(endpoint) - attempting token refresh")
@@ -351,6 +436,12 @@ class ApiClient {
                 case .success(let obj):
                     callback?(obj)
                 case .failure(let error):
+                    checkForStaleCfChallenge(statusCode: response.response?.statusCode, data: response.data)
+                    if !isRetry, fallbackFromLanIfNetworkError(error) {
+                        AbsLogger.info(message: "getResourceWithTokenRefresh: LAN request failed, retrying on primary address")
+                        getResourceWithTokenRefresh(endpoint: endpoint, decodable: decodable, isRetry: true, callback: callback)
+                        return
+                    }
                     AbsLogger.error(message: "api request to \(endpoint) failed")
                     print(error)
                     callback?(nil)
@@ -358,20 +449,18 @@ class ApiClient {
             }
         }
     }
-    
-    public static func postResourceWithTokenRefresh<T: Encodable, U: Decodable>(endpoint: String, parameters: T, decodable: U.Type = U.self, callback: ((_ param: U?) -> Void)?) {
+
+    public static func postResourceWithTokenRefresh<T: Encodable, U: Decodable>(endpoint: String, parameters: T, decodable: U.Type = U.self, isRetry: Bool = false, callback: ((_ param: U?) -> Void)?) {
         if (Store.serverConfig == nil) {
             AbsLogger.error(message: "Server config not set")
             callback?(nil)
             return
         }
-        
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
-        
-        let request = AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers)
-        
+
+        let headers = baseHeaders()
+
+        let request = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers)
+
         request.responseDecodable(of: decodable) { response in
             if let statusCode = response.response?.statusCode, statusCode == 401 {
                 AbsLogger.info(message: "postResourceWithTokenRefresh: 401 Unauthorized for request to \(endpoint) - attempting token refresh")
@@ -381,6 +470,12 @@ class ApiClient {
                 case .success(let obj):
                     callback?(obj)
                 case .failure(let error):
+                    checkForStaleCfChallenge(statusCode: response.response?.statusCode, data: response.data)
+                    if !isRetry, fallbackFromLanIfNetworkError(error) {
+                        AbsLogger.info(message: "postResourceWithTokenRefresh: LAN request failed, retrying on primary address")
+                        postResourceWithTokenRefresh(endpoint: endpoint, parameters: parameters, decodable: decodable, isRetry: true, callback: callback)
+                        return
+                    }
                     AbsLogger.error(message: "api request to \(endpoint) failed")
                     print(error)
                     callback?(nil)
@@ -392,19 +487,17 @@ class ApiClient {
     /**
      * POST request for endpoints that only return success/failure
      */
-    public static func postResourceWithTokenRefresh<T: Encodable>(endpoint: String, parameters: T, callback: ((_ success: Bool) -> Void)?) {
+    public static func postResourceWithTokenRefresh<T: Encodable>(endpoint: String, parameters: T, isRetry: Bool = false, callback: ((_ success: Bool) -> Void)?) {
         if (Store.serverConfig == nil) {
             AbsLogger.error(message: "Server config not set")
             callback?(false)
             return
         }
-        
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
-        
-        let request = AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers)
-        
+
+        let headers = baseHeaders()
+
+        let request = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers)
+
         request.response { response in
             if let statusCode = response.response?.statusCode, statusCode == 401 {
                 AbsLogger.info(message: "postResourceWithTokenRefresh: 401 Unauthorized for request to \(endpoint) - attempting token refresh")
@@ -414,8 +507,17 @@ class ApiClient {
             } else {
                 switch response.result {
                 case .success(_):
-                    callback?(true)
+                    // Unlike the *Decodable variants, this one has no decode step to fail on a
+                    // stale CF HTML page — without checking the return value, a 2xx here would
+                    // be treated as success even when the body is actually a CF login page.
+                    let isStaleCfChallenge = checkForStaleCfChallenge(statusCode: response.response?.statusCode, data: response.data)
+                    callback?(!isStaleCfChallenge)
                 case .failure(let error):
+                    if !isRetry, fallbackFromLanIfNetworkError(error) {
+                        AbsLogger.info(message: "postResourceWithTokenRefresh: LAN request failed, retrying on primary address")
+                        postResourceWithTokenRefresh(endpoint: endpoint, parameters: parameters, isRetry: true, callback: callback)
+                        return
+                    }
                     AbsLogger.error(message: "api request to \(endpoint) failed")
                     print(error)
                     callback?(false)
@@ -423,20 +525,18 @@ class ApiClient {
             }
         }
     }
-    
-    public static func patchResourceWithTokenRefresh<T: Encodable>(endpoint: String, parameters: T, callback: ((_ success: Bool) -> Void)?) {
+
+    public static func patchResourceWithTokenRefresh<T: Encodable>(endpoint: String, parameters: T, isRetry: Bool = false, callback: ((_ success: Bool) -> Void)?) {
         if (Store.serverConfig == nil) {
             AbsLogger.error(message: "Server config not set")
             callback?(false)
             return
         }
-        
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(Store.serverConfig!.token)"
-        ]
-        
-        let request = AF.request("\(Store.serverConfig!.address)/\(endpoint)", method: .patch, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers)
-        
+
+        let headers = baseHeaders()
+
+        let request = AF.request("\(Store.effectiveAddress)/\(endpoint)", method: .patch, parameters: parameters, encoder: JSONParameterEncoder.default, headers: headers)
+
         request.response { response in
             if let statusCode = response.response?.statusCode, statusCode == 401 {
                 AbsLogger.info(message: "patchResourceWithTokenRefresh: 401 Unauthorized for request to \(endpoint) - attempting token refresh")
@@ -446,8 +546,17 @@ class ApiClient {
             } else {
                 switch response.result {
                 case .success(_):
-                    callback?(true)
+                    // Same reasoning as postResourceWithTokenRefresh's success/failure-only
+                    // variant: no decode step to fail on a stale CF HTML page, so the return
+                    // value must be checked to avoid reporting a CF redirect as success.
+                    let isStaleCfChallenge = checkForStaleCfChallenge(statusCode: response.response?.statusCode, data: response.data)
+                    callback?(!isStaleCfChallenge)
                 case .failure(let error):
+                    if !isRetry, fallbackFromLanIfNetworkError(error) {
+                        AbsLogger.info(message: "patchResourceWithTokenRefresh: LAN request failed, retrying on primary address")
+                        patchResourceWithTokenRefresh(endpoint: endpoint, parameters: parameters, isRetry: true, callback: callback)
+                        return
+                    }
                     AbsLogger.error(message: "api request to \(endpoint) failed")
                     print(error)
                     callback?(false)
@@ -495,7 +604,7 @@ class ApiClient {
             
             // Set server connection info on the session
             session.serverConnectionConfigId = Store.serverConfig!.id
-            session.serverAddress = Store.serverConfig!.address
+            session.serverAddress = Store.effectiveAddress
             
             callback(session)
         }
@@ -627,7 +736,7 @@ class ApiClient {
     
     public static func pingServer() async -> Bool {
         var status = true
-        AF.request("\(Store.serverConfig!.address)/ping", method: .get).responseDecodable(of: PingResponsePayload.self) { response in
+        AF.request("\(Store.effectiveAddress)/ping", method: .get).responseDecodable(of: PingResponsePayload.self) { response in
             switch response.result {
                 case .success:
                     status = true

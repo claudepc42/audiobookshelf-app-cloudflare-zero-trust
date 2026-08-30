@@ -213,7 +213,7 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
 
   views.setOnClickPendingIntent(R.id.widgetBackground, wholeWidgetClickPI)
 
-  val imageUri = playbackSession?.getCoverUri(context) ?: Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/" + R.drawable.icon)
+  val imageUri = playbackSession?.getCoverUri(context) ?: Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/" + R.drawable.nh_logo)
   val awt: AppWidgetTarget = object : AppWidgetTarget(context.applicationContext, R.id.widgetAlbumArt, views, appWidgetId) {
     override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
       super.onResourceReady(resource, transition)
@@ -230,7 +230,7 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
   // slider — RemoteViews can't clip an ImageView's corners directly, so this
   // is baked into the bitmap itself via Glide before it reaches the widget.
   val coverRadiusPx = (17 * context.resources.displayMetrics.density).toInt()
-  val options = RequestOptions().override(300, 300).transform(RoundedCorners(coverRadiusPx)).placeholder(R.drawable.icon).error(R.drawable.icon)
+  val options = RequestOptions().override(300, 300).transform(RoundedCorners(coverRadiusPx)).placeholder(R.drawable.nh_logo).error(R.drawable.nh_logo)
   Glide.with(context.applicationContext).asBitmap().load(imageUri).apply(options).into(awt)
 
   Log.i(tag, "Update NanoHive App Widget | Is Playing=$isPlaying | isAppClosed=$isAppClosed")

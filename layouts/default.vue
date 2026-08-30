@@ -144,9 +144,6 @@ export default {
     isPlayerOpen() {
       return this.$store.getters['getIsPlayerOpen']
     },
-    routeName() {
-      return this.$route.name
-    },
     networkConnected() {
       return this.$store.state.networkConnected
     },
@@ -323,11 +320,6 @@ export default {
       localStorage.setItem('cfzt_dismissed_tag', this.updateLatestTag)
       this.showUpdatePrompt = false
     },
-    initialStream(stream) {
-      if (this.$refs.streamContainer?.audioPlayerReady) {
-        this.$refs.streamContainer.streamOpen(stream)
-      }
-    },
     async loadSavedSettings() {
       const userSavedServerSettings = await this.$localStore.getServerSettings()
       if (userSavedServerSettings) {
@@ -370,7 +362,7 @@ export default {
       // Cold-start authorize has no CF session awareness of its own — refresh a stale
       // CF session before authorizing, instead of authorizing against a CF login page
       // returned as HTML and failing with no explanation or auto-reauth.
-      if (this.$platform === 'android' && serverConfig.isSsoAuth) {
+      if ((this.$platform === 'android' || this.$platform === 'ios') && serverConfig.isSsoAuth) {
         try {
           const probeResult = await AbsCfZeroTrust.probeCfChallenge({
             serverAddress: serverConfig.address,
@@ -454,9 +446,6 @@ export default {
           this.$router.replace(`/bookshelf`)
         }
       }
-    },
-    socketConnectionFailed(err) {
-      this.$toast.error('Socket connection error: ' + err.message)
     },
     async initLibraries() {
       if (this.inittingLibraries) {
@@ -566,7 +555,7 @@ export default {
           // Reload local media progresses
           await this.$store.dispatch('globals/loadLocalMediaProgress')
           // Re-resolve LAN vs remote endpoint after being out of focus
-          if (this.$platform === 'android') {
+          if (this.$platform === 'android' || this.$platform === 'ios') {
             this.$db.resolveEndpoint().catch(() => {})
           }
         }
@@ -580,7 +569,7 @@ export default {
       }
     },
     async handleCfExpired() {
-      if (this.cfRefreshInProgress || this.$platform !== 'android') return
+      if (this.cfRefreshInProgress || (this.$platform !== 'android' && this.$platform !== 'ios')) return
       const serverConfig = this.$store.state.user.serverConnectionConfig
       if (!serverConfig?.address) return
       this.cfRefreshInProgress = true
@@ -740,12 +729,13 @@ export default {
     this.$eventBus.$on('change-lang', this.changeLanguage)
     this.$eventBus.$on('open-nh-dev-panel', () => { this.showNhDevPanel = true })
     document.addEventListener('visibilitychange', this.visibilityChanged)
-    if (this.$platform === 'android') {
+    if (this.$platform === 'android' || this.$platform === 'ios') {
       this.cfSessionListener = await AbsCfZeroTrust.addListener('cfSessionExpired', this.handleCfExpired)
     }
 
     this.$socket.on('user_updated', this.userUpdated)
     this.$socket.on('user_media_progress_updated', this.userMediaProgressUpdated)
+    this.$socket.on('item_removed', this.itemRemoved)
 
     if (this.$store.state.isFirstLoad) {
       AbsLogger.info({ tag: 'default', message: `mounted: initializing first load (${this.$platform} v${this.$config.version})` })

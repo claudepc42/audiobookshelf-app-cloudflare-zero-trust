@@ -36,6 +36,27 @@ public class AbsDownloader: CAPPlugin, CAPBridgedPlugin, URLSessionDownloadDeleg
     private let maxConcurrentDownloads = 3
     
     
+    // MARK: - Request Building
+
+    // Without this, downloads against a CF Zero Trust-protected server would hit the CF
+    // challenge page instead of the real file — the ?token= query param only authenticates
+    // against ABS itself, not CF's edge, which needs the Cookie header to let the request
+    // through at all. Mirrors InternalDownloadManager.kt's download()'s addHeader loop, with
+    // the same host-gate as HostFilteredHttpDataSource.kt (see AudioPlayer.swift's
+    // requestHostMatchesServer) so headers aren't sent to some other host.
+    private func buildDownloadRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        if let customHeaders = Store.customHeaders, !customHeaders.isEmpty,
+           let serverHost = URL(string: Store.serverConfig?.address ?? "")?.host,
+           let requestHost = url.host,
+           requestHost == serverHost || requestHost.hasSuffix(".\(serverHost)") {
+            for (key, value) in customHeaders {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+        }
+        return request
+    }
+
     // MARK: - Download Queue Management
 
     private func startNextDownloadInQueue() {
@@ -64,6 +85,28 @@ public class AbsDownloader: CAPPlugin, CAPBridgedPlugin, URLSessionDownloadDeleg
     // MARK: - Progress handling
 
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        // Mirrors InternalDownloadManager.kt's onResponse redirect check: if the final response
+        // host differs from the originally-requested host, a CF challenge redirect was likely
+        // silently followed and downloaded instead of the real file — fail the download rather
+        // than saving an HTML challenge page to disk as if it were the real audio/ebook/cover.
+        let originalHost = downloadTask.originalRequest?.url?.host ?? ""
+        let finalHost = downloadTask.response?.url?.host ?? ""
+        if !originalHost.isEmpty && !finalHost.isEmpty && finalHost != originalHost {
+            AbsLogger.error(message: "AbsDownloader: Download redirected to unexpected host \(finalHost) (expected \(originalHost)) — possible auth challenge")
+            AbsCfZeroTrust.notifyCfSessionExpired()
+            handleDownloadTaskUpdate(downloadTask: downloadTask) { downloadItem, downloadItemPart in
+                let realm = try Realm()
+                guard let liveDownloadItemPart = realm.object(ofType: DownloadItemPart.self, forPrimaryKey: downloadItemPart.id) else {
+                    throw LibraryItemDownloadError.downloadItemPartNotFound
+                }
+                try realm.write {
+                    liveDownloadItemPart.completed = true
+                    liveDownloadItemPart.failed = true
+                }
+            }
+            return
+        }
+
         handleDownloadTaskUpdate(downloadTask: downloadTask) { downloadItem, downloadItemPart in
             let realm = try Realm()
             let partId = downloadItemPart.id
@@ -78,7 +121,7 @@ public class AbsDownloader: CAPPlugin, CAPBridgedPlugin, URLSessionDownloadDeleg
                 liveDownloadItemPart.progress = 100
                 liveDownloadItemPart.completed = true
             }
-            
+
             do {
                 // Move the downloaded file into place
                 guard let destinationUrl = liveDownloadItemPart.destinationURL else {
@@ -113,6 +156,21 @@ public class AbsDownloader: CAPPlugin, CAPBridgedPlugin, URLSessionDownloadDeleg
                     liveDownloadItemPart.completed = true
                     liveDownloadItemPart.failed = true
                 }
+
+                // Mirrors DownloadItemManager.kt's checkDownloadItemPart STATUS_FAILED branch —
+                // a hard download failure (not just a successful-but-redirected response, which
+                // didFinishDownloadingTo already handles) can also mean a CF challenge rejected
+                // the request outright. Probe so the WebView re-auth flow can fire.
+                let address = Store.effectiveAddress
+                if !address.isEmpty {
+                    DispatchQueue.global(qos: .background).async {
+                        if AbsCfZeroTrust.doProbeCfChallenge(serverAddress: address) {
+                            AbsLogger.info(message: "AbsDownloader: CF session expired during download failure — notifying JS")
+                            AbsCfZeroTrust.notifyCfSessionExpired()
+                        }
+                    }
+                }
+
                 throw error
             }
         }
@@ -390,7 +448,7 @@ public class AbsDownloader: CAPPlugin, CAPBridgedPlugin, URLSessionDownloadDeleg
         let itemDirectory = try createLibraryItemFileDirectory(item: item)
         let localUrl = "\(itemDirectory)/\(filename)"
 
-        let task = session.downloadTask(with: serverUrl)
+        let task = session.downloadTask(with: buildDownloadRequest(for: serverUrl))
         let part = DownloadItemPart(downloadItemId: downloadItemId, filename: filename, destination: localUrl, itemTitle: track.title ?? "Unknown", serverPath: Store.serverConfig!.address, audioTrack: track, episode: episode, ebookFile: nil, size: track.metadata?.size ?? 0)
 
         // Store the id on the task so the download item can be pulled from the database later
@@ -406,7 +464,7 @@ public class AbsDownloader: CAPPlugin, CAPBridgedPlugin, URLSessionDownloadDeleg
         let localUrl = "\(itemDirectory)/\(filename)"
 
         let part = DownloadItemPart(downloadItemId: downloadItemId, filename: filename, destination: localUrl, itemTitle: filename, serverPath: serverPath, audioTrack: nil, episode: nil, ebookFile: ebookFile, size: ebookFile.metadata?.size ?? 0)
-        let task = session.downloadTask(with: part.downloadURL!)
+        let task = session.downloadTask(with: buildDownloadRequest(for: part.downloadURL!))
 
         // Store the id on the task so the download item can be pulled from the database later
         task.taskDescription = part.id
@@ -426,7 +484,7 @@ public class AbsDownloader: CAPPlugin, CAPBridgedPlugin, URLSessionDownloadDeleg
         })
 
         let part = DownloadItemPart(downloadItemId: downloadItemId, filename: filename, destination: localUrl, itemTitle: "cover", serverPath: serverPath, audioTrack: nil, episode: nil, ebookFile: nil, size: coverLibraryFile?.metadata?.size ?? 0)
-        let task = session.downloadTask(with: part.downloadURL!)
+        let task = session.downloadTask(with: buildDownloadRequest(for: part.downloadURL!))
 
         // Store the id on the task so the download item can be pulled from the database later
         task.taskDescription = part.id
@@ -449,7 +507,7 @@ public class AbsDownloader: CAPPlugin, CAPBridgedPlugin, URLSessionDownloadDeleg
             audioFileIno = matchingAudioFile?.ino ?? ""
         }
 
-        let urlstr = "\(Store.serverConfig!.address)/api/items/\(item.id)/file/\(audioFileIno)/download?token=\(Store.serverConfig!.token)"
+        let urlstr = "\(Store.effectiveAddress)/api/items/\(item.id)/file/\(audioFileIno)/download?token=\(Store.serverConfig!.token)"
         return URL(string: urlstr)!
     }
     

@@ -12,20 +12,8 @@ export default class TouchEvent {
         this.endEvent = endEvent || null
     }
 
-    isSwipeLeft() {
-        return this.getSwipeDirection() == TouchEvent.SWIPE_LEFT
-    }
-
     isSwipeRight() {
         return this.getSwipeDirection() == TouchEvent.SWIPE_RIGHT
-    }
-
-    isSwipeUp() {
-        return this.getSwipeDirection() == TouchEvent.SWIPE_UP
-    }
-
-    isSwipeDown() {
-        return this.getSwipeDirection() == TouchEvent.SWIPE_DOWN
     }
 
     getSwipeDirection() {
