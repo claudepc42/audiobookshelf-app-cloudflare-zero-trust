@@ -36,7 +36,7 @@ class MediaItemEvent: EmbeddedObject, Codable {
         self.timestamp = Date().timeIntervalSince1970 * 1000
     }
 
-    required init() {
+    override init() {
         super.init()
     }
 

@@ -30,15 +30,11 @@ class ApiClient {
     }
 
     /// True when Store.effectiveAddress (what every request in this file actually
-    /// targets) resolves to the same host as the primary, Cloudflare-fronted server
-    /// address — i.e. we are NOT currently routed via the LAN address.
+    /// targets) is the exact same origin as the primary, Cloudflare-fronted server
+    /// address — i.e. we are NOT currently routed via the LAN address. See
+    /// Store.requestTargetIsPrimaryServer for why this must be an exact origin match.
     private static func requestTargetIsPrimaryServer() -> Bool {
-        guard let requestHost = URL(string: Store.effectiveAddress)?.host,
-              let serverHost = URL(string: Store.serverConfig?.address ?? "")?.host,
-              !serverHost.isEmpty else {
-            return false
-        }
-        return requestHost == serverHost || requestHost.hasSuffix(".\(serverHost)")
+        Store.requestTargetIsPrimaryServer(Store.effectiveAddress)
     }
 
     public static func getData(from url: URL, completion: @escaping (UIImage?) -> Void) {

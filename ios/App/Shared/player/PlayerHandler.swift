@@ -192,7 +192,10 @@ class PlayerHandler {
         Task {
             var syncResult: MediaSyncResult? = nil
             if let currentTime = currentTime {
-                syncResult = await PlayerProgress.shared.syncFromPlayer(currentTime: currentTime, includesPlayProgress: wasPlaying, isStopping: true)
+                // player has already been torn down above, so PlayerHandler.getPlaybackSession()
+                // (which reads PlayerHandler.player) would resolve to nil here — pass the
+                // captured session's id explicitly so the sync resolves it directly instead.
+                syncResult = await PlayerProgress.shared.syncFromPlayer(currentTime: currentTime, includesPlayProgress: wasPlaying, isStopping: true, sessionId: session.id)
             }
             switch eventKind {
             case .stop:

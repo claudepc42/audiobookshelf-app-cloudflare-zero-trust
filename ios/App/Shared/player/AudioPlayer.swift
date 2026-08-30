@@ -645,13 +645,10 @@ class AudioPlayer: NSObject {
     // references segments on a different host than the manifest itself, those segment
     // requests would still receive these headers via AVFoundation's default propagation
     // behavior. Flagged for on-device verification / follow-up.
+    /// See Store.requestTargetIsPrimaryServer for why this must be an exact origin
+    /// match (scheme + host + port), not a host-equality-or-subdomain-suffix check.
     private func requestHostMatchesServer(_ urlString: String) -> Bool {
-        guard let requestHost = URL(string: urlString)?.host,
-              let serverHost = URL(string: Store.serverConfig?.address ?? "")?.host,
-              !serverHost.isEmpty else {
-            return false
-        }
-        return requestHost == serverHost || requestHost.hasSuffix(".\(serverHost)")
+        Store.requestTargetIsPrimaryServer(urlString)
     }
 
     private func createAsset(itemId:String, track:AudioTrack, ino:String) -> AVAsset? {
