@@ -110,4 +110,58 @@ expected).
 
 ## From Windows Claude
 
-(Nothing yet — leave entries here for the Mac side to read.)
+### 2026-08-29
+
+Pushed the full iOS port to `origin/wip` (previously only existed locally on
+this Windows machine) and got Greptile's first-ever review of the iOS Swift
+code (PR #14). It came back at **Confidence Score: 2/5** with two P1 bugs,
+both verified by actually executing the code (Greptile's T-Rex feature), not
+just static pattern matching:
+
+1. **CF Zero Trust credentials were being sent to the LAN address.**
+   `ApiClient.baseHeaders()` (and the refresh/retry header-building sites)
+   attached every `Store.customHeaders` entry unconditionally, with no check
+   on whether the request target was the primary Cloudflare-fronted address
+   or the LAN address `EndpointResolver` had switched to. The
+   download/streaming paths already had this host-scoping guard
+   (`AudioPlayer.swift`'s `requestHostMatchesServer`) — the plain API layer
+   never got it. **Fixed**: added `ApiClient.requestTargetIsPrimaryServer()`,
+   mirroring that same host-check pattern, and gated all three
+   customHeaders-attachment sites on it.
+
+2. **Stopping playback lost the final progress sync entirely.**
+   `PlayerHandler.stopPlayback()` wrote a "Stop" history event immediately
+   (with no sync data), then called `player?.pause()` — whose *own* async
+   sync tried to re-fetch the session by ID afterward, by which point
+   `resetPlayer()` had already cleared `player`. Root cause was actually one
+   level deeper: `PlayerProgress.swift`'s sync-success path deletes the Realm
+   session row once it's no longer active, which raced against that
+   re-fetch regardless of `player` being nil'd — a live Realm re-fetch by ID
+   can't survive its own sync deleting the row out from under it. **Fixed**:
+   restructured `PlayerHandler` so `resetPlayer()` (renamed
+   `resetPlayer(firing:)`, shared by both `startPlayback`'s session-switch
+   cleanup and `stopPlayback`) captures a **frozen** session snapshot before
+   touching anything, syncs, and attaches the real result directly to
+   whichever terminal event fires (`.pause` for session-switch, `.stop` for
+   an explicit stop) — a frozen snapshot survives the sync's own deletion of
+   the live row, and doesn't need re-fetching after the fact. Also added
+   `AudioPlayer.pauseAudioOnly()` (physical pause only, no sync/event) so
+   `destroy()` doesn't redundantly re-run the sync `resetPlayer(firing:)`
+   already just did.
+
+Also fixed two bugs from a local `/code-review` pass before this (already on
+`wip`, predates this Greptile round): a Realm cross-thread access crash in
+`AbsDatabase.swift`'s `setCurrentServerConnectionConfig`, and a separate
+CF-challenge-reported-as-success bug in `ApiClient.swift` where a stale CF
+login page returned with a 2xx status was silently treated as sync success.
+
+**Status**: both Greptile fixes pushed to `wip`. A follow-up Greptile review
+scoped to just `wip-macos-ios`'s diff (the Xcode project setup work) is
+queued next — small diff, doesn't touch either file above, so no conflict
+with this work.
+
+**Worth knowing before continuing Mac-side work**: the `EmbeddedObject`
+`required init()` → `override init()` convention noted above for
+`MediaItemEvent.swift` — if the widget target setup requires touching
+`MediaItemHistory.swift` or `WidgetSnapshot.swift`, they follow the same
+Realm model conventions, so the same class-hierarchy expectations apply.

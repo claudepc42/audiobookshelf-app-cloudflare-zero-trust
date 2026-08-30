@@ -15,12 +15,30 @@ class ApiClient {
         var headers: HTTPHeaders = [
             "Authorization": "Bearer \(Store.serverConfig!.token)"
         ]
-        if let customHeaders = Store.customHeaders {
+        // Mirrors AudioPlayer.swift's requestHostMatchesServer: CF Zero Trust cookies/
+        // service-token headers are only meant for the primary (Cloudflare-fronted)
+        // address. Store.effectiveAddress can resolve to a LAN address instead when
+        // LAN routing is active, and without this check those credentials would be
+        // sent to the LAN host too — a real credential-disclosure bug, not just a
+        // wasted header, since the LAN connection isn't behind Cloudflare at all.
+        if let customHeaders = Store.customHeaders, !customHeaders.isEmpty, requestTargetIsPrimaryServer() {
             for (key, value) in customHeaders {
                 headers.add(name: key, value: value)
             }
         }
         return headers
+    }
+
+    /// True when Store.effectiveAddress (what every request in this file actually
+    /// targets) resolves to the same host as the primary, Cloudflare-fronted server
+    /// address — i.e. we are NOT currently routed via the LAN address.
+    private static func requestTargetIsPrimaryServer() -> Bool {
+        guard let requestHost = URL(string: Store.effectiveAddress)?.host,
+              let serverHost = URL(string: Store.serverConfig?.address ?? "")?.host,
+              !serverHost.isEmpty else {
+            return false
+        }
+        return requestHost == serverHost || requestHost.hasSuffix(".\(serverHost)")
     }
 
     public static func getData(from url: URL, completion: @escaping (UIImage?) -> Void) {
@@ -182,7 +200,7 @@ class ApiClient {
             "x-refresh-token": refreshToken,
             "Content-Type": "application/json"
         ]
-        if let customHeaders = Store.customHeaders {
+        if let customHeaders = Store.customHeaders, !customHeaders.isEmpty, requestTargetIsPrimaryServer() {
             for (key, value) in customHeaders { refreshHeaders.add(name: key, value: value) }
         }
 
@@ -252,7 +270,7 @@ class ApiClient {
         var headers: HTTPHeaders = [
             "Authorization": "Bearer \(newAccessToken)"
         ]
-        if let customHeaders = Store.customHeaders {
+        if let customHeaders = Store.customHeaders, !customHeaders.isEmpty, requestTargetIsPrimaryServer() {
             for (key, value) in customHeaders { headers.add(name: key, value: value) }
         }
         
