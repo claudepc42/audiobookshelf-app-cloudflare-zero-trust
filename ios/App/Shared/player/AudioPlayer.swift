@@ -140,7 +140,11 @@ class AudioPlayer: NSObject {
         // Pause is not synchronous causing this error on below lines:
         // AVAudioSession_iOS.mm:1206  Deactivating an audio session that has running I/O. All I/O should be stopped or paused prior to deactivating the audio session
         // It is related to L79 `AVAudioSession.sharedInstance().setActive(false)`
-        self.pause()
+        // Uses pauseAudioOnly(), not the full pause(): the sole caller of destroy(),
+        // PlayerHandler.resetPlayer(firing:), already performs its own sync + history
+        // event using a frozen pre-destroy snapshot, so a second full pause() here would
+        // only fire a redundant, wasted sync.
+        self.pauseAudioOnly()
         self.audioPlayer.replaceCurrentItem(with: nil)
         
         do {
@@ -374,6 +378,20 @@ class AudioPlayer: NSObject {
         self.handleTrackChangeForChapterSleepTimer()
     }
     
+    /// Physically pauses playback (AVPlayer, audio session, status, Now Playing info)
+    /// without the sync-and-record-a-history-event flow pause() also does. Used by
+    /// PlayerHandler.stopPlayback(), which needs audio to stop immediately but performs
+    /// its own sync + Stop event separately — see stopPlayback()'s comment for why.
+    func pauseAudioOnly() {
+        guard self.isInitialized() else { return }
+        DispatchQueue.runOnMainQueue {
+            self.audioPlayer.pause()
+        }
+        self.markAudioSessionAs(active: false)
+        self.status = .paused
+        updateNowPlaying()
+    }
+
     public func pause() {
         guard self.isInitialized() else { return }
 
@@ -384,33 +402,30 @@ class AudioPlayer: NSObject {
         let wasPlaying = self.isPlaying()
 
         AbsLogger.info(message:"PAUSE: Pausing playback")
-        DispatchQueue.runOnMainQueue {
-            self.audioPlayer.pause()
-        }
-        self.markAudioSessionAs(active: false)
+        self.pauseAudioOnly()
 
         // Matches MediaProgressSyncer.kt's pause(): syncs first, then fires "Pause" carrying
         // whatever sync result came back — a session with currentTime <= 0 (nothing to sync)
         // still fires the event, just with a nil syncResult, same as Android's else-branch.
-        // The session is re-fetched after the await (not captured beforehand) since Realm
-        // objects are thread-confined and a Task body may resume on a different thread.
-        // The sync itself always runs (isStopping: true forces a rate-limit-bypassing server
-        // flush, which stop-while-already-paused still relies on) — only the history-event
-        // write is gated on wasPlaying, since destroy() unconditionally calls pause() to stop
+        // The session is frozen and captured before the Task, not re-fetched by ID inside it
+        // after the await: Realm objects are thread-confined so it can't cross unfrozen, AND
+        // PlayerProgress.syncFromPlayer's own "delete session after a successful sync of a
+        // no-longer-active session" cleanup can remove the live row before this continuation
+        // resumes — re-fetching by ID at that point would silently find nothing and drop the
+        // event. A frozen snapshot stays valid regardless. Only the history-event write is
+        // gated on wasPlaying, since destroy() unconditionally calls pauseAudioOnly() to stop
         // I/O before deactivating the audio session even if already paused, and that redundant
         // call shouldn't append a duplicate "Pause" row to Session History.
+        let session = self.getPlaybackSession()?.freeze()
         Task {
             var syncResult: MediaSyncResult? = nil
             if let currentTime = self.getCurrentTime() {
                 syncResult = await PlayerProgress.shared.syncFromPlayer(currentTime: currentTime, includesPlayProgress: wasPlaying, isStopping: true)
             }
-            if wasPlaying, let session = self.getPlaybackSession() {
+            if wasPlaying, let session = session {
                 MediaEventManager.pauseEvent(session, syncResult: syncResult)
             }
         }
-
-        self.status = .paused
-        updateNowPlaying()
     }
 
     public func startFadeOut() {
