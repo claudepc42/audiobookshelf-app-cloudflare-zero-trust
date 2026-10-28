@@ -438,8 +438,19 @@ export default {
       if (this.dragMoved) return
       this.$router.push(`/item/${item.id}`)
     },
+    // NH source has no equivalent (its carousel is injected JS over the web
+    // client, which never has a local download to prefer). This mirrors
+    // pages/item/_id/index.vue's own audiobook play logic instead: when a
+    // local download exists, play-item must carry ITS id, not the server
+    // item's — AbsAudioPlayer.prepareLibraryItem() decides local-vs-stream
+    // purely by whether the id it's given starts with "local", so passing
+    // the server id here always streamed over the network even for a fully
+    // downloaded book. serverLibraryItemId is still passed through so
+    // casting (which can't play a local file) can fall back to it.
     continueItem(item) {
-      this.$eventBus.$emit('play-item', { libraryItemId: item.id })
+      const hasLocal = !!item.localLibraryItem
+      const libraryItemId = hasLocal && !this.$store.state.isCasting ? item.localLibraryItem.id : item.id
+      this.$eventBus.$emit('play-item', { libraryItemId, serverLibraryItemId: item.id })
     },
     // Ebook-only items have no audio to hand to the play-item event bus at
     // all — route to the item page instead, where the real Read button
