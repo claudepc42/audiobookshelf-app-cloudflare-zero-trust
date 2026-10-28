@@ -392,9 +392,19 @@ export default {
       if (!localMediaProgress) return
       console.log('[AudioPlayerContainer] checkSyncServerProgressWithLocalProgress: checking server media progress for local media item open in player')
       const serverMediaProgress = await this.getServerMediaProgressForCurrentSession()
-      if (!serverMediaProgress?.lastUpdate || serverMediaProgress.lastUpdate <= localMediaProgress.lastUpdate) return
+      if (!serverMediaProgress) return
 
-      console.log('[AudioPlayerContainer] checkSyncServerProgressWithLocalProgress: server progress is more recent than local progress. Server current time:', serverMediaProgress.currentTime, 'vs local', localMediaProgress.currentTime, `(server lastUpdate=${serverMediaProgress.lastUpdate} > local lastUpdate=${localMediaProgress.lastUpdate})`)
+      // Position-based, not lastUpdate-based: lastUpdate alone can't tell
+      // "server genuinely has newer progress" apart from "this device has
+      // simply been actively playing from an already-stale resume point,"
+      // which keeps bumping local's lastUpdate every autosave tick without
+      // its position ever catching up to what the server actually knows.
+      // Only pull server's data in when it's actually further along (or
+      // finished) than what's playing locally — never on timestamp alone.
+      const serverIsFurther = (serverMediaProgress.isFinished && !localMediaProgress.isFinished) || (!localMediaProgress.isFinished && (serverMediaProgress.currentTime || 0) > (localMediaProgress.currentTime || 0))
+      if (!serverIsFurther) return
+
+      console.log('[AudioPlayerContainer] checkSyncServerProgressWithLocalProgress: server progress is further along than local progress. Server current time:', serverMediaProgress.currentTime, 'vs local', localMediaProgress.currentTime)
       if (!this.$refs.audioPlayer?.isPlaying && serverMediaProgress.currentTime !== localMediaProgress.currentTime) {
         // Use seek() so the native audio player's current session is updated
         this.$refs.audioPlayer.seek(serverMediaProgress.currentTime)

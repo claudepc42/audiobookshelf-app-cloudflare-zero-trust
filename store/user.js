@@ -236,11 +236,35 @@ export const actions = {
   }
 }
 
-// Merges two mediaProgress arrays by id, keeping the entry with the higher
-// lastUpdate per id. Used so a fresh setUser (e.g. a live reconnect after an
-// offline-cached session was shown, or any repeat setUser from a token
-// refresh/socket user_updated event) can never silently regress progress
-// that's already newer in memory than what this particular response carries.
+// Picks whichever of two mediaProgress records for the same item represents
+// more actual listening/reading progress. Deliberately NOT a lastUpdate
+// comparison: lastUpdate keeps advancing purely from local playback
+// autosaving every few seconds, even when that playback started from an
+// already-stale cached position — e.g. you listened further on another
+// device, closed the app, then opened this one and hit play immediately
+// from the stale cached spot before the live reconnect had a chance to
+// land. Within seconds this device's lastUpdate would out-race the other
+// device's and "newest lastUpdate wins" would pick the LESS advanced
+// record. Actual position can't be raced that way: it only grows when real
+// listening/reading time has actually elapsed, so it's what decides here.
+function pickFurtherProgress(a, b) {
+  if (!a) return b
+  if (!b) return a
+  if (a.isFinished && !b.isFinished) return a
+  if (b.isFinished && !a.isFinished) return b
+  const posA = Math.max(a.progress || 0, a.ebookProgress || 0)
+  const posB = Math.max(b.progress || 0, b.ebookProgress || 0)
+  if (posA !== posB) return posA > posB ? a : b
+  // True tie (e.g. both freshly reset to the same spot) — lastUpdate is a
+  // reasonable last resort only once position can't tell them apart.
+  return (a.lastUpdate || 0) >= (b.lastUpdate || 0) ? a : b
+}
+
+// Merges two mediaProgress arrays by id using the above. Used so a fresh
+// setUser (e.g. a live reconnect after an offline-cached session was shown,
+// or any repeat setUser from a token refresh/socket user_updated event) can
+// never silently regress progress that's actually further along than what
+// this particular response carries.
 function mergeMediaProgressLists(current, incoming) {
   if (!current?.length) return incoming || []
   if (!incoming?.length) return current
@@ -250,8 +274,7 @@ function mergeMediaProgressLists(current, incoming) {
   }
   for (const p of incoming) {
     if (!p?.id) continue
-    const existing = byId.get(p.id)
-    if (!existing || (p.lastUpdate || 0) >= (existing.lastUpdate || 0)) byId.set(p.id, p)
+    byId.set(p.id, pickFurtherProgress(byId.get(p.id), p))
   }
   return Array.from(byId.values())
 }
