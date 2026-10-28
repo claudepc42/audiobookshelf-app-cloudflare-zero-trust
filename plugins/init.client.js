@@ -12,6 +12,39 @@ import { NH_SETTINGS_DEFAULTS, NH_GLASS_EFFECT_CONTROLS, NH_GLASS_PANEL_DEFAULTS
 
 Vue.directive('click-outside', vClickOutside.directive)
 
+// NH source: nhRtStarNudge() (book-details.js:1016-1030). The ★ glyph comes
+// from whatever symbol font the platform falls back to, and several of those
+// draw the ink low inside the line box, so a flex-centered star row sags
+// under the score/review text next to it — font-dependent, so it may not
+// reproduce on every device. Measures the actual rendered glyph against the
+// font's line box and counter-shifts by exactly that difference; a font with
+// no sag measures ~0 and gets no transform at all (see the 0.5px guard).
+let nhStarNudgeCtx = null
+function nhStarNudge(el) {
+  try {
+    if (!el.isConnected) {
+      requestAnimationFrame(() => nhStarNudge(el))
+      return
+    }
+    const cs = getComputedStyle(el)
+    nhStarNudgeCtx = nhStarNudgeCtx || document.createElement('canvas').getContext('2d')
+    nhStarNudgeCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} / ${cs.lineHeight} ${cs.fontFamily}`
+    const g = nhStarNudgeCtx.measureText('★')
+    const f = nhStarNudgeCtx.measureText('Hg')
+    if (g.actualBoundingBoxAscent === undefined || f.fontBoundingBoxAscent === undefined) return
+    const inkMid = (g.actualBoundingBoxAscent - g.actualBoundingBoxDescent) / 2
+    const boxMid = (f.fontBoundingBoxAscent - f.fontBoundingBoxDescent) / 2
+    const off = inkMid - boxMid // negative = ink sits low = translate up
+    if (Math.abs(off) > 0.5) el.style.transform = `translateY(${off.toFixed(2)}px)`
+  } catch (e) {
+    // Canvas metrics unavailable — leave the star row unshifted
+  }
+}
+Vue.directive('nh-star-nudge', {
+  inserted: (el) => requestAnimationFrame(() => nhStarNudge(el)),
+  componentUpdated: (el) => requestAnimationFrame(() => nhStarNudge(el))
+})
+
 if (Capacitor.getPlatform() != 'web') {
   const setStatusBarStyleDark = async () => {
     await StatusBar.setStyle({ style: Style.Dark })
@@ -269,11 +302,55 @@ function isValidVersion(currentVersion, minVersion) {
   return true
 }
 
-export default ({ store, app }, inject) => {
+export default async ({ store, app }, inject) => {
   const eventBus = new Vue()
   inject('eventBus', eventBus)
 
   inject('isValidVersion', isValidVersion)
+
+  // Hydrate user/libraries from local cache before the app finishes booting,
+  // so the bookshelf's very first render already has real shelves/progress
+  // instead of showing blank/"not connected" until the live /api/authorize
+  // round-trip resolves. Previously that round-trip (layouts/default.vue's
+  // attemptConnection()) only started once this plugin's work was done and
+  // the page had already mounted and found nothing — always a blank-then-
+  // pop-in frame, even with a good connection, not just offline. This is
+  // `await`ed (unlike the theme/NH-settings hydration below, which is
+  // intentionally fire-and-forget) because Nuxt blocks mounting the app on
+  // this plugin's returned promise, and this one specifically needs to land
+  // before any page component mounts and calls fetchCategories().
+  // attemptConnection() still runs after this (see mounted() in
+  // layouts/default.vue) to confirm/refresh against the live server —
+  // this is an optimistic guess for first paint only, never the source of
+  // truth. isHydratedFromCache marks it as such.
+  try {
+    if (!store.state.user.user) {
+      const deviceData = await app.$db.getDeviceData()
+      let serverConfig = null
+      if (deviceData?.lastServerConnectionConfigId && deviceData.serverConnectionConfigs?.length) {
+        serverConfig = deviceData.serverConnectionConfigs.find((scc) => scc.id == deviceData.lastServerConnectionConfigId)
+      }
+      if (serverConfig) {
+        const cachedUser = await app.$localStore.getCachedUser(serverConfig.id)
+        if (cachedUser) {
+          store.commit('user/setUser', cachedUser)
+          store.commit('user/setAccessToken', serverConfig.token)
+          store.commit('user/setServerConnectionConfig', serverConfig)
+          store.commit('user/setIsHydratedFromCache', true)
+
+          const cachedLibraries = await app.$localStore.getCachedLibraries(serverConfig.id, cachedUser.id)
+          if (cachedLibraries?.length) {
+            store.commit('libraries/set', cachedLibraries)
+            const lastLibraryId = await app.$localStore.getLastLibraryId()
+            const libId = lastLibraryId && cachedLibraries.some((l) => l.id === lastLibraryId) ? lastLibraryId : cachedLibraries[0].id
+            store.commit('libraries/setCurrentLibrary', libId)
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[init] Failed to hydrate cached session', e)
+  }
 
   // Set theme
   app.$localStore?.getTheme()?.then((theme) => {

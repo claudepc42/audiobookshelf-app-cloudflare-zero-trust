@@ -1899,6 +1899,45 @@ html[data-theme='nanohive'] .nh-rt-user {
   font-weight: 600;
   font-size: 0.92rem;
 }
+/* NH source: core.js:665-678 (nhSpPaint's badge, LazySeriesCard.vue) — our card's
+   own width/height IS the cover (no separate series-deck width like NH's DOM), so
+   this is a plain top-left corner placement instead of NH's
+   calc(--nh-series-cover - 6px) + translateX(-100%) trick, same net position. */
+html[data-theme='nanohive'] .nh-sp {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  line-height: 0;
+  color: #04240f;
+  background: #3fbf6a;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+html[data-theme='nanohive'] .nh-sp svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+html[data-theme='nanohive'] .nh-sp-some {
+  color: #2a1400;
+  background: #f3922b;
+}
+/* NH source: inline style block, book-details.js:509 */
+html[data-theme='nanohive'] .nh-rt-priv {
+  font-size: 0.9em;
+  margin-left: 5px;
+  vertical-align: -2px;
+  color: var(--nh-muted-2, #9a9085);
+  opacity: 0.85;
+}
 html[data-theme='nanohive'] .nh-rt-date {
   color: var(--nh-muted-2);
   font-size: 0.78rem;

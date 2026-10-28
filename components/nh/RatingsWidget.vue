@@ -1,7 +1,7 @@
 <template>
   <div v-if="!dead" id="nh-ratings">
     <div class="nh-rt-main">
-      <span id="nh-rt-picker" class="nh-rt-stars" @mousemove="onPickerMove" @mouseleave="onPickerLeave" @click="onPickerClick" @touchstart.passive="onPickerMove" @touchend.passive="onPickerClick">
+      <span id="nh-rt-picker" v-nh-star-nudge class="nh-rt-stars" @mousemove="onPickerMove" @mouseleave="onPickerLeave" @click="onPickerClick" @touchstart.passive="onPickerMove" @touchend.passive="onPickerClick">
         <span>★★★★★</span>
         <span class="nh-rt-fill" :style="{ width: fillPercent(previewValue !== null ? previewValue : avg) + '%' }">★★★★★</span>
       </span>
@@ -14,7 +14,7 @@
 
     <div v-if="me && mine" class="nh-rt-your">
       <span class="nh-rt-your-label">{{ strings.yourLabel }}</span>
-      <span class="nh-rt-stars">
+      <span v-nh-star-nudge class="nh-rt-stars">
         <span>★★★★★</span>
         <span class="nh-rt-fill" :style="{ width: fillPercent(mine.stars) + '%' }">★★★★★</span>
       </span>
@@ -43,8 +43,11 @@
             <!-- NH source: nhAvatarInto (enhancements.js:8095-8107) — served from
                  /_nh/user-avatars via the proxy; simply doesn't render if unset. -->
             <img v-if="nhAvatarUrl(entry.uid)" :src="nhAvatarUrl(entry.uid)" alt="" class="nh-rt-avatar" />
-            <span class="nh-rt-user">{{ entry.user }}{{ me && entry.uid === me.id ? ` (${strings.you})` : '' }}</span>
-            <span class="nh-rt-stars">
+            <span class="nh-rt-user">
+              {{ entry.user || strings.anon }}{{ me && entry.uid === me.id ? ` (${strings.you})` : '' }}
+              <span v-if="entry.anon || entry.hidden" class="material-symbols nh-rt-priv">visibility_off</span>
+            </span>
+            <span v-nh-star-nudge class="nh-rt-stars">
               <span>★★★★★</span>
               <span class="nh-rt-fill" :style="{ width: fillPercent(entry.stars) + '%' }">★★★★★</span>
             </span>
@@ -175,7 +178,12 @@ export default {
       if (this.fetching || this.$store.state.nhRatingsDead) return
       this.fetching = true
       try {
-        const res = await this.$nativeHttp.get(`/_nh/api/ratings?item=${encodeURIComponent(this.itemKey)}`)
+        // NH source: book-details.js:1082 — an admin always fetches through the
+        // -admin twin, which returns real names + an anon/hidden marker instead
+        // of a masked '' name, so admins can still moderate/identify a rating
+        // hidden from everyone else.
+        const endpoint = this.me && this.me.admin ? '/_nh/api/ratings-admin' : '/_nh/api/ratings'
+        const res = await this.$nativeHttp.get(`${endpoint}?item=${encodeURIComponent(this.itemKey)}`)
         this.fetching = false
         this.ratings = (res && res.items && res.items[this.itemKey]) || {}
         this.tries = 0

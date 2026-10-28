@@ -1030,6 +1030,8 @@ export default {
       this.$store.commit('user/setUser', user)
       this.$store.commit('user/setAccessToken', serverConnectionConfig.token)
       this.$store.commit('user/setServerConnectionConfig', serverConnectionConfig)
+      this.$store.commit('user/setIsHydratedFromCache', false)
+      this.$localStore.setCachedUser(serverConnectionConfig.id, this.$store.state.user.user)
 
       this.$socket.connect(this.serverConfig.address, this.serverConfig.token)
       this.$router.replace('/bookshelf')

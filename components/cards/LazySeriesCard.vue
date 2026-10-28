@@ -10,6 +10,19 @@
 
     <div v-if="seriesPercentInProgress > 0" class="absolute bottom-0 left-0 h-1 max-w-full z-10 rounded-b w-full box-shadow-progressbar nh-series-progressbar" :class="isSeriesFinished ? 'bg-success' : 'bg-yellow-400'" :style="{ width: seriesPercentInProgress * 100 + '%' }" />
 
+    <!-- NH source: nhSpPaint() (enhancements.js:6222-6244) — tick for fully
+         finished, a ring filled to the finished fraction otherwise; two
+         distinct shapes (not just two colors) so the states read apart for
+         colorblind viewers too. Finished-only, same as the progress bar
+         above — merely started marks neither. -->
+    <div v-if="nhThemeActive && seriesFinishedFraction !== null" class="nh-sp" :class="{ 'nh-sp-some': !isSeriesFinished }" :title="seriesBadgeLabel">
+      <svg v-if="isSeriesFinished" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.8 9.5 17.8 19.5 6.8" /></svg>
+      <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="4.2" opacity="0.32" />
+        <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" :stroke-dasharray="seriesRingDasharray" transform="rotate(-90 12 12)" />
+      </svg>
+    </div>
+
     <!-- NH source: core.js [cy-id="seriesLengthMarker"] (lines 381-382) — frosted
          white pill, bottom-left, showing the book count. Missing entirely before. -->
     <div v-if="nhThemeActive && books.length" class="nh-series-length-marker absolute z-20">
@@ -18,7 +31,7 @@
 
     <!-- NH source: nhSeriesBooksAvg() math applied to card badges (enhancements.js:5818-5825) -->
     <div v-if="cardRating" class="nh-card-rating">
-      <span class="nh-cr-stars">
+      <span v-nh-star-nudge class="nh-cr-stars">
         <span>★★★★★</span>
         <span class="nh-cr-fill" :style="{ width: (Math.max(0, Math.min(5, cardRating.avg)) / 5) * 100 + '%' }">★★★★★</span>
       </span>
@@ -94,6 +107,21 @@ export default {
     },
     isSeriesFinished() {
       return this.books.length === this.seriesBooksFinished.length
+    },
+    // NH source: nhSpState() (enhancements.js:6205-6212) — null (no badge) until
+    // at least one book is finished; merely-started books don't count.
+    seriesFinishedFraction() {
+      if (!this.books.length || !this.seriesBooksFinished.length) return null
+      return this.seriesBooksFinished.length / this.books.length
+    },
+    seriesRingDasharray() {
+      const c = 2 * Math.PI * 8
+      const on = Math.max(c * 0.08, c * Math.min(1, Math.max(0, this.seriesFinishedFraction || 0)))
+      return `${on.toFixed(2)} ${(c - on).toFixed(2)}`
+    },
+    seriesBadgeLabel() {
+      if (this.isSeriesFinished) return this.$getString('LabelSeriesAllFinished', [this.books.length])
+      return this.$getString('LabelSeriesSomeFinished', [this.seriesBooksFinished.length, this.books.length])
     },
     store() {
       return this.$store || this.$nuxt.$store

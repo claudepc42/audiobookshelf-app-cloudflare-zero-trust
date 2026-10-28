@@ -32,10 +32,22 @@
 
 <script>
 // Ported from NH source: enhancements.js "finished-book tools" (nhFdRows,
-// nhFdPatch, NH_ALMOST_MIN = 0.97). Both actions go through ABS's own native
-// PATCH /api/me/progress/:id — confirmed no NH-proxy dependency, see
+// nhFdPatch). Both actions go through ABS's own native PATCH
+// /api/me/progress/:id — confirmed no NH-proxy dependency, see
 // NANOHIVE_2.0_UPDATE_PLAN.md section 2.
-const ALMOST_MIN = 0.97
+//
+// almostDone's filter mirrors nhAmfList() (enhancements.js:12183, NH v2.4.0+ —
+// this app was originally ported against NH's older, cruder 0.97-only
+// threshold before NH itself tightened it): ALMOST_MIN dropped to 0.94, plus
+// three guards NH added after the fact that the old threshold-only version
+// didn't have — ALMOST_IDLE (only surface a book once you've genuinely
+// stepped away from it, not the moment it crosses the threshold), the
+// "something else is more recent" check (idle isn't enough on its own — the
+// whole app could just be unused; this confirms you moved on to another book
+// instead), and excluding podcast episode progress entirely (an episode
+// sitting at 94%+ isn't an "almost-done book").
+const ALMOST_MIN = 0.94
+const ALMOST_IDLE = 3 * 24 * 3600 * 1000
 
 export default {
   data() {
@@ -58,11 +70,20 @@ export default {
         .map((p) => ({ libraryItemId: p.libraryItemId, finishedAt: p.finishedAt, title: this.titleFor(p.libraryItemId) }))
     },
     almostDone() {
-      return this.mediaProgress
-        .filter((p) => p && !p.isFinished && p.libraryItemId && p.progress >= ALMOST_MIN && p.progress < 1)
-        .sort((a, b) => (b.progress || 0) - (a.progress || 0))
+      const now = Date.now()
+      const list = this.mediaProgress
+      return list
+        .filter((p) => {
+          if (!p || p.isFinished || !p.libraryItemId || p.episodeId) return false
+          const progress = Math.max(p.progress || 0, p.ebookProgress || 0)
+          if (progress < ALMOST_MIN || progress >= 1) return false
+          const lastUpdate = p.lastUpdate || 0
+          if (now - lastUpdate < ALMOST_IDLE) return false
+          return list.some((o) => o && o !== p && o.libraryItemId && (o.lastUpdate || 0) > lastUpdate)
+        })
+        .sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0))
         .slice(0, 6)
-        .map((p) => ({ libraryItemId: p.libraryItemId, progress: p.progress, title: this.titleFor(p.libraryItemId) }))
+        .map((p) => ({ libraryItemId: p.libraryItemId, progress: Math.max(p.progress || 0, p.ebookProgress || 0), title: this.titleFor(p.libraryItemId) }))
     }
   },
   methods: {

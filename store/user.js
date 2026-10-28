@@ -6,6 +6,13 @@ export const state = () => ({
   user: null,
   accessToken: null,
   serverConnectionConfig: null,
+  // True when user/serverConnectionConfig were populated from the boot-time
+  // local cache (plugins/init.client.js) rather than a real, confirmed login
+  // — lets layouts/default.vue tell "optimistic guess, still needs a live
+  // attemptConnection()" apart from "already actually connected this
+  // session." Cleared the moment a real login (attemptConnection or
+  // ServerConnectForm) commits a fresh setUser.
+  isHydratedFromCache: false,
   settings: {
     mobileOrderBy: 'addedAt',
     mobileOrderDesc: true,
@@ -229,6 +236,26 @@ export const actions = {
   }
 }
 
+// Merges two mediaProgress arrays by id, keeping the entry with the higher
+// lastUpdate per id. Used so a fresh setUser (e.g. a live reconnect after an
+// offline-cached session was shown, or any repeat setUser from a token
+// refresh/socket user_updated event) can never silently regress progress
+// that's already newer in memory than what this particular response carries.
+function mergeMediaProgressLists(current, incoming) {
+  if (!current?.length) return incoming || []
+  if (!incoming?.length) return current
+  const byId = new Map()
+  for (const p of current) {
+    if (p?.id) byId.set(p.id, p)
+  }
+  for (const p of incoming) {
+    if (!p?.id) continue
+    const existing = byId.get(p.id)
+    if (!existing || (p.lastUpdate || 0) >= (existing.lastUpdate || 0)) byId.set(p.id, p)
+  }
+  return Array.from(byId.values())
+}
+
 export const mutations = {
   logout(state) {
     state.user = null
@@ -236,10 +263,16 @@ export const mutations = {
     state.serverConnectionConfig = null
   },
   setUser(state, user) {
+    if (state.user?.mediaProgress?.length && user?.mediaProgress) {
+      user = { ...user, mediaProgress: mergeMediaProgressLists(state.user.mediaProgress, user.mediaProgress) }
+    }
     state.user = user
   },
   setAccessToken(state, accessToken) {
     state.accessToken = accessToken
+  },
+  setIsHydratedFromCache(state, val) {
+    state.isHydratedFromCache = val
   },
   removeMediaProgress(state, id) {
     if (!state.user) return

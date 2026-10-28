@@ -1,6 +1,17 @@
 <template>
   <div v-if="seriesName || loading" id="nh-series-header" :class="{ 'nh-sh-loading': loading }">
-    <div v-if="displayCoverUrl" class="nh-sh-cover nh-on" :style="{ backgroundImage: `url(${displayCoverUrl})` }" />
+    <div v-if="displayCoverUrl" class="nh-sh-cover nh-on" :style="{ backgroundImage: `url(${displayCoverUrl})` }">
+      <!-- NH source: nhSpPaint() (enhancements.js:6222-6244) — same badge as the
+           shelf card (LazySeriesCard.vue), which the series detail page had
+           no equivalent of at all until now. -->
+      <div v-if="seriesFinishedFraction !== null" class="nh-sp" :class="{ 'nh-sp-some': !isSeriesFinished }" :title="seriesBadgeLabel">
+        <svg v-if="isSeriesFinished" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.8 9.5 17.8 19.5 6.8" /></svg>
+        <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="4.2" opacity="0.32" />
+          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" :stroke-dasharray="seriesRingDasharray" transform="rotate(-90 12 12)" />
+        </svg>
+      </div>
+    </div>
     <div class="nh-sh-eyebrow">{{ $strings.LabelSeries }}</div>
     <h1>{{ seriesName }}</h1>
     <div v-if="authorLine || loading" class="nh-sh-author">{{ authorLine }}</div>
@@ -9,7 +20,7 @@
          rating is DERIVED from the member books' own ratings, not a separate
          user-entered series rating. Read-only, no picker. -->
     <div v-if="booksAvg" class="nh-sh-rate">
-      <span class="nh-rt-stars">
+      <span v-nh-star-nudge class="nh-rt-stars">
         <span>★★★★★</span>
         <span class="nh-rt-fill" :style="{ width: (Math.max(0, Math.min(5, booksAvg.avg)) / 5) * 100 + '%' }">★★★★★</span>
       </span>
@@ -70,6 +81,28 @@ export default {
     },
     booksAvgText() {
       return this.booksAvg ? Number(this.booksAvg.avg.toFixed(2)).toString() : ''
+    },
+    // NH source: nhSpState() (enhancements.js:6205-6212) — finished-only count,
+    // same rules as LazySeriesCard.vue's shelf-card badge.
+    seriesBooksFinishedCount() {
+      if (!this.entityIds.length) return 0
+      return this.entityIds.filter((id) => this.$store.getters['user/getUserMediaProgress'](id)?.isFinished).length
+    },
+    isSeriesFinished() {
+      return !!this.entityIds.length && this.seriesBooksFinishedCount === this.entityIds.length
+    },
+    seriesFinishedFraction() {
+      if (!this.entityIds.length || !this.seriesBooksFinishedCount) return null
+      return this.seriesBooksFinishedCount / this.entityIds.length
+    },
+    seriesRingDasharray() {
+      const c = 2 * Math.PI * 8
+      const on = Math.max(c * 0.08, c * Math.min(1, Math.max(0, this.seriesFinishedFraction || 0)))
+      return `${on.toFixed(2)} ${(c - on).toFixed(2)}`
+    },
+    seriesBadgeLabel() {
+      if (this.isSeriesFinished) return this.$getString('LabelSeriesAllFinished', [this.entityIds.length])
+      return this.$getString('LabelSeriesSomeFinished', [this.seriesBooksFinishedCount, this.entityIds.length])
     },
     // NH source: nhScUrl(seriesId) || book-derived fallback (enhancements.js:3822,
     // nhSeriesHeaderCover) — an admin-set custom cover wins over the auto-derived one.

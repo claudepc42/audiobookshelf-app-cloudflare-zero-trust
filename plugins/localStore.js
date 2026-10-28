@@ -270,9 +270,23 @@ class LocalStorage {
    * @param {string} key 
    * @returns {Promise<string>}
    */
+  // NH source: nh-settings:<uid> localStorage namespacing (nh-early.js) — on a
+  // shared browser, NH found its theme/settings leaking from whoever saved them
+  // last to the next person who opens the app. This app has the same exposure:
+  // "Switch Server/User" (account.vue's logout) signs a different ABS user in
+  // on the same device without ever touching the nhSettings Preferences key, so
+  // without this, User B would see User A's theme/accent/font picks immediately.
+  // Unlike NH (whose early-boot shim has to parse a JWT before Vuex exists),
+  // this plugin already holds the real Vuex store, so it can just read the
+  // actual logged-in user id directly — no token-parsing workaround needed.
+  nhSettingsKey() {
+    const userId = this.vuexStore?.state?.user?.user?.id
+    return userId ? `nhSettings:${userId}` : 'nhSettings'
+  }
+
   async setNhSettings(settings) {
     try {
-      await Preferences.set({ key: 'nhSettings', value: JSON.stringify(settings) })
+      await Preferences.set({ key: this.nhSettingsKey(), value: JSON.stringify(settings) })
     } catch (error) {
       console.error('[LocalStorage] Failed to set NH settings', error)
     }
@@ -280,10 +294,82 @@ class LocalStorage {
 
   async getNhSettings() {
     try {
-      const obj = await Preferences.get({ key: 'nhSettings' }) || {}
-      return obj.value ? JSON.parse(obj.value) : null
+      const key = this.nhSettingsKey()
+      const obj = (await Preferences.get({ key })) || {}
+      if (obj.value) return JSON.parse(obj.value)
+      // Migration: a per-user key with nothing saved yet falls back to the
+      // old shared key once, so an existing single-user install doesn't see
+      // its settings silently reset the first time this ships.
+      if (key !== 'nhSettings') {
+        const legacy = (await Preferences.get({ key: 'nhSettings' })) || {}
+        if (legacy.value) return JSON.parse(legacy.value)
+      }
+      return null
     } catch (error) {
       console.error('[LocalStorage] Failed to get NH settings', error)
+      return null
+    }
+  }
+
+  // Last-known logged-in user object (includes mediaProgress) per server, so
+  // app boot can hydrate the store with a real user/progress snapshot before
+  // the live /api/authorize round-trip resolves (or at all, if offline) —
+  // instead of the bookshelf rendering a blank "not connected" state until
+  // that request finishes. Scoped per server only (not per user): this is a
+  // single-slot "whoever is currently signed into this server on this
+  // device" cache, overwritten on every real login — same lifetime as the
+  // device's own saved server connection config, which is also single-slot
+  // per server. A stale previous account's cache is only ever visible for
+  // the few hundred ms before setUser's mediaProgress merge or a fresh
+  // attemptConnection replaces it; a genuine account switch always goes
+  // through a real (networked) login first, which immediately overwrites it.
+  async setCachedUser(serverId, user) {
+    if (!serverId || !user) return
+    try {
+      await Preferences.set({ key: `cached-user-${serverId}`, value: JSON.stringify(user) })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set cached user', error)
+    }
+  }
+
+  async getCachedUser(serverId) {
+    if (!serverId) return null
+    try {
+      const obj = (await Preferences.get({ key: `cached-user-${serverId}` })) || {}
+      return obj.value ? JSON.parse(obj.value) : null
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get cached user', error)
+      return null
+    }
+  }
+
+  // Last-known libraries list, so boot hydration (above) has something to set
+  // currentLibraryId against before /api/libraries has actually responded.
+  // Scoped by server+user like the other per-account caches above, since
+  // librariesAccessible differs per user.
+  _cachedLibrariesKey(serverId, userId) {
+    if (!serverId || !userId) return null
+    return `cached-libraries-${serverId}-${userId}`
+  }
+
+  async setCachedLibraries(serverId, userId, libraries) {
+    const key = this._cachedLibrariesKey(serverId, userId)
+    if (!key) return
+    try {
+      await Preferences.set({ key, value: JSON.stringify(libraries) })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set cached libraries', error)
+    }
+  }
+
+  async getCachedLibraries(serverId, userId) {
+    const key = this._cachedLibrariesKey(serverId, userId)
+    if (!key) return null
+    try {
+      const obj = (await Preferences.get({ key })) || {}
+      return obj.value ? JSON.parse(obj.value) : null
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get cached libraries', error)
       return null
     }
   }

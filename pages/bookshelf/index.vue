@@ -17,7 +17,7 @@
         <p class="text-xs tracking-widest" :style="{ color: nhSettings.greetingUsesAccent ? 'var(--nh-amber)' : 'var(--nh-muted-2)', textTransform: 'uppercase', letterSpacing: '0.12em' }">{{ greetingLine }}</p>
         <h2 class="mt-1 text-2xl font-medium leading-tight" style="font-family: var(--nh-serif); color: var(--nh-text-1)">Welcome back, {{ username }}</h2>
       </div>
-      <nh-hero-carousel v-if="nhThemeActive && nhSettings.showHeroCarousel" :slides="continueListeningItems" :advance-seconds="nhSettings.carouselTiming" />
+      <nh-hero-carousel v-if="nhThemeActive && nhSettings.showHeroCarousel" :slides="continueListeningItems" :advance-seconds="nhSettings.carouselTiming" @slide-removed="onHeroSlideRemoved" />
       <nh-recent-series-shelf v-if="showRecentSeriesShelf" />
       <nh-rate-finished-shelf v-if="nhThemeActive && !currentLibraryIsPodcast" />
       <template v-for="(shelf, index) in displayShelves">
@@ -200,6 +200,16 @@ export default {
     }
   },
   methods: {
+    // The hero carousel already made the real API call (remove-from-continue-
+    // listening or a full progress reset) — this just keeps the shelf data
+    // that continueListeningItems is computed from in step with the server,
+    // same as NH's own nhHeroDropped/localStorage-cache-invalidation pattern.
+    onHeroSlideRemoved(itemId) {
+      this.shelves = this.shelves.map((shelf) => {
+        if (shelf.id !== 'continue-listening' && shelf.id !== 'continue-reading') return shelf
+        return { ...shelf, entities: shelf.entities.filter((e) => e.id !== itemId) }
+      })
+    },
     getShelfLabel(shelf) {
       if (shelf.labelStringKey && this.$strings[shelf.labelStringKey]) return this.$strings[shelf.labelStringKey]
       return shelf.label
@@ -324,6 +334,10 @@ export default {
 
       // TODO: Find a better way to keep the shelf up-to-date with local vs server library because this is a disaster
       const isConnectedToServerWithInternet = this.user && this.currentLibraryId && this.networkConnected
+      // True whenever there's a logged-in server session at all — live or not.
+      // Used below to show cached shelves immediately even with no internet,
+      // instead of only ever doing that once a live fetch has also succeeded.
+      const hasServerSession = this.user && this.currentLibraryId
       if (isConnectedToServerWithInternet) {
         if (this.lastServerFetch && Date.now() - this.lastServerFetch < 5000 && this.lastServerFetchLibraryId == this.currentLibraryId) {
           console.log(`[categories] fetchCategories server fetch was ${Date.now() - this.lastServerFetch}ms ago so not doing it.`)
@@ -354,11 +368,14 @@ export default {
       this.shelves = localCategories
       console.log('[categories] Local shelves set', this.shelves.length, this.lastLocalFetch)
 
-      if (isConnectedToServerWithInternet) {
-        // Show last time's personalized shelves (Continue Series, Recently Added,
-        // etc.) immediately instead of leaving them absent while this request is
-        // in flight — replaced below the moment fresh data actually arrives.
-        const cachedCategories = await this.$localStore.getPersonalizedShelvesCache(this.currentLibraryId)
+      // Show last time's personalized shelves (Continue Series, Recently Added,
+      // etc.) immediately whenever there's a server session at all — live or
+      // not — instead of only ever doing this once a live fetch has also
+      // succeeded. Previously gated behind isConnectedToServerWithInternet,
+      // so offline always showed nothing here no matter what was cached.
+      let cachedCategories = null
+      if (hasServerSession) {
+        cachedCategories = await this.$localStore.getPersonalizedShelvesCache(this.currentLibraryId)
         if (cachedCategories?.length) {
           this.shelves = cachedCategories.map((cat) => {
             if (cat.type == 'book' || cat.type == 'podcast' || cat.type == 'episode') {
@@ -370,8 +387,12 @@ export default {
             }
             return cat
           })
+          const cachedLocalShelves = localCategories.filter((cat) => cat.type === this.currentLibraryMediaType && !cat.localOnly)
+          this.shelves.push(...cachedLocalShelves)
         }
+      }
 
+      if (isConnectedToServerWithInternet) {
         const categories = await this.$nativeHttp.get(`/api/libraries/${this.currentLibraryId}/personalized?minified=1&include=rssfeed,numEpisodesIncomplete`, { connectTimeout: 10000 }).catch((error) => {
           console.error('[categories] Failed to fetch categories', error)
           return []

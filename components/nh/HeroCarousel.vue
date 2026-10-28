@@ -34,7 +34,24 @@
            "Your books are waiting", not "Pick up where you left off" (that string
            is actually t.fallbackDesc, a different string entirely, used for the
            description text when an item has none of its own). -->
-      <p class="text-xs font-semibold flex-shrink-0" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.13em">{{ $strings.LabelYourBooksAreWaiting }}</p>
+      <div class="flex items-center justify-between flex-shrink-0">
+        <p class="text-xs font-semibold" style="color: var(--nh-amber); text-transform: uppercase; letter-spacing: 0.13em">{{ $strings.LabelYourBooksAreWaiting }}</p>
+        <!-- NH source: nhHeroConfirm()/nhHeroHide()/nhHeroResetProgress()
+             (enhancements.js:3626-3736) — a dismiss control was missing here
+             entirely; "Reset Progress" itself already exists elsewhere in
+             this app (ItemMoreMenuModal's clearProgressClick), this just adds
+             the second, non-destructive "Remove from Continue Listening"
+             option and a single entry point for both from the carousel. -->
+        <button
+          type="button"
+          class="flex items-center justify-center rounded-full flex-shrink-0"
+          style="width: 26px; height: 26px; background: rgba(255,255,255,0.08)"
+          :aria-label="$strings.ButtonRemove"
+          @click.stop="openSlideMenu(slide)"
+        >
+          <span class="material-symbols" style="font-size: 1.05rem; color: #d8cfc2">close</span>
+        </button>
+      </div>
 
       <!-- Main row: text LEFT, cover RIGHT -->
       <div class="flex gap-4 mt-2 flex-1 min-h-0" @click="openItem(slide)">
@@ -189,10 +206,29 @@
         <span class="material-symbols" style="font-size: 1.35rem; color: #d8cfc2">{{ heroPaused ? 'play_arrow' : 'pause' }}</span>
       </button>
     </div>
+
+    <!-- NH source: nhHeroConfirm() (enhancements.js:3626-3688) — Cancel plus two
+         choices, "Hide" (keeps progress) styled as the default/safe one. -->
+    <div v-if="menuSlide" class="fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.55)" @click.self="closeSlideMenu">
+      <div class="w-full rounded-t-2xl pb-6 pt-2" style="background: #1c1a17; max-width: 480px">
+        <div class="mx-auto mb-3 rounded-full" style="width: 36px; height: 4px; background: rgba(255,255,255,0.2)" />
+        <button type="button" class="w-full text-left px-5 py-3 text-sm" style="color: #f4eee2" @click="removeFromContinueListening(menuSlide)">
+          {{ isEbookOnly(menuSlide) ? $strings.ButtonRemoveFromContinueReading : $strings.ButtonRemoveFromContinueListening }}
+        </button>
+        <button type="button" class="w-full text-left px-5 py-3 text-sm" style="color: #e2685c" @click="resetProgress(menuSlide)">
+          {{ $strings.ButtonResetProgress }}
+        </button>
+        <button type="button" class="w-full text-left px-5 py-3 text-sm" style="color: #9a9085" @click="closeSlideMenu">
+          {{ $strings.ButtonCancel }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
+import { Dialog } from '@capacitor/dialog'
+
 export default {
   props: {
     slides: {
@@ -235,7 +271,8 @@ export default {
       // manual pause is a persisted PREFERENCE, not per-visit state (the
       // carousel rebuilds on every return to Home, so a component-local
       // variable alone would silently un-pause itself on navigation).
-      heroPaused: false
+      heroPaused: false,
+      menuSlide: null
     }
   },
   watch: {
@@ -411,6 +448,53 @@ export default {
     // component needs).
     readItem(item) {
       this.$router.push(`/item/${item.id}`)
+    },
+    openSlideMenu(slide) {
+      this.menuSlide = slide
+    },
+    closeSlideMenu() {
+      this.menuSlide = null
+    },
+    // NH source: nhHeroHide() (enhancements.js:3692-3708) — a real ABS endpoint
+    // (not NH-proxy), keeps the progress record, just drops it off this shelf.
+    async removeFromContinueListening(slide) {
+      const prog = this._getProgress(slide)
+      if (!prog?.id) {
+        this.closeSlideMenu()
+        return
+      }
+      const res = await this.$nativeHttp.get(`/api/me/progress/${prog.id}/remove-from-continue-listening`).catch((error) => {
+        console.error('Failed to remove from continue listening', error)
+        this.$toast.error(this.$strings.ToastFailedToUpdate)
+        return null
+      })
+      this.closeSlideMenu()
+      if (res === null) return
+      this.$emit('slide-removed', slide.id)
+    },
+    // NH source: nhHeroResetProgress() (enhancements.js:3716-3736) — the
+    // destructive twin; this app already has the same DELETE call elsewhere
+    // (ItemMoreMenuModal's clearProgressClick), reused here via the same
+    // confirm-before-destroy pattern rather than a second implementation.
+    async resetProgress(slide) {
+      const prog = this._getProgress(slide)
+      if (!prog?.id) {
+        this.closeSlideMenu()
+        return
+      }
+      this.closeSlideMenu()
+      const { value } = await Dialog.confirm({
+        title: this.$strings.HeaderConfirm,
+        message: this.$strings.MessageConfirmDiscardProgress
+      })
+      if (!value) return
+      const res = await this.$nativeHttp.delete(`/api/me/progress/${prog.id}`).catch((error) => {
+        console.error('Failed to reset progress', error)
+        this.$toast.error(this.$strings.ToastFailedToUpdate)
+        return null
+      })
+      if (res === null) return
+      this.$emit('slide-removed', slide.id)
     },
     goTo(i) {
       this.activeIndex = i

@@ -433,6 +433,8 @@ export default {
       this.$store.commit('user/setUser', user)
       this.$store.commit('user/setAccessToken', serverConnectionConfig.token)
       this.$store.commit('user/setServerConnectionConfig', serverConnectionConfig)
+      this.$store.commit('user/setIsHydratedFromCache', false)
+      this.$localStore.setCachedUser(serverConnectionConfig.id, this.$store.state.user.user)
 
       this.$socket.connect(serverConnectionConfig.address, serverConnectionConfig.token)
 
@@ -478,6 +480,8 @@ export default {
     userUpdated(user) {
       if (this.user?.id == user.id) {
         this.$store.commit('user/setUser', user)
+        const serverId = this.$store.state.user.serverConnectionConfig?.id
+        if (serverId) this.$localStore.setCachedUser(serverId, this.$store.state.user.user)
       }
     },
     async userMediaProgressUpdated(payload) {
@@ -750,10 +754,15 @@ export default {
 
       await this.$store.dispatch('setupNetworkListener')
 
-      if (this.$store.state.user.serverConnectionConfig) {
+      if (this.$store.state.user.serverConnectionConfig && !this.$store.state.user.isHydratedFromCache) {
         AbsLogger.info({ tag: 'default', message: `mounted: Server connected, init libraries (${this.$store.getters['user/getServerConfigName']})` })
         await this.initLibraries()
       } else {
+        // Either genuinely never connected, or plugins/init.client.js hydrated
+        // user/serverConnectionConfig from local cache for an instant first
+        // paint — either way this still needs a real, live authorize call to
+        // confirm/refresh the session (attemptConnection no-ops immediately
+        // if there's no network, leaving the cached state in place).
         AbsLogger.info({ tag: 'default', message: `mounted: Server not connected, attempt connection` })
         await this.attemptConnection()
       }

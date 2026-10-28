@@ -56,6 +56,9 @@
 
     <stats-finished-book-tools />
 
+    <!-- NH source: nhLsGlanceFetch()/nhLsGlance() (enhancements.js:12723-12759) -->
+    <stats-library-at-a-glance />
+
     <!-- NH source: nhStatsScoreboard() (enhancements.js:9438-9636) -->
     <stats-server-ranking />
 

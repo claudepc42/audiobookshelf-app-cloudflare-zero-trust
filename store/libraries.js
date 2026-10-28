@@ -89,11 +89,19 @@ export const actions = {
 
         commit('set', libraries)
         commit('setLastLoad', Date.now())
+
+        const serverId = rootState.user.serverConnectionConfig?.id
+        const userId = rootState.user.user?.id
+        if (serverId && userId) this.$localStore.setCachedLibraries(serverId, userId, libraries)
+
         return true
       })
       .catch((error) => {
         console.error('Failed', error)
-        commit('set', [])
+        // Don't wipe out a previously-loaded (or cache-hydrated) libraries
+        // list just because this particular refresh failed — e.g. offline —
+        // that would blank the bookshelf instead of leaving it showing what
+        // it already had.
         return false
       })
   },
