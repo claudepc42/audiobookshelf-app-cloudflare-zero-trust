@@ -115,8 +115,10 @@ Toggle it on or off anytime from the side menu (hamburger icon → **NanoHive** 
 ### What's included
 
 - 12 base color themes, a full accent-color picker, and 16 selectable fonts — all live in an in-app customization panel (side menu → **Customizations**), no server-side config needed
-- A "Pick up where you left off" hero carousel on the home screen — swipeable, with auto-advance, now including podcast libraries
+- A "Pick up where you left off" hero carousel on the home screen — swipeable, with auto-advance, now including podcast libraries, and each slide can be dismissed (remove from Continue Listening, or reset progress) right from the carousel
 - An expanded **Recent Series** shelf (stock Audiobookshelf caps this shelf at a handful of items)
+- Series completion badges — a checkmark once every book in a series is finished, a partial ring otherwise — on both the series grid and the series detail page
+- Library at a Glance, an admin stats tile on the Stats page (total books, authors, series, duration, size)
 - Cinematic blurred-cover backgrounds behind the home, item detail, and series detail screens
 - Diagonal stacked-cover art for series and collections, with a book-count badge
 - Restyled mini player, with touched-up fullscreen player and reader toolbar
