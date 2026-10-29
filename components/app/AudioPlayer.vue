@@ -922,7 +922,13 @@ export default {
       if (!next) return
 
       this.$toast.info(next.title ? `Playing next in series: ${next.title}` : 'Playing next in series')
-      this.$eventBus.$emit('play-item', { libraryItemId: next.id })
+
+      // Prefer a local copy of the chosen next book if one's downloaded,
+      // same as every other play-item entry point -- otherwise autoplay
+      // always streamed even an already-downloaded next book.
+      const localNext = await this.$db.getLocalLibraryItemByLId(next.id).catch(() => null)
+      const nextLibraryItemId = localNext ? localNext.id : next.id
+      this.$eventBus.$emit('play-item', { libraryItemId: nextLibraryItemId, serverLibraryItemId: next.id })
     },
     // When a playback session is started the native android/ios will send the session
     onPlaybackSession(playbackSession) {
