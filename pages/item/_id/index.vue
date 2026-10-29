@@ -983,6 +983,10 @@ export default {
           libraryItem.localLibraryItem = localLibraryItem
         }
         this.libraryItem = libraryItem
+      } else if (this.libraryItem) {
+        // Already showing the local copy (see mounted()) -- the live refresh
+        // just didn't land this time (e.g. offline). Keep what's on screen
+        // instead of bouncing the user out to the bookshelf.
       } else if (this.$route.query.localLibraryItemId) {
         // Failed to get server library item but is local library item so redirect
         return this.$router.replace(`/item/${this.$route.query.localLibraryItemId}?noredirect=1`)
@@ -994,6 +998,15 @@ export default {
   },
   async mounted() {
     if (!this.libraryItem) {
+      // Show the local copy immediately if one exists, so the page (and Play)
+      // doesn't sit waiting on a live server round trip first -- this is the
+      // same shape the page already renders natively for /item/local_xxx.
+      // loadServerLibraryItem() below still runs to pick up authoritative
+      // server-side state and will overwrite this once/if it lands.
+      const localLibraryItem = await this.$db.getLocalLibraryItemByLId(this.libraryItemId)
+      if (localLibraryItem) {
+        this.libraryItem = localLibraryItem
+      }
       await this.loadServerLibraryItem()
     }
     this.init()
