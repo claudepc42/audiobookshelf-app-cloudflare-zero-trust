@@ -5,6 +5,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
+import com.audiobookshelf.app.plugins.AbsLogger
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import java.security.KeyStore
@@ -75,6 +76,7 @@ class SecureStorage(private val context: Context) {
             String(decryptedBytes, Charsets.UTF_8)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to retrieve refresh token for server: $serverConnectionId", e)
+            AbsLogger.error(TAG, "getRefreshToken: Decrypt/read failed for server $serverConnectionId (${e.javaClass.simpleName}: ${e.message})")
             null
         }
     }
