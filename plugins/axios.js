@@ -1,3 +1,5 @@
+import { AbsLogger } from './capacitor'
+
 export default function ({ $axios, store, $db }) {
   // Track if we're currently refreshing to prevent multiple refresh attempts
   let isRefreshing = false
@@ -22,6 +24,7 @@ export default function ({ $axios, store, $db }) {
   const handleRefreshFailure = async (serverConnectionConfigId) => {
     try {
       console.log('[axios] Handling refresh failure - logging out user')
+      AbsLogger.error({ tag: 'axios', message: `handleRefreshFailure: Logging out user for server connection config ${serverConnectionConfigId || 'unknown'} after failed token refresh` })
 
       // Clear store
       await store.dispatch('user/logout')
@@ -68,8 +71,10 @@ export default function ({ $axios, store, $db }) {
 
     // Handle 401 Unauthorized (token expired)
     if (code === 401 && !originalRequest._retry) {
+      AbsLogger.error({ tag: 'axios', message: `onError: 401 for "${originalRequest.url}" — attempting token refresh` })
       // Skip refresh for auth endpoints to prevent infinite loops
       if (originalRequest.url.endsWith('/auth/refresh') || originalRequest.url.endsWith('/login')) {
+        AbsLogger.error({ tag: 'axios', message: `onError: 401 on "${originalRequest.url}" itself — not retrying, logging out` })
         await handleRefreshFailure(store.getters['user/getServerConnectionConfigId'])
         return Promise.reject(error)
       }
@@ -100,8 +105,11 @@ export default function ({ $axios, store, $db }) {
         const newAccessToken = await store.dispatch('user/refreshToken')
         if (!newAccessToken) {
           console.error('No new access token received')
+          AbsLogger.error({ tag: 'axios', message: `onError: user/refreshToken returned no token while handling 401 on "${originalRequest.url}"` })
           return Promise.reject(error)
         }
+
+        AbsLogger.info({ tag: 'axios', message: `onError: Token refreshed, retrying "${originalRequest.url}"` })
 
         // Update the original request with new token
         if (!originalRequest.headers) {
@@ -116,6 +124,7 @@ export default function ({ $axios, store, $db }) {
         return $axios(originalRequest)
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError)
+        AbsLogger.error({ tag: 'axios', message: `onError: user/refreshToken threw while handling 401 on "${originalRequest.url}" (error: ${refreshError?.message || refreshError})` })
 
         // Process queued requests with error
         processQueue(refreshError, null)

@@ -2,6 +2,10 @@ import { Browser } from '@capacitor/browser'
 import { AbsLogger } from '@/plugins/capacitor'
 import { CapacitorHttp } from '@capacitor/core'
 
+function configLabel(config) {
+  return config?.name || config?.address || 'unknown'
+}
+
 export const state = () => ({
   user: null,
   accessToken: null,
@@ -172,6 +176,8 @@ export const actions = {
     await AbsLogger.info({ tag: 'user', message: `Logged out from server ${state.serverConnectionConfig?.name || 'Not connected'}` })
   },
   async refreshToken({ getters, commit, state }) {
+    AbsLogger.info({ tag: 'user', message: `refreshToken: Attempting to refresh auth tokens for server ${configLabel(state.serverConnectionConfig)}` })
+
     // For CF-protected connections: probe for a stale CF session and refresh
     // via WebView before hitting /auth/refresh — expired CF cookies would cause
     // the token endpoint to return a CF login-page redirect instead of a token.
@@ -182,6 +188,7 @@ export const actions = {
     const refreshToken = await this.$db.getRefreshToken(getters.getServerConnectionConfigId)
     if (!refreshToken) {
       console.error('No refresh token found')
+      AbsLogger.error({ tag: 'user', message: `refreshToken: No refresh token on file for server ${configLabel(state.serverConnectionConfig)} (config id ${getters.getServerConnectionConfigId || 'unknown'})` })
       return null
     }
 
@@ -199,14 +206,18 @@ export const actions = {
 
     if (response.status !== 200) {
       console.error('[user] Token refresh request failed:', response.status)
+      AbsLogger.error({ tag: 'user', message: `refreshToken: /auth/refresh request failed with status ${response.status} for server ${configLabel(state.serverConnectionConfig)}` })
       return null
     }
 
     const userResponseData = response.data
     if (!userResponseData.user?.accessToken) {
       console.error('[user] No access token in refresh response')
+      AbsLogger.error({ tag: 'user', message: `refreshToken: No access token in /auth/refresh response for server ${configLabel(state.serverConnectionConfig)}` })
       return null
     }
+
+    AbsLogger.info({ tag: 'user', message: `refreshToken: Successfully refreshed auth tokens for server ${configLabel(state.serverConnectionConfig)}` })
 
     // Update the config with new tokens
     const updatedConfig = {

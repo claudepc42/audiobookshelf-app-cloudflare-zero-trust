@@ -1,5 +1,6 @@
 import { CapacitorHttp, Capacitor } from '@capacitor/core'
 import { AbsCfZeroTrust } from './capacitor/AbsCfZeroTrust'
+import { AbsLogger } from './capacitor'
 
 export default function ({ store, $db, $socket }, inject) {
   const nativeHttp = {
@@ -92,6 +93,7 @@ export default function ({ store, $db, $socket }, inject) {
       }).then((res) => {
         if (res.status === 401) {
           console.error(`[nativeHttp] 401 status for url "${url}"`)
+          AbsLogger.error({ tag: 'nativeHttp', message: `request: 401 for "${url}" (${method}) — attempting token refresh` })
           // Handle refresh token automatically
           return this.handleTokenRefresh(method, url, data, headers, options, serverConnectionConfig)
         }
@@ -103,10 +105,13 @@ export default function ({ store, $db, $socket }, inject) {
 
         if (this.looksLikeStaleCfResponse(res, url, serverConnectionConfig)) {
           console.warn(`[nativeHttp] Non-JSON response for "${url}" — likely a stale CF session, attempting refresh`)
+          AbsLogger.error({ tag: 'nativeHttp', message: `request: Non-JSON (HTML) response for "${url}" — likely a stale CF session, attempting WebView refresh` })
           return this.refreshCfSessionIfStale(serverConnectionConfig).then((refreshedConfig) => {
             if (!refreshedConfig) {
+              AbsLogger.error({ tag: 'nativeHttp', message: `request: CF session refresh failed/cancelled for "${url}" — treating as Cloudflare session expired` })
               throw new Error('Cloudflare session expired')
             }
+            AbsLogger.info({ tag: 'nativeHttp', message: `request: CF session refreshed, retrying "${url}"` })
             const retryHeaders = { ...headers, ...refreshedConfig.customHeaders }
             return CapacitorHttp.request({ method, url, data, headers: retryHeaders, ...options }).then((retryRes) => {
               if (retryRes.status >= 400) {
@@ -114,6 +119,7 @@ export default function ({ store, $db, $socket }, inject) {
                 throw new Error(message)
               }
               if (this.looksLikeStaleCfResponse(retryRes, url, refreshedConfig)) {
+                AbsLogger.error({ tag: 'nativeHttp', message: `request: "${url}" still looks like a CF login page after refresh` })
                 throw new Error('Cloudflare session expired')
               }
               return retryRes.data
@@ -138,9 +144,11 @@ export default function ({ store, $db, $socket }, inject) {
     async handleTokenRefresh(method, url, data, headers, options, serverConnectionConfig) {
       try {
         console.log('[nativeHttp] Attempting to refresh token...')
+        AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Attempting to refresh auth tokens for server ${serverConnectionConfig?.name || serverConnectionConfig?.address || 'unknown'}` })
 
         if (!serverConnectionConfig?.id) {
           console.error('[nativeHttp] No server connection config ID available for token refresh')
+          AbsLogger.error({ tag: 'nativeHttp', message: 'handleTokenRefresh: Unable to refresh auth tokens. No server connection config ID' })
           throw new Error('No server connection available')
         }
 
@@ -148,6 +156,7 @@ export default function ({ store, $db, $socket }, inject) {
         const refreshToken = await $db.getRefreshToken(serverConnectionConfig.id)
         if (!refreshToken) {
           console.error('[nativeHttp] No refresh token available')
+          AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Unable to refresh auth tokens. No refresh token available for server ${serverConnectionConfig.name || serverConnectionConfig.address}` })
           throw new Error('No refresh token available')
         }
 
@@ -155,11 +164,13 @@ export default function ({ store, $db, $socket }, inject) {
         const newTokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig)
         if (!newTokens?.accessToken) {
           console.error('[nativeHttp] Failed to refresh access token')
+          AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Failed to refresh access token for server ${serverConnectionConfig.name || serverConnectionConfig.address}` })
           throw new Error('Failed to refresh access token')
         }
 
         // Update the store with new tokens
         await this.updateTokens(newTokens, serverConnectionConfig)
+        AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Successfully refreshed auth tokens for server ${serverConnectionConfig.name || serverConnectionConfig.address}, retrying "${url}"` })
 
         // Retry the original request with the new token
         console.log('[nativeHttp] Retrying original request with new token...')
@@ -176,6 +187,7 @@ export default function ({ store, $db, $socket }, inject) {
 
         if (retryResponse.status >= 400) {
           console.error(`[nativeHttp] Retry request failed with status ${retryResponse.status}`)
+          AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Retry of "${url}" failed with status ${retryResponse.status} after a successful token refresh` })
           const message = typeof retryResponse.data === 'string' ? retryResponse.data : `HTTP ${retryResponse.status}`
           throw new Error(message)
         }
@@ -183,6 +195,7 @@ export default function ({ store, $db, $socket }, inject) {
         return retryResponse.data
       } catch (error) {
         console.error('[nativeHttp] Token refresh failed:', error)
+        AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Token refresh failed for server ${serverConnectionConfig?.name || serverConnectionConfig?.address || 'unknown'} while handling "${url}" (error: ${error?.message || error})` })
 
         // If refresh fails, redirect to login
         await this.handleRefreshFailure(serverConnectionConfig?.id)
@@ -217,12 +230,14 @@ export default function ({ store, $db, $socket }, inject) {
 
         if (response.status !== 200) {
           console.error('[nativeHttp] Token refresh request failed:', response.status)
+          AbsLogger.error({ tag: 'nativeHttp', message: `refreshAccessToken: /auth/refresh request failed with status ${response.status} for server ${serverConnectionConfig?.name || serverAddress}` })
           return null
         }
 
         const userResponseData = response.data
         if (!userResponseData.user?.accessToken) {
           console.error('[nativeHttp] No access token in refresh response')
+          AbsLogger.error({ tag: 'nativeHttp', message: `refreshAccessToken: No access token in /auth/refresh response for server ${serverConnectionConfig?.name || serverAddress}` })
           return null
         }
 
@@ -289,6 +304,7 @@ export default function ({ store, $db, $socket }, inject) {
     async handleRefreshFailure(serverConnectionConfigId) {
       try {
         console.log('[nativeHttp] Handling refresh failure - logging out user')
+        AbsLogger.error({ tag: 'nativeHttp', message: `handleRefreshFailure: Logging out user for server connection config ${serverConnectionConfigId || 'unknown'} after failed token refresh` })
 
         // Clear store
         await store.dispatch('user/logout')

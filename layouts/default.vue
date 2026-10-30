@@ -406,8 +406,20 @@ export default {
 
       if (this.$isValidVersion(serverSettings.version, '2.26.0')) {
         // Check if the server is using the new JWT auth and is still using an old token in the server config
-        // If so, redirect to /connect and request to re-login
-        if (serverConfig.token === user.token || user.isOldToken) {
+        // If so, redirect to /connect and request to re-login.
+        // /api/authorize never returns accessToken/refreshToken (only /login does), so
+        // isOldToken alone can't be trusted here the way ServerConnectForm.vue trusts it
+        // right after a fresh /login response -- a device that already migrated to the
+        // new token system has no way to prove that from this response. Whether a refresh
+        // token is on file is: a device that's never completed the new-auth login has
+        // none and genuinely needs the real re-login below; one that has already migrated
+        // keeps working normally even if this response's isOldToken looks stale/wrong.
+        const hasRefreshToken = !!(await this.$db.getRefreshToken(serverConfig.id))
+        const looksOld = serverConfig.token === user.token || user.isOldToken
+        if (looksOld) {
+          AbsLogger.info({ tag: 'default', message: `attemptConnection: authorize response looks like an old token (tokenMatches=${serverConfig.token === user.token}, isOldToken=${!!user.isOldToken}), hasRefreshToken=${hasRefreshToken} (${serverConfig.name})` })
+        }
+        if (!hasRefreshToken && looksOld) {
           this.attemptingConnection = false
           AbsLogger.info({ tag: 'default', message: `attemptConnection: Server is using new JWT auth but config is still using an old token (server version: ${serverSettings.version}) (${serverConfig.name})` })
           // Clear last server config
