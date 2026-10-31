@@ -3,6 +3,16 @@ import { AbsCfZeroTrust } from './capacitor/AbsCfZeroTrust'
 import { AbsLogger } from './capacitor'
 
 export default function ({ store, $db, $socket }, inject) {
+  // Guards against concurrent 401s (e.g. a burst of background requests right after a cold
+  // start) each independently racing /auth/refresh with the same refresh token. The server
+  // rotates the refresh token on the first successful call, so any other concurrent call still
+  // in flight gets back a 401/429 for a token that's already been rotated out — even though a
+  // valid, freshly-rotated refresh token exists moments later. Serializing all concurrent 401s
+  // onto one in-flight refresh (and one shared failure handler) avoids that spurious logout.
+  let isRefreshingToken = false
+  let refreshPromise = null
+  let refreshFailureHandled = false
+
   const nativeHttp = {
     // Most ABS /api/ endpoints return JSON, but not all — e.g. PATCH /api/me/progress/:id
     // returns a plain 200 "OK" (text/plain). A stale CF session instead serves an HTML
@@ -143,33 +153,55 @@ export default function ({ store, $db, $socket }, inject) {
      */
     async handleTokenRefresh(method, url, data, headers, options, serverConnectionConfig) {
       try {
-        console.log('[nativeHttp] Attempting to refresh token...')
-        AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Attempting to refresh auth tokens for server ${serverConnectionConfig?.name || serverConnectionConfig?.address || 'unknown'}` })
-
         if (!serverConnectionConfig?.id) {
           console.error('[nativeHttp] No server connection config ID available for token refresh')
           AbsLogger.error({ tag: 'nativeHttp', message: 'handleTokenRefresh: Unable to refresh auth tokens. No server connection config ID' })
           throw new Error('No server connection available')
         }
 
-        // Get refresh token from secure storage
-        const refreshToken = await $db.getRefreshToken(serverConnectionConfig.id)
-        if (!refreshToken) {
-          console.error('[nativeHttp] No refresh token available')
-          AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Unable to refresh auth tokens. No refresh token available for server ${serverConnectionConfig.name || serverConnectionConfig.address}` })
-          throw new Error('No refresh token available')
+        let newTokens
+        if (isRefreshingToken) {
+          // A refresh is already in flight (e.g. a burst of other requests also hit 401 at
+          // the same time) — wait for that single attempt instead of racing it with our own
+          // /auth/refresh call using the same (about-to-be-rotated) refresh token.
+          AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Refresh already in progress for server ${serverConnectionConfig?.name || serverConnectionConfig?.address || 'unknown'} — waiting for it before retrying "${url}"` })
+          newTokens = await refreshPromise
+        } else {
+          console.log('[nativeHttp] Attempting to refresh token...')
+          AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Attempting to refresh auth tokens for server ${serverConnectionConfig?.name || serverConnectionConfig?.address || 'unknown'}` })
+
+          isRefreshingToken = true
+          refreshFailureHandled = false
+          refreshPromise = (async () => {
+            // Get refresh token from secure storage
+            const refreshToken = await $db.getRefreshToken(serverConnectionConfig.id)
+            if (!refreshToken) {
+              console.error('[nativeHttp] No refresh token available')
+              AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Unable to refresh auth tokens. No refresh token available for server ${serverConnectionConfig.name || serverConnectionConfig.address}` })
+              throw new Error('No refresh token available')
+            }
+
+            // Attempt to refresh the token
+            const tokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig)
+            if (!tokens?.accessToken) {
+              console.error('[nativeHttp] Failed to refresh access token')
+              AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Failed to refresh access token for server ${serverConnectionConfig.name || serverConnectionConfig.address}` })
+              throw new Error('Failed to refresh access token')
+            }
+
+            // Update the store with new tokens
+            await this.updateTokens(tokens, serverConnectionConfig)
+            return tokens
+          })()
+
+          try {
+            newTokens = await refreshPromise
+          } finally {
+            isRefreshingToken = false
+            refreshPromise = null
+          }
         }
 
-        // Attempt to refresh the token
-        const newTokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig)
-        if (!newTokens?.accessToken) {
-          console.error('[nativeHttp] Failed to refresh access token')
-          AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Failed to refresh access token for server ${serverConnectionConfig.name || serverConnectionConfig.address}` })
-          throw new Error('Failed to refresh access token')
-        }
-
-        // Update the store with new tokens
-        await this.updateTokens(newTokens, serverConnectionConfig)
         AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Successfully refreshed auth tokens for server ${serverConnectionConfig.name || serverConnectionConfig.address}, retrying "${url}"` })
 
         // Retry the original request with the new token
@@ -197,8 +229,13 @@ export default function ({ store, $db, $socket }, inject) {
         console.error('[nativeHttp] Token refresh failed:', error)
         AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Token refresh failed for server ${serverConnectionConfig?.name || serverConnectionConfig?.address || 'unknown'} while handling "${url}" (error: ${error?.message || error})` })
 
-        // If refresh fails, redirect to login
-        await this.handleRefreshFailure(serverConnectionConfig?.id)
+        // Only the first caller to observe this refresh attempt's failure triggers logout —
+        // every other request that was waiting on the same shared refreshPromise would
+        // otherwise each independently redirect/logout for what is really one failure.
+        if (!refreshFailureHandled) {
+          refreshFailureHandled = true
+          await this.handleRefreshFailure(serverConnectionConfig?.id)
+        }
         throw error
       }
     },
