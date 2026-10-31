@@ -49,6 +49,18 @@ class ApiHandler(var ctx:Context) {
   private var jacksonMapper = jacksonObjectMapper().enable(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature())
   private var secureStorage = SecureStorage(ctx)
 
+  // Guards against concurrent 401s (OkHttp callbacks run on real concurrent dispatcher threads,
+  // e.g. Android Auto/media session/background sync all hitting 401 at once right after a cold
+  // start) each independently racing /auth/refresh with the same refresh token. The server
+  // rotates the refresh token on the first successful call, so any other concurrent call still
+  // in flight gets back a 401/429 for a token that's already been rotated out — even though a
+  // valid, freshly-rotated refresh token exists moments later. Serializing all concurrent 401s
+  // onto one in-flight refresh avoids that spurious logout.
+  private val tokenRefreshLock = Any()
+  private var isRefreshingToken = false
+  private data class PendingRefreshRequest(val request: Request, val httpClient: OkHttpClient?, val callback: (JSObject) -> Unit)
+  private val pendingRefreshRequests = mutableListOf<PendingRefreshRequest>()
+
   data class LocalSessionsSyncRequestPayload(val sessions:List<PlaybackSession>, val deviceInfo:DeviceInfo)
   @JsonIgnoreProperties(ignoreUnknown = true)
   data class LocalSessionSyncResult(val id:String, val success:Boolean, val progressSynced:Boolean?, val error:String?)
@@ -210,6 +222,15 @@ class ApiHandler(var ctx:Context) {
    * @param callback The callback to return the response
    */
   private fun handleTokenRefresh(originalRequest: Request, httpClient: OkHttpClient?, callback: (JSObject) -> Unit) {
+    synchronized(tokenRefreshLock) {
+      if (isRefreshingToken) {
+        AbsLogger.info(tag, "handleTokenRefresh: Refresh already in progress for server ${DeviceManager.serverConnectionConfigString} — queuing request to \"${originalRequest.url}\"")
+        pendingRefreshRequests.add(PendingRefreshRequest(originalRequest, httpClient, callback))
+        return
+      }
+      isRefreshingToken = true
+    }
+
     try {
       AbsLogger.info(tag, "handleTokenRefresh: Attempting to refresh auth tokens for server ${DeviceManager.serverConnectionConfigString}")
 
@@ -219,7 +240,7 @@ class ApiHandler(var ctx:Context) {
         AbsLogger.error(tag, "handleTokenRefresh: Unable to refresh auth tokens. No server connection config ID")
         val errorObj = JSObject()
         errorObj.put("error", "No server connection available")
-        callback(errorObj)
+        finishTokenRefresh(null, originalRequest, httpClient, callback, errorObj)
         return
       }
 
@@ -229,7 +250,7 @@ class ApiHandler(var ctx:Context) {
         AbsLogger.error(tag, "handleTokenRefresh: Unable to refresh auth tokens. No refresh token available for server ${DeviceManager.serverConnectionConfigString}")
         val errorObj = JSObject()
         errorObj.put("error", "No refresh token available")
-        callback(errorObj)
+        finishTokenRefresh(null, originalRequest, httpClient, callback, errorObj)
         return
       }
 
@@ -250,14 +271,14 @@ class ApiHandler(var ctx:Context) {
         override fun onFailure(call: Call, e: IOException) {
           Log.e(tag, "handleTokenRefresh: Failed to connect to refresh endpoint", e)
           AbsLogger.error(tag, "handleTokenRefresh: Failed to connect to refresh endpoint for server ${DeviceManager.serverConnectionConfigString} (error: ${e.message})")
-          handleRefreshFailure(callback)
+          finishTokenRefresh(null, originalRequest, httpClient, callback, null)
         }
 
         override fun onResponse(call: Call, response: Response) {
           response.use {
             if (!it.isSuccessful) {
               AbsLogger.error(tag, "handleTokenRefresh: Refresh request failed with status ${it.code} for server ${DeviceManager.serverConnectionConfigString}")
-              handleRefreshFailure(callback)
+              finishTokenRefresh(null, originalRequest, httpClient, callback, null)
               return
             }
 
@@ -268,7 +289,7 @@ class ApiHandler(var ctx:Context) {
 
               if (userObj == null) {
                 AbsLogger.error(tag, "handleTokenRefresh: No user object in refresh response for server ${DeviceManager.serverConnectionConfigString}")
-                handleRefreshFailure(callback)
+                finishTokenRefresh(null, originalRequest, httpClient, callback, null)
                 return
               }
 
@@ -277,7 +298,7 @@ class ApiHandler(var ctx:Context) {
 
               if (newAccessToken.isEmpty()) {
                 AbsLogger.error(tag, "handleTokenRefresh: No access token in refresh response for server ${DeviceManager.serverConnectionConfigString}")
-                handleRefreshFailure(callback)
+                finishTokenRefresh(null, originalRequest, httpClient, callback, null)
                 return
               }
 
@@ -286,14 +307,14 @@ class ApiHandler(var ctx:Context) {
               // Update tokens in secure storage and device manager
               updateTokens(newAccessToken, newRefreshToken.ifEmpty { refreshToken }, serverConnectionConfigId)
 
-              // Retry the original request with the new access token
+              // Retry this request and every request that queued up while this refresh was in flight
               Log.d(tag, "handleTokenRefresh: Retrying original request with new token")
-              retryOriginalRequest(originalRequest, newAccessToken, httpClient, callback)
+              finishTokenRefresh(newAccessToken, originalRequest, httpClient, callback, null)
 
             } catch (e: Exception) {
               Log.e(tag, "handleTokenRefresh: Failed to parse refresh response", e)
               AbsLogger.error(tag, "handleTokenRefresh: Failed to parse refresh response for server ${DeviceManager.serverConnectionConfigString} (error: ${e.message})")
-              handleRefreshFailure(callback)
+              finishTokenRefresh(null, originalRequest, httpClient, callback, null)
             }
           }
         }
@@ -301,7 +322,40 @@ class ApiHandler(var ctx:Context) {
 
     } catch (e: Exception) {
       Log.e(tag, "handleTokenRefresh: Unexpected error during token refresh", e)
+      finishTokenRefresh(null, originalRequest, httpClient, callback, null)
+    }
+  }
+
+  /**
+   * Resolves the leader's own callback plus every request that queued up while this refresh
+   * was in flight — either by retrying them all with the new access token, or by failing them
+   * all together (logging out exactly once, not once per queued request) if it didn't succeed.
+   *
+   * @param newAccessToken The new access token, or null if the refresh failed
+   * @param explicitError A specific error to report instead of the generic logout failure
+   *   (used for the two early-exit cases that never contacted the server, so shouldn't log out)
+   */
+  private fun finishTokenRefresh(newAccessToken: String?, originalRequest: Request, httpClient: OkHttpClient?, callback: (JSObject) -> Unit, explicitError: JSObject?) {
+    val queued: List<PendingRefreshRequest>
+    synchronized(tokenRefreshLock) {
+      queued = pendingRefreshRequests.toList()
+      pendingRefreshRequests.clear()
+      isRefreshingToken = false
+    }
+
+    if (newAccessToken != null) {
+      retryOriginalRequest(originalRequest, newAccessToken, httpClient, callback)
+      queued.forEach { retryOriginalRequest(it.request, newAccessToken, it.httpClient, it.callback) }
+    } else if (explicitError != null) {
+      callback(explicitError)
+      queued.forEach { it.callback(explicitError) }
+    } else {
       handleRefreshFailure(callback)
+      queued.forEach { pending ->
+        val errorObj = JSObject()
+        errorObj.put("error", "Authentication failed - please login again")
+        pending.callback(errorObj)
+      }
     }
   }
 
