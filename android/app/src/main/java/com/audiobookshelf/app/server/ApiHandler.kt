@@ -256,74 +256,104 @@ class ApiHandler(var ctx:Context) {
 
       Log.d(tag, "handleTokenRefresh: Retrieved refresh token, attempting to refresh access token")
 
-      // Create refresh token request
-      val refreshEndpoint = "${DeviceManager.serverAddress}/auth/refresh"
-      val refreshBuilder = Request.Builder()
-        .url(refreshEndpoint)
-        .addHeader("x-refresh-token", refreshToken)
-        .addHeader("Content-Type", "application/json")
-      DeviceManager.serverConnectionConfig?.customHeaders?.forEach { (key, value) -> refreshBuilder.addHeader(key, value) }
-      val refreshRequest = refreshBuilder.post(EMPTY_REQUEST).build()
-
-      // Make the refresh request
-      val client = httpClient ?: defaultClient
-      client.newCall(refreshRequest).enqueue(object : Callback {
-        override fun onFailure(call: Call, e: IOException) {
-          Log.e(tag, "handleTokenRefresh: Failed to connect to refresh endpoint", e)
-          AbsLogger.error(tag, "handleTokenRefresh: Failed to connect to refresh endpoint for server ${DeviceManager.serverConnectionConfigString} (error: ${e.message})")
-          finishTokenRefresh(null, originalRequest, httpClient, callback, null)
-        }
-
-        override fun onResponse(call: Call, response: Response) {
-          response.use {
-            if (!it.isSuccessful) {
-              AbsLogger.error(tag, "handleTokenRefresh: Refresh request failed with status ${it.code} for server ${DeviceManager.serverConnectionConfigString}")
-              finishTokenRefresh(null, originalRequest, httpClient, callback, null)
-              return
-            }
-
-            val bodyString = it.body!!.string()
-            try {
-              val responseJson = JSONObject(bodyString)
-              val userObj = responseJson.optJSONObject("user")
-
-              if (userObj == null) {
-                AbsLogger.error(tag, "handleTokenRefresh: No user object in refresh response for server ${DeviceManager.serverConnectionConfigString}")
-                finishTokenRefresh(null, originalRequest, httpClient, callback, null)
-                return
-              }
-
-              val newAccessToken = userObj.optString("accessToken")
-              val newRefreshToken = userObj.optString("refreshToken")
-
-              if (newAccessToken.isEmpty()) {
-                AbsLogger.error(tag, "handleTokenRefresh: No access token in refresh response for server ${DeviceManager.serverConnectionConfigString}")
-                finishTokenRefresh(null, originalRequest, httpClient, callback, null)
-                return
-              }
-
-              Log.d(tag, "handleTokenRefresh: Successfully obtained new access token")
-
-              // Update tokens in secure storage and device manager
-              updateTokens(newAccessToken, newRefreshToken.ifEmpty { refreshToken }, serverConnectionConfigId)
-
-              // Retry this request and every request that queued up while this refresh was in flight
-              Log.d(tag, "handleTokenRefresh: Retrying original request with new token")
-              finishTokenRefresh(newAccessToken, originalRequest, httpClient, callback, null)
-
-            } catch (e: Exception) {
-              Log.e(tag, "handleTokenRefresh: Failed to parse refresh response", e)
-              AbsLogger.error(tag, "handleTokenRefresh: Failed to parse refresh response for server ${DeviceManager.serverConnectionConfigString} (error: ${e.message})")
-              finishTokenRefresh(null, originalRequest, httpClient, callback, null)
-            }
-          }
-        }
-      })
+      doRefreshRequest(serverConnectionConfigId, refreshToken, originalRequest, httpClient, callback, attempt = 1)
 
     } catch (e: Exception) {
       Log.e(tag, "handleTokenRefresh: Unexpected error during token refresh", e)
       finishTokenRefresh(null, originalRequest, httpClient, callback, null)
     }
+  }
+
+  /**
+   * Performs the actual /auth/refresh call. The JS layer (plugins/nativeHttp.js) runs its own,
+   * independent single-flight refresh — a burst of 401s right after a cold start (Android
+   * Auto/background sync here, Vue/webview there) can still produce one JS-side attempt and
+   * one Kotlin-side attempt racing with the same pre-rotation refresh token. Whichever loses
+   * that race gets a genuine 401/429 from the server even though a freshly-rotated, valid
+   * refresh token already exists in the shared SecureStorage both layers read/write — detected
+   * here by re-reading it and retrying with the fresh token instead of declaring the session
+   * dead. A 429 is never treated as fatal either way, since it means rate-limited, not invalid.
+   */
+  private fun doRefreshRequest(serverConnectionConfigId: String, refreshToken: String, originalRequest: Request, httpClient: OkHttpClient?, callback: (JSObject) -> Unit, attempt: Int) {
+    val refreshEndpoint = "${DeviceManager.serverAddress}/auth/refresh"
+    val refreshBuilder = Request.Builder()
+      .url(refreshEndpoint)
+      .addHeader("x-refresh-token", refreshToken)
+      .addHeader("Content-Type", "application/json")
+    DeviceManager.serverConnectionConfig?.customHeaders?.forEach { (key, value) -> refreshBuilder.addHeader(key, value) }
+    val refreshRequest = refreshBuilder.post(EMPTY_REQUEST).build()
+
+    fun retryWithRotatedTokenOrFail(statusForLog: Int?) {
+      if (statusForLog == 429) {
+        AbsLogger.error(tag, "handleTokenRefresh: Refresh request failed with status 429 (rate-limited) for server ${DeviceManager.serverConnectionConfigString}")
+        val errorObj = JSObject()
+        errorObj.put("error", "Rate limited, please retry shortly")
+        finishTokenRefresh(null, originalRequest, httpClient, callback, errorObj)
+        return
+      }
+      val latestRefreshToken = secureStorage.getRefreshToken(serverConnectionConfigId)
+      if (attempt < 2 && !latestRefreshToken.isNullOrEmpty() && latestRefreshToken != refreshToken) {
+        AbsLogger.info(tag, "handleTokenRefresh: Refresh token for server ${DeviceManager.serverConnectionConfigString} was rotated by another process mid-attempt — retrying with the fresh token")
+        doRefreshRequest(serverConnectionConfigId, latestRefreshToken, originalRequest, httpClient, callback, attempt = attempt + 1)
+        return
+      }
+      finishTokenRefresh(null, originalRequest, httpClient, callback, null)
+    }
+
+    // Make the refresh request
+    val client = httpClient ?: defaultClient
+    client.newCall(refreshRequest).enqueue(object : Callback {
+      override fun onFailure(call: Call, e: IOException) {
+        Log.e(tag, "handleTokenRefresh: Failed to connect to refresh endpoint", e)
+        AbsLogger.error(tag, "handleTokenRefresh: Failed to connect to refresh endpoint for server ${DeviceManager.serverConnectionConfigString} (error: ${e.message})")
+        retryWithRotatedTokenOrFail(null)
+      }
+
+      override fun onResponse(call: Call, response: Response) {
+        response.use {
+          if (!it.isSuccessful) {
+            AbsLogger.error(tag, "handleTokenRefresh: Refresh request failed with status ${it.code} for server ${DeviceManager.serverConnectionConfigString}")
+            retryWithRotatedTokenOrFail(it.code)
+            return
+          }
+
+          val bodyString = it.body!!.string()
+          try {
+            val responseJson = JSONObject(bodyString)
+            val userObj = responseJson.optJSONObject("user")
+
+            if (userObj == null) {
+              AbsLogger.error(tag, "handleTokenRefresh: No user object in refresh response for server ${DeviceManager.serverConnectionConfigString}")
+              retryWithRotatedTokenOrFail(null)
+              return
+            }
+
+            val newAccessToken = userObj.optString("accessToken")
+            val newRefreshToken = userObj.optString("refreshToken")
+
+            if (newAccessToken.isEmpty()) {
+              AbsLogger.error(tag, "handleTokenRefresh: No access token in refresh response for server ${DeviceManager.serverConnectionConfigString}")
+              retryWithRotatedTokenOrFail(null)
+              return
+            }
+
+            Log.d(tag, "handleTokenRefresh: Successfully obtained new access token")
+
+            // Update tokens in secure storage and device manager
+            updateTokens(newAccessToken, newRefreshToken.ifEmpty { refreshToken }, serverConnectionConfigId)
+
+            // Retry this request and every request that queued up while this refresh was in flight
+            Log.d(tag, "handleTokenRefresh: Retrying original request with new token")
+            finishTokenRefresh(newAccessToken, originalRequest, httpClient, callback, null)
+
+          } catch (e: Exception) {
+            Log.e(tag, "handleTokenRefresh: Failed to parse refresh response", e)
+            AbsLogger.error(tag, "handleTokenRefresh: Failed to parse refresh response for server ${DeviceManager.serverConnectionConfigString} (error: ${e.message})")
+            retryWithRotatedTokenOrFail(null)
+          }
+        }
+      }
+    })
   }
 
   /**

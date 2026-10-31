@@ -174,24 +174,44 @@ export default function ({ store, $db, $socket }, inject) {
           refreshFailureHandled = false
           refreshPromise = (async () => {
             // Get refresh token from secure storage
-            const refreshToken = await $db.getRefreshToken(serverConnectionConfig.id)
+            let refreshToken = await $db.getRefreshToken(serverConnectionConfig.id)
             if (!refreshToken) {
               console.error('[nativeHttp] No refresh token available')
               AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Unable to refresh auth tokens. No refresh token available for server ${serverConnectionConfig.name || serverConnectionConfig.address}` })
               throw new Error('No refresh token available')
             }
 
-            // Attempt to refresh the token
-            const tokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig)
-            if (!tokens?.accessToken) {
-              console.error('[nativeHttp] Failed to refresh access token')
-              AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Failed to refresh access token for server ${serverConnectionConfig.name || serverConnectionConfig.address}` })
-              throw new Error('Failed to refresh access token')
+            // ApiHandler.kt (native Kotlin layer, used by Android Auto/background sync) runs its
+            // own independent single-flight refresh against the same shared secure storage. A
+            // burst of 401s right after a cold start can still produce one JS-side attempt and
+            // one Kotlin-side attempt racing with the same pre-rotation refresh token — whichever
+            // loses gets a genuine 401/429 from the server even though a freshly-rotated, valid
+            // refresh token already exists moments later. Detected by re-reading secure storage
+            // after a failed attempt and retrying with the fresh token instead of declaring the
+            // session dead. Up to 2 attempts total.
+            let lastError = null
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                const tokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig)
+                await this.updateTokens(tokens, serverConnectionConfig)
+                return tokens
+              } catch (err) {
+                lastError = err
+                if (err?.status === 429) {
+                  // Rate-limited, not invalid — never grounds for a forced logout.
+                  err.isRateLimited = true
+                  throw err
+                }
+                const latestRefreshToken = await $db.getRefreshToken(serverConnectionConfig.id)
+                if (!latestRefreshToken || latestRefreshToken === refreshToken) {
+                  // Nothing changed underneath us — this is a genuinely invalid/expired token.
+                  throw err
+                }
+                AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Refresh token for server ${serverConnectionConfig.name || serverConnectionConfig.address} was rotated by another process mid-attempt — retrying with the fresh token` })
+                refreshToken = latestRefreshToken
+              }
             }
-
-            // Update the store with new tokens
-            await this.updateTokens(tokens, serverConnectionConfig)
-            return tokens
+            throw lastError
           })()
 
           try {
@@ -229,6 +249,13 @@ export default function ({ store, $db, $socket }, inject) {
         console.error('[nativeHttp] Token refresh failed:', error)
         AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Token refresh failed for server ${serverConnectionConfig?.name || serverConnectionConfig?.address || 'unknown'} while handling "${url}" (error: ${error?.message || error})` })
 
+        // A 429 means rate-limited, not invalid — surface the failure to this request without
+        // touching the saved session. The self-inflicted burst that used to cause this should no
+        // longer recur now that concurrent 401s are coalesced, but that's not grounds to log out.
+        if (error?.isRateLimited) {
+          throw error
+        }
+
         // Only the first caller to observe this refresh attempt's failure triggers logout —
         // every other request that was waiting on the same shared refreshPromise would
         // otherwise each independently redirect/logout for what is really one failure.
@@ -247,15 +274,16 @@ export default function ({ store, $db, $socket }, inject) {
      * @returns {Promise<Object|null>} - Promise that resolves with new tokens or null
      */
     async refreshAccessToken(refreshToken, serverConnectionConfig) {
+      const serverAddress = serverConnectionConfig?.address
+      if (!serverAddress) {
+        throw new Error('No server address available')
+      }
+
+      console.log('[nativeHttp] Refreshing access token...')
+
+      let response
       try {
-        const serverAddress = serverConnectionConfig?.address
-        if (!serverAddress) {
-          throw new Error('No server address available')
-        }
-
-        console.log('[nativeHttp] Refreshing access token...')
-
-        const response = await CapacitorHttp.post({
+        response = await CapacitorHttp.post({
           url: `${serverAddress}/auth/refresh`,
           headers: {
             'Content-Type': 'application/json',
@@ -264,29 +292,31 @@ export default function ({ store, $db, $socket }, inject) {
           },
           data: {}
         })
-
-        if (response.status !== 200) {
-          console.error('[nativeHttp] Token refresh request failed:', response.status)
-          AbsLogger.error({ tag: 'nativeHttp', message: `refreshAccessToken: /auth/refresh request failed with status ${response.status} for server ${serverConnectionConfig?.name || serverAddress}` })
-          return null
-        }
-
-        const userResponseData = response.data
-        if (!userResponseData.user?.accessToken) {
-          console.error('[nativeHttp] No access token in refresh response')
-          AbsLogger.error({ tag: 'nativeHttp', message: `refreshAccessToken: No access token in /auth/refresh response for server ${serverConnectionConfig?.name || serverAddress}` })
-          return null
-        }
-
-        console.log('[nativeHttp] Successfully refreshed access token')
-        return {
-          accessToken: userResponseData.user.accessToken,
-          // Refresh token gets returned when refresh token is sent in x-refresh-token header
-          refreshToken: userResponseData.user.refreshToken
-        }
       } catch (error) {
         console.error('[nativeHttp] Failed to refresh access token:', error)
-        return null
+        throw new Error('Failed to refresh access token')
+      }
+
+      if (response.status !== 200) {
+        console.error('[nativeHttp] Token refresh request failed:', response.status)
+        AbsLogger.error({ tag: 'nativeHttp', message: `refreshAccessToken: /auth/refresh request failed with status ${response.status} for server ${serverConnectionConfig?.name || serverAddress}` })
+        const err = new Error(`Token refresh failed with status ${response.status}`)
+        err.status = response.status
+        throw err
+      }
+
+      const userResponseData = response.data
+      if (!userResponseData.user?.accessToken) {
+        console.error('[nativeHttp] No access token in refresh response')
+        AbsLogger.error({ tag: 'nativeHttp', message: `refreshAccessToken: No access token in /auth/refresh response for server ${serverConnectionConfig?.name || serverAddress}` })
+        throw new Error('No access token in refresh response')
+      }
+
+      console.log('[nativeHttp] Successfully refreshed access token')
+      return {
+        accessToken: userResponseData.user.accessToken,
+        // Refresh token gets returned when refresh token is sent in x-refresh-token header
+        refreshToken: userResponseData.user.refreshToken
       }
     },
 
