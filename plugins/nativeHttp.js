@@ -152,6 +152,7 @@ export default function ({ store, $db, $socket }, inject) {
      * @returns {Promise} - Promise that resolves with the response data
      */
     async handleTokenRefresh(method, url, data, headers, options, serverConnectionConfig) {
+      let newTokens
       try {
         if (!serverConnectionConfig?.id) {
           console.error('[nativeHttp] No server connection config ID available for token refresh')
@@ -159,7 +160,6 @@ export default function ({ store, $db, $socket }, inject) {
           throw new Error('No server connection available')
         }
 
-        let newTokens
         if (isRefreshingToken) {
           // A refresh is already in flight (e.g. a burst of other requests also hit 401 at
           // the same time) — wait for that single attempt instead of racing it with our own
@@ -221,30 +221,6 @@ export default function ({ store, $db, $socket }, inject) {
             refreshPromise = null
           }
         }
-
-        AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Successfully refreshed auth tokens for server ${serverConnectionConfig.name || serverConnectionConfig.address}, retrying "${url}"` })
-
-        // Retry the original request with the new token
-        console.log('[nativeHttp] Retrying original request with new token...')
-        const retryResponse = await CapacitorHttp.request({
-          method,
-          url,
-          data,
-          headers: {
-            ...headers,
-            Authorization: `Bearer ${newTokens.accessToken}`
-          },
-          ...options
-        })
-
-        if (retryResponse.status >= 400) {
-          console.error(`[nativeHttp] Retry request failed with status ${retryResponse.status}`)
-          AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Retry of "${url}" failed with status ${retryResponse.status} after a successful token refresh` })
-          const message = typeof retryResponse.data === 'string' ? retryResponse.data : `HTTP ${retryResponse.status}`
-          throw new Error(message)
-        }
-
-        return retryResponse.data
       } catch (error) {
         console.error('[nativeHttp] Token refresh failed:', error)
         AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Token refresh failed for server ${serverConnectionConfig?.name || serverConnectionConfig?.address || 'unknown'} while handling "${url}" (error: ${error?.message || error})` })
@@ -264,6 +240,44 @@ export default function ({ store, $db, $socket }, inject) {
           await this.handleRefreshFailure(serverConnectionConfig?.id)
         }
         throw error
+      }
+
+      AbsLogger.info({ tag: 'nativeHttp', message: `handleTokenRefresh: Successfully refreshed auth tokens for server ${serverConnectionConfig.name || serverConnectionConfig.address}, retrying "${url}"` })
+
+      // Retry the original request with the new token. This is deliberately NOT inside the
+      // try/catch above: a 401 here means the token we JUST confirmed was valid got invalidated
+      // again in the moments between the refresh response and this retry landing — e.g. the
+      // native Kotlin layer (ApiHandler.kt) won its own independent refresh for the same server
+      // a beat later and rotated the token out from under us. That's a transient race, not proof
+      // the session is dead, so it must never trigger handleRefreshFailure/logout — the refresh
+      // itself just succeeded. Every other request queued on this same refreshPromise retries
+      // with the same token and could hit the same transient 401; each one surfaces its own
+      // failure to its caller (who can just retry) instead of one of them nuking the session
+      // for all of them.
+      console.log('[nativeHttp] Retrying original request with new token...')
+      try {
+        const retryResponse = await CapacitorHttp.request({
+          method,
+          url,
+          data,
+          headers: {
+            ...headers,
+            Authorization: `Bearer ${newTokens.accessToken}`
+          },
+          ...options
+        })
+
+        if (retryResponse.status >= 400) {
+          console.error(`[nativeHttp] Retry request failed with status ${retryResponse.status}`)
+          AbsLogger.error({ tag: 'nativeHttp', message: `handleTokenRefresh: Retry of "${url}" failed with status ${retryResponse.status} after a successful token refresh — not logging out, this looks like a transient post-refresh race` })
+          const message = typeof retryResponse.data === 'string' ? retryResponse.data : `HTTP ${retryResponse.status}`
+          throw new Error(message)
+        }
+
+        return retryResponse.data
+      } catch (retryError) {
+        console.error('[nativeHttp] Retry after token refresh failed:', retryError)
+        throw retryError
       }
     },
 
