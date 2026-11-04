@@ -86,6 +86,10 @@ class MediaProgressSyncer(
                   // Set auto sleep timer if enabled and within start/end time
                   playerNotificationService.sleepTimerManager.checkAutoSleepTimer()
 
+                  // The widgets only redraw on a player event, so their position and progress bar sat
+                  // still until the next pause. Refresh them on this tick while playing.
+                  DeviceManager.widgetUpdater?.onPlayerChanged(playerNotificationService)
+
                   // Only sync with server on unmetered connection every 15s OR sync with server if
                   // last sync time is >= 60s
                   val shouldSyncServer =

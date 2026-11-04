@@ -98,11 +98,17 @@
       android:layout_height="0dp"
       android:layout_weight="32"
       android:orientation="horizontal"
+      android:clipChildren="false"
       android:gravity="top">
 
+      <!-- Fixed height (enough for the 14sp title + 12sp author) instead of wrap_content: the row
+           above is a weighted fraction of a widget that can render shorter than designed, and a
+           wrap_content child is measured down to that row's height, which cut the author line off.
+           This column is allowed to run past the row (clipChildren=false on the row) and draw over
+           the empty top of the transport row, so nothing else has to move. -->
       <LinearLayout
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="36dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
