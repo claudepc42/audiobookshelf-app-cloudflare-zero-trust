@@ -52,8 +52,9 @@ class DbManager {
   /**
    * Persists DeviceData to Paper DB. Server connection customHeaders are never written to the
    * Paper/Kryo blob in plaintext -- they're stored separately via Keystore-backed SecureStorage
-   * and stripped from the objects just for the duration of this synchronous write, then restored
-   * immediately after so in-memory objects (and any in-flight requests using them) are unaffected.
+   * and the blob is written from a copy with them removed. The live objects are never touched:
+   * other threads read DeviceManager.serverConnectionConfig.customHeaders while this runs, and
+   * temporarily nulling them there sent requests out without the CF cookie.
    * This is the single write chokepoint -- saveDeviceData has multiple callers across the app
    * (AbsDatabase, ApiHandler, DeviceManager), most unrelated to customHeaders, so redacting here
    * rather than at each call site is the only way to guarantee none of them leak it to disk.
@@ -64,18 +65,13 @@ class DbManager {
       Paper.book("device").write("data", deviceData)
       return
     }
-    val realHeadersByConfigId = deviceData.serverConnectionConfigs.associate { it.id to it.customHeaders }
-    try {
-      deviceData.serverConnectionConfigs.forEach { config ->
-        storage.storeCustomHeaders(config.id, config.customHeaders)
-        config.customHeaders = null
-      }
-      Paper.book("device").write("data", deviceData)
-    } finally {
-      deviceData.serverConnectionConfigs.forEach { config ->
-        config.customHeaders = realHeadersByConfigId[config.id]
-      }
+    deviceData.serverConnectionConfigs.forEach { config ->
+      storage.storeCustomHeaders(config.id, config.customHeaders)
     }
+    val strippedCopy = deviceData.copy(
+      serverConnectionConfigs = deviceData.serverConnectionConfigs.map { it.copy(customHeaders = null) }.toMutableList()
+    )
+    Paper.book("device").write("data", strippedCopy)
   }
 
   fun getLocalLibraryItems(mediaType: String? = null): MutableList<LocalLibraryItem> {

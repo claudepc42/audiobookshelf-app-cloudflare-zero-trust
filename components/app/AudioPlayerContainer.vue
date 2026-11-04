@@ -78,15 +78,20 @@ export default {
     // silently in the background.
     onWidgetUrlOpen(url) {
       if (!url || !url.startsWith('audiobookshelf://widget-action')) return
+      this.$eventBus.lastUrlOpen = null // handled, so onReady must not replay it
       let type
       try {
         type = new URL(url).searchParams.get('type')
       } catch (e) {
         return
       }
-      if (type === 'bookmark') this.showBookmarks()
-      else if (type === 'sleep-timer') this.showSleepTimer()
-      else if (type === 'play-pause') this.$refs.audioPlayer?.playPauseClick()
+      // Both modals work on the playing session; with none loaded they would open empty
+      if (type === 'bookmark') {
+        if (this.currentPlaybackSession) this.showBookmarks()
+      } else if (type === 'sleep-timer') {
+        if (this.currentPlaybackSession) this.showSleepTimer()
+      }
+      if (type === 'play-pause') this.$refs.audioPlayer?.playPauseClick()
       else if (type === 'rewind') this.$refs.audioPlayer?.jumpBackwards()
       else if (type === 'fast-forward') this.$refs.audioPlayer?.jumpForward()
     },
@@ -316,6 +321,12 @@ export default {
       // The UI is reporting elsewhere we are ready
       this.isReady = true
       this.notifyOnReady()
+
+      // A widget button tapped while the app was closed launched it with this URL before this
+      // component existed; handle it now that the UI (and any restored session) is up
+      const pendingUrl = this.$eventBus.lastUrlOpen
+      this.$eventBus.lastUrlOpen = null
+      if (pendingUrl) setTimeout(() => this.onWidgetUrlOpen(pendingUrl), 500)
     },
     notifyOnReady() {
       // TODO: was used on iOS to open last played media. May be removed

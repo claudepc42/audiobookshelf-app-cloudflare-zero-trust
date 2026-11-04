@@ -96,10 +96,12 @@ class FolderScanner(var ctx: Context) {
       val file = File(downloadItemPart.finalDestinationPath)
       Log.d(tag, "Scan internal storage item created file ${file.name}")
 
-      if (file == null) {
+      if (!file.exists() || file.length() == 0L) {
+        // A part that failed (or was cut short) must not become a track; DownloadItemManager no longer
+        // scans an item with failed parts, so this is a second line of defence
         Log.e(
                 tag,
-                "scanInternalDownloadItem: Null docFile for path ${downloadItemPart.finalDestinationPath}"
+                "scanInternalDownloadItem: Missing or empty file for path ${downloadItemPart.finalDestinationPath}"
         )
       } else {
         if (downloadItemPart.audioTrack != null) {

@@ -26,6 +26,7 @@ import { CapacitorHttp } from '@capacitor/core'
 import { AbsLogger } from '@/plugins/capacitor'
 import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 import { NH_BASE_THEMES, NH_GLASS_EFFECT_CONTROLS } from '@/store/index'
+import { loadNhFont } from '@/utils/nhFont'
 
 export default {
   data() {
@@ -79,16 +80,27 @@ export default {
       handler(val) {
         if (val) {
           document.documentElement.dataset.theme = 'nanohive'
-          this._loadNhFont()
+          loadNhFont()
           this.fetchNhServerConfig()
         }
       }
     },
+    // Which server and user the NanoHive state belongs to. A server switch or logout drops everything
+    // cached from the old one (locks, ratings, series covers, avatars), signing in as a different user
+    // loads that user's own settings, and a fresh login fetches the server's NanoHive config, which
+    // used to be fetched once at app start, usually before there was a server to ask.
+    nhServerKey(val, old) {
+      const [oldServer, oldUser] = (old || '|').split('|')
+      const [server, user] = (val || '|').split('|')
+      if ((oldServer && oldServer !== server) || (oldUser && !user)) this.$store.commit('resetNhCaches')
+      if (oldUser && oldUser !== user) this.$store.dispatch('loadNhSettings')
+      if (server && user && this.nhThemeActive) this.fetchNhServerConfig()
+    },
     'nhStoreHomeCoverUrl'(val) {
       if (!val) return
-      try {
-        localStorage.setItem('nh-home-bg-url', val)
-      } catch (e) {}
+      // The value is only needed at the next cold start, so don't write it on every slide change
+      clearTimeout(this._nhHomeBgTimer)
+      this._nhHomeBgTimer = setTimeout(() => this.flushNhHomeBg(), 5000)
     },
     networkConnected: {
       handler(newVal, oldVal) {
@@ -173,6 +185,9 @@ export default {
     currentPlaybackSession() {
       return this.$store.state.currentPlaybackSession
     },
+    nhServerKey() {
+      return `${this.$store.state.user.serverConnectionConfig?.id || ''}|${this.$store.state.user.user?.id || ''}`
+    },
     nhStoreHomeCoverUrl() {
       return this.$store.state.nhHomeCoverUrl
     },
@@ -221,15 +236,13 @@ export default {
     }
   },
   methods: {
-    // Mirrors SideDrawer.vue's private _loadNhFont() exactly — needed here too
-    // since the nhThemeActive watcher above now also triggers the "on" path.
-    _loadNhFont() {
-      if (document.getElementById('nh-spectral-font')) return
-      const link = document.createElement('link')
-      link.id = 'nh-spectral-font'
-      link.rel = 'stylesheet'
-      link.href = 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap'
-      document.head.appendChild(link)
+    flushNhHomeBg() {
+      clearTimeout(this._nhHomeBgTimer)
+      const url = this.nhStoreHomeCoverUrl
+      if (!url) return
+      try {
+        localStorage.setItem('nh-home-bg-url', url)
+      } catch (e) {}
     },
     // NH source: uiServerSettings load (enhancements.js:83) + NH_LOCKS
     // (enhancements.js:133-137) — admin-set feature kill-switches, applied live.
@@ -239,16 +252,23 @@ export default {
     // "blank slate" moment to apply them into the way NH's own per-page-load
     // injection has. Only the kill-switches, which must win regardless of a
     // user's own saved choice, are wired up on this side.
-    fetchNhServerConfig() {
+    fetchNhServerConfig(attempt = 0) {
       if (this._fetchingNhServerConfig) return
+      // Nothing to ask until there's a server; the nhServerKey watcher calls this again after login
+      if (!this.$store.state.user.serverConnectionConfig?.address) return
       this._fetchingNhServerConfig = true
       this.$nativeHttp
         .get('/_nh/server-config.json')
         .then((cfg) => {
           this.$store.commit('setNhServerConfig', cfg)
         })
-        .catch(() => {
+        .catch((err) => {
           this.$store.commit('setNhServerConfig', {})
+          // A server with no NanoHive backend says 404 and that's final; anything else (no signal,
+          // Cloudflare not ready yet) gets another try instead of sticking until the app restarts
+          if (err?.status !== 404 && attempt < 3) {
+            setTimeout(() => this.fetchNhServerConfig(attempt + 1), [15000, 45000, 120000][attempt])
+          }
         })
         .then(() => {
           this._fetchingNhServerConfig = false
@@ -362,25 +382,10 @@ export default {
       // Cold-start authorize has no CF session awareness of its own — refresh a stale
       // CF session before authorizing, instead of authorizing against a CF login page
       // returned as HTML and failing with no explanation or auto-reauth.
-      if ((this.$platform === 'android' || this.$platform === 'ios') && serverConfig.isSsoAuth) {
-        try {
-          const probeResult = await AbsCfZeroTrust.probeCfChallenge({
-            serverAddress: serverConfig.address,
-            cookies: serverConfig.customHeaders?.Cookie || ''
-          })
-          if (probeResult?.isCfProtected && !probeResult?.cookiesValid) {
-            AbsLogger.info({ tag: 'default', message: `attemptConnection: CF session stale, opening WebView to refresh (${serverConfig.name})` })
-            const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address }).catch(() => null)
-            if (result?.cookieHeader) {
-              serverConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
-              const savedConfig = await this.$db.setServerConnectionConfig(serverConfig)
-              if (savedConfig) serverConfig = savedConfig
-            }
-          }
-        } catch (e) {
-          // probe or webview failed/cancelled — proceed and let the authorize call fail normally if session is actually stale
-        }
-      }
+      // (no-ops for non-CF connections; a failed or cancelled refresh just proceeds and lets the
+      // authorize call fail normally if the session is actually stale)
+      const cfRefreshedConfig = await this.$nativeHttp.refreshCfSessionIfStale(serverConfig)
+      if (cfRefreshedConfig) serverConfig = cfRefreshedConfig
 
       const nativeHttpOptions = {
         headers: {
@@ -389,13 +394,18 @@ export default {
         connectTimeout: 6000,
         serverConnectionConfig: serverConfig
       }
+      let authFailed = false
       const authRes = await this.$nativeHttp.post(`${serverConfig.address}/api/authorize`, null, nativeHttpOptions).catch((error) => {
-        AbsLogger.error({ tag: 'default', message: `attemptConnection: Server auth failed (${serverConfig.name})` })
+        authFailed = true
+        AbsLogger.error({ tag: 'default', message: `attemptConnection: Server auth failed (${serverConfig.name}): ${error?.message || error}` })
         return false
       })
 
       if (!authRes || typeof authRes !== 'object' || !authRes.user) {
-        AbsLogger.error({ tag: 'default', message: `attemptConnection: Authorize response missing expected data, likely a stale CF session (${serverConfig.name})` })
+        if (!authFailed) {
+          // The request itself succeeded but the body wasn't an authorize response
+          AbsLogger.error({ tag: 'default', message: `attemptConnection: Authorize response missing expected data, likely a stale CF session (${serverConfig.name})` })
+        }
         this.attemptingConnection = false
         return
       }
@@ -414,8 +424,8 @@ export default {
         // token is on file is: a device that's never completed the new-auth login has
         // none and genuinely needs the real re-login below; one that has already migrated
         // keeps working normally even if this response's isOldToken looks stale/wrong.
-        const hasRefreshToken = !!(await this.$db.getRefreshToken(serverConfig.id))
         const looksOld = serverConfig.token === user.token || user.isOldToken
+        const hasRefreshToken = looksOld ? !!(await this.$db.getRefreshToken(serverConfig.id)) : true
         if (looksOld) {
           AbsLogger.info({ tag: 'default', message: `attemptConnection: authorize response looks like an old token (tokenMatches=${serverConfig.token === user.token}, isOldToken=${!!user.isOldToken}), hasRefreshToken=${hasRefreshToken} (${serverConfig.name})` })
         }
@@ -440,6 +450,14 @@ export default {
         this.$store.commit('libraries/setCurrentLibrary', userDefaultLibraryId)
       }
       serverConfig.version = serverSettings.version
+      // The authorize call can have renewed the CF session (nativeHttp opens the login and saves the new
+      // cookie into the store). serverConfig was read before that, so saving it as it is would put the
+      // old cookie back.
+      const renewedConfig = this.$store.state.user.serverConnectionConfig
+      if (renewedConfig?.id === serverConfig.id) {
+        serverConfig.customHeaders = renewedConfig.customHeaders
+        serverConfig.isSsoAuth = renewedConfig.isSsoAuth || serverConfig.isSsoAuth
+      }
       const serverConnectionConfig = await this.$db.setServerConnectionConfig(serverConfig)
 
       this.$store.commit('user/setUser', user)
@@ -590,16 +608,12 @@ export default {
       if (!serverConfig?.address) return
       this.cfRefreshInProgress = true
       try {
-        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
-        if (result?.cookieHeader) {
-          const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
-          const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
-          this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
-          this.$toast.success('Cloudflare session refreshed — please try again')
-        }
-      } catch (e) {
-        if (e?.message !== 'cancelled') {
-          this.$toast.error('Cloudflare session expired — open the menu to refresh')
+        // Native code already checked the session before notifying, so skip the probe
+        const { status } = await this.$nativeHttp.ensureCfSession(serverConfig, { assumeStale: true })
+        if (status === 'refreshed') {
+          this.$toast.success(this.$strings.ToastCloudflareSessionRefreshedTryAgain)
+        } else if (status === 'failed') {
+          this.$toast.error(this.$strings.ToastCloudflareSessionExpired)
         }
       } finally {
         this.cfRefreshInProgress = false
@@ -712,11 +726,16 @@ export default {
       document.documentElement.classList.toggle('nh-stock-series', settings.customSeriesCards === false)
     },
     // NH source: enhancements.js hexToRgba() (lines 89-95)
+    // A channel of 00 is a real value: the old `parseInt(...) || default` read it as missing, which
+    // turned orange (#ff9800) into salmon and cyan (#00bcd4) into pale pink. The whole value is
+    // checked once instead, and only a malformed one falls back to the default gold.
+    hexChannels(hex) {
+      const valid = typeof hex === 'string' && /^#[0-9a-f]{6}$/i.test(hex)
+      const value = valid ? hex : '#e0c27a'
+      return [parseInt(value.slice(1, 3), 16), parseInt(value.slice(3, 5), 16), parseInt(value.slice(5, 7), 16)]
+    },
     hexToRgba(hex, alpha) {
-      if (!hex || typeof hex !== 'string') hex = '#e0c27a'
-      const r = parseInt(hex.slice(1, 3), 16) || 224
-      const g = parseInt(hex.slice(3, 5), 16) || 194
-      const b = parseInt(hex.slice(5, 7), 16) || 122
+      const [r, g, b] = this.hexChannels(hex)
       return `rgba(${r}, ${g}, ${b}, ${alpha})`
     },
     // Raw "r, g, b" triplet (no NH source equivalent by this name — NH only ever
@@ -724,11 +743,7 @@ export default {
     // amber-tinted borders/backgrounds at other alphas, so this lets those respect
     // the user's accentColor setting the same way --nh-bg-rgb does for the theme).
     hexToRgbTriplet(hex) {
-      if (!hex || typeof hex !== 'string') hex = '#e0c27a'
-      const r = parseInt(hex.slice(1, 3), 16) || 224
-      const g = parseInt(hex.slice(3, 5), 16) || 194
-      const b = parseInt(hex.slice(5, 7), 16) || 122
-      return `${r}, ${g}, ${b}`
+      return this.hexChannels(hex).join(', ')
     }
   },
   async mounted() {
@@ -800,6 +815,7 @@ export default {
     this.$socket.off('user_media_progress_updated', this.userMediaProgressUpdated)
     if (this.cfSessionListener) this.cfSessionListener.remove()
     this.nhCompatCheckTimeouts.forEach(clearTimeout)
+    this.flushNhHomeBg()
   }
 }
 </script>

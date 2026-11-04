@@ -136,7 +136,7 @@ class MediaManager(private var apiHandler: ApiHandler, var ctx: Context) {
     //   and reset any server data already set
     val serverConnConfig = if (DeviceManager.isConnectedToServer) DeviceManager.serverConnectionConfig else DeviceManager.deviceData.getLastServerConnectionConfig()
 
-    if (!DeviceManager.isConnectedToServer || !DeviceManager.checkConnectivity(ctx) || serverConnConfig == null || serverConnConfig.id !== serverConfigIdUsed) {
+    if (!DeviceManager.isConnectedToServer || !DeviceManager.checkConnectivity(ctx) || serverConnConfig == null || serverConnConfig.id != serverConfigIdUsed) {
       podcastEpisodeLibraryItemMap = mutableMapOf()
       serverLibraries = listOf()
       serverLibraryItems = mutableListOf()
@@ -781,6 +781,14 @@ class MediaManager(private var apiHandler: ApiHandler, var ctx: Context) {
 
         if (hasValidConn) {
           serverConfigLastPing = System.currentTimeMillis()
+
+          // Android Auto, the widget or a background service can start the app without JS, and the
+          // LAN check only ever ran from JS, so native traffic never used the LAN. Check it now,
+          // off this thread.
+          val activeConfig = DeviceManager.serverConnectionConfig
+          if (com.audiobookshelf.app.device.EndpointResolver.needsResolve(activeConfig)) {
+            Thread { com.audiobookshelf.app.device.EndpointResolver.resolve(activeConfig) }.also { it.isDaemon = true }.start()
+          }
 
           if (lookupMediaProgress) {
             Log.d(tag, "Has valid conn now get user media progress")

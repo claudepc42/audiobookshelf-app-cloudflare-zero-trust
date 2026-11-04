@@ -1,23 +1,28 @@
 package com.audiobookshelf.app.player
 
 import android.net.Uri
+import com.audiobookshelf.app.data.ServerConnectionConfig
 import com.google.android.exoplayer2.upstream.*
 
 /**
- * DataSource.Factory that only injects customHeaders when the request host matches
- * the ABS server host. HLS segment requests to external CDNs get only the auth header,
- * not the CF session cookies or other server-specific headers.
+ * DataSource.Factory for streaming from the ABS server. Everything is read when each request opens,
+ * not when playback starts, so a CF cookie or access token that was refreshed during a long stream
+ * is picked up by the next range or segment request.
+ *
+ * - The access token goes only to the server's own hosts (primary and LAN address), never to a CDN or
+ *   any other host a stream happens to point at.
+ * - The custom headers (CF cookie, service tokens) go only to the primary host: Cloudflare is not in
+ *   front of the LAN address, so they would just be exposed there.
  */
 class HostFilteredHttpDataSourceFactory(
-  private val serverHost: String,
-  private val authHeader: String,
-  private val customHeaders: Map<String, String>
+  private val configSupplier: () -> ServerConnectionConfig?,
+  private val tokenSupplier: () -> String
 ) : HttpDataSource.Factory {
 
   private val baseFactory = DefaultHttpDataSource.Factory()
 
   override fun createDataSource(): HttpDataSource {
-    return HostFilteredHttpDataSource(serverHost, authHeader, customHeaders, baseFactory.createDataSource())
+    return HostFilteredHttpDataSource(configSupplier, tokenSupplier, baseFactory.createDataSource())
   }
 
   override fun setDefaultRequestProperties(defaultRequestProperties: Map<String, String>): HttpDataSource.Factory {
@@ -27,23 +32,39 @@ class HostFilteredHttpDataSourceFactory(
 }
 
 class HostFilteredHttpDataSource(
-  private val serverHost: String,
-  private val authHeader: String,
-  private val customHeaders: Map<String, String>,
+  private val configSupplier: () -> ServerConnectionConfig?,
+  private val tokenSupplier: () -> String,
   private val delegate: DefaultHttpDataSource
 ) : HttpDataSource {
 
-  private fun isServerHost(uri: Uri): Boolean {
-    val host = uri.host ?: return false
-    return host == serverHost || host.endsWith(".$serverHost")
+  // Header names set by the previous open(), so a data source reused for a different host starts clean
+  private var appliedHeaderNames: Set<String> = emptySet()
+
+  private fun hostOf(address: String?): String {
+    if (address.isNullOrEmpty()) return ""
+    return try { Uri.parse(address).host ?: "" } catch (e: Exception) { "" }
+  }
+
+  private fun matchesHost(requestHost: String?, serverHost: String): Boolean {
+    if (requestHost == null || serverHost.isEmpty()) return false
+    return requestHost == serverHost || requestHost.endsWith(".$serverHost")
   }
 
   override fun open(dataSpec: DataSpec): Long {
-    delegate.setRequestProperty("Authorization", authHeader)
-    if (isServerHost(dataSpec.uri)) {
-      customHeaders.forEach { (key, value) -> delegate.setRequestProperty(key, value) }
+    val config = configSupplier()
+    val requestHost = dataSpec.uri.host
+    val isPrimary = matchesHost(requestHost, hostOf(config?.address))
+    val isLan = !isPrimary && matchesHost(requestHost, hostOf(config?.localAddress))
+
+    appliedHeaderNames.forEach { delegate.clearRequestProperty(it) }
+    val headers: Map<String, String> = if (isPrimary) config?.customHeaders ?: emptyMap() else emptyMap()
+    headers.forEach { (key, value) -> delegate.setRequestProperty(key, value) }
+    appliedHeaderNames = headers.keys.toSet()
+
+    if (isPrimary || isLan) {
+      delegate.setRequestProperty("Authorization", "Bearer ${tokenSupplier()}")
     } else {
-      customHeaders.keys.forEach { delegate.clearRequestProperty(it) }
+      delegate.clearRequestProperty("Authorization")
     }
     return delegate.open(dataSpec)
   }

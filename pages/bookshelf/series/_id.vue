@@ -80,16 +80,21 @@ export default {
         return null
       })
 
-      if (payload && payload.results) {
-        console.log('Received payload', payload)
-        this.books = payload.total
+      // A page that can't be fetched is an error, not "nothing left to download"
+      if (!payload || !payload.results) return null
 
-        for (let i = 0; i < payload.results.length; i++) {
-          if (!(await this.$db.getLocalLibraryItem(`local_${payload.results[i].id}`))) {
-            this.missingFiles += payload.results[i].numFiles
-            this.missingFilesSize += payload.results[i].size
-            this.libraryIds.push(payload.results[i].id)
-          }
+      this.books = payload.total
+
+      for (let i = 0; i < payload.results.length; i++) {
+        const id = payload.results[i].id
+        // Books in a folder you picked don't have a local_<id> id (only internal storage does), so look the
+        // book up by its server id. Books already downloading are skipped too.
+        const alreadyLocal = await this.$db.getLocalLibraryItemByLId(id)
+        const downloading = this.$store.state.globals.itemDownloads.some((d) => d.id === id)
+        if (!alreadyLocal && !downloading) {
+          this.missingFiles += payload.results[i].numFiles
+          this.missingFilesSize += payload.results[i].size
+          this.libraryIds.push(id)
         }
       }
       let totalPages = Math.ceil(this.books / this.booksPerFetch)
@@ -134,16 +139,20 @@ export default {
       let fetchFinished = false
       this.missingFiles = 0
       this.missingFilesSize = 0
+      this.libraryIds = []
       while (fetchFinished === false) {
         fetchFinished = await this.fetchSeriesEntities(page)
         page += 1
       }
       if (fetchFinished !== true) {
         console.error('failed to fetch series books data')
+        this.libraryIds = []
+        this.$toast.error(this.$strings.ToastFailedToUpdate)
         return null
       }
-      if (this.missingFiles == 0) {
+      if (this.libraryIds.length == 0) {
         alert(this.$getString('MessageSeriesAlreadyDownloaded'))
+        return
       }
 
       // Format message for dialog
@@ -158,8 +167,13 @@ export default {
         message: startDownloadMessage
       })
       if (value) {
-        for (let i = 0; i < this.libraryIds.length; i++) {
-          this.startDownload(localFolder, this.libraryIds[i])
+        // One Cloudflare session check for the whole series, instead of every book failing on a stale session
+        const cf = await this.$nativeHttp.ensureCfSession(this.$store.state.user.serverConnectionConfig)
+        if (cf.status === 'failed') this.$toast.error(this.$strings.ToastCloudflareAuthRequiredToDownload)
+        if (cf.status !== 'failed' && cf.status !== 'cancelled') {
+          for (let i = 0; i < this.libraryIds.length; i++) {
+            this.startDownload(localFolder, this.libraryIds[i])
+          }
         }
       }
       this.libraryIds = []

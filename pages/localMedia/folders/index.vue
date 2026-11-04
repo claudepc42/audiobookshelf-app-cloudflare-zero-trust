@@ -107,7 +107,6 @@ export default {
       console.log(`androidSdkVersion=${androidSdkVersion}, isAndroid10OrBelow=${this.isAndroid10OrBelow}`)
 
       this.localFolders = (await this.$db.getLocalFolders()) || []
-      this.localLibraryItems = await this.$db.getLocalLibraryItems()
     }
   },
   mounted() {

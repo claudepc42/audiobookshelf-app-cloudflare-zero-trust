@@ -5,7 +5,8 @@ class DbService {
 
   getDeviceData() {
     return AbsDatabase.getDeviceData().then((data) => {
-      console.log('Loaded device data', JSON.stringify(data))
+      // Not the data itself: it holds the access token and the CF cookie
+      console.log('Loaded device data', `${data?.serverConnectionConfigs?.length || 0} saved server(s)`)
       return data
     })
   }
@@ -32,9 +33,14 @@ class DbService {
 
   setServerConnectionConfig(serverConnectionConfig) {
     return AbsDatabase.setCurrentServerConnectionConfig(serverConnectionConfig).then((data) => {
-      console.log('Set server connection config', JSON.stringify(data))
+      console.log('Set server connection config', data?.id)
       return data
     })
+  }
+
+  // Changes only the LAN address of a saved server, without logging in or switching to it
+  setServerLocalAddress(serverConnectionConfigId, localAddress) {
+    return AbsDatabase.setServerLocalAddress({ serverConnectionConfigId, localAddress })
   }
 
   removeServerConnectionConfig(serverConnectionConfigId) {
@@ -145,7 +151,7 @@ export default ({ app, store }, inject) => {
     // Clear store and redirect to login page
     await store.dispatch('user/logout')
     if (window.location.pathname !== '/connect') {
-      window.location.href = '/connect?error=refreshTokenFailed&serverConnectionConfigId=' + data.serverConnectionConfigId || ''
+      window.location.href = '/connect?error=refreshTokenFailed&serverConnectionConfigId=' + (data.serverConnectionConfigId || '')
     }
   })
 }

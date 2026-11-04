@@ -96,7 +96,6 @@ export default {
       if (this.currentLibraryId !== libraryId) return
       this.narrators = narrators
       this.$eventBus.$emit('bookshelf-total-entities', this.narrators.length)
-      this.loading = false
       this.loadCoverMap()
     },
     async loadCoverMap() {

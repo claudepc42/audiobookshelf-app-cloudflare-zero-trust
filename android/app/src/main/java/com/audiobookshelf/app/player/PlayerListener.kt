@@ -25,16 +25,7 @@ class PlayerListener(var playerNotificationService:PlayerNotificationService) : 
     playerNotificationService.handlePlayerPlaybackError(errorMessage) // If was direct playing session, fallback to transcode
 
     // Probe for CF session expiry on a background thread — only when a server address is known
-    val serverAddress = DeviceManager.serverAddress
-    if (serverAddress.isNotEmpty()) {
-      thread(isDaemon = true) {
-        if (AbsCfZeroTrust.probeCfChallenge(serverAddress)) {
-          Log.w(tag, "CF session expired — notifying JS")
-          AbsCfZeroTrust.notifyCfSessionExpired()
-          playerNotificationService.setCfSessionExpiredErrorState()
-        }
-      }
-    }
+    AbsCfZeroTrust.checkSessionAndNotify { playerNotificationService.setCfSessionExpiredErrorState() }
   }
 
   override fun onPositionDiscontinuity(

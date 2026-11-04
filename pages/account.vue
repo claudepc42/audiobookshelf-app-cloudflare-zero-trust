@@ -132,8 +132,7 @@ export default {
     },
     async saveLocalAvatar(dataUrl) {
       this.$store.commit('setNhSetting', { key: 'localAvatarDataUrl', value: dataUrl })
-      const saved = (await this.$localStore.getNhSettings()) || {}
-      await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
+      await this.$store.dispatch('saveNhSettings')
     },
     async saveAvatar(base64) {
       this.avatarSaving = true

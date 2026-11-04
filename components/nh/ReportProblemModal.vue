@@ -1,5 +1,5 @@
 <template>
-  <div id="nh-rp-modal" @keydown.esc="close" @click.self="close">
+  <div id="nh-rp-modal" @click.self="close">
     <div class="nh-rt-modal-bg" @click="close"></div>
     <div class="nh-rt-modal-box">
       <div class="nh-rt-modal-head">

@@ -502,27 +502,15 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
           extractorsFactory.setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
         }
 
-        val authHeader = "Bearer ${DeviceManager.token}"
-        val customHeaders = DeviceManager.serverConnectionConfig?.customHeaders ?: emptyMap()
-        val serverHost = DeviceManager.serverConnectionConfig?.let { android.net.Uri.parse(it.address).host ?: "" } ?: ""
-        val dataSourceFactory = if (customHeaders.isNotEmpty() && serverHost.isNotEmpty()) {
-          HostFilteredHttpDataSourceFactory(serverHost, authHeader, customHeaders)
-        } else {
-          DefaultHttpDataSource.Factory().also { it.setDefaultRequestProperties(mapOf("Authorization" to authHeader)) }
-        }
+        // Headers and token are read per request (not captured now), and only sent to the server's own hosts
+        val dataSourceFactory = HostFilteredHttpDataSourceFactory({ DeviceManager.serverConnectionConfig }, { DeviceManager.token })
         mediaSource =
                 ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
                         .createMediaSource(mediaItems[0])
       } else {
         AbsLogger.info("PlayerNotificationService", "preparePlayer: HLS stream ${currentPlaybackSession?.mediaItemId}.")
-        val authHeader = "Bearer ${DeviceManager.token}"
-        val customHeaders = DeviceManager.serverConnectionConfig?.customHeaders ?: emptyMap()
-        val serverHost = DeviceManager.serverConnectionConfig?.let { android.net.Uri.parse(it.address).host ?: "" } ?: ""
-        val dataSourceFactory = if (customHeaders.isNotEmpty() && serverHost.isNotEmpty()) {
-          HostFilteredHttpDataSourceFactory(serverHost, authHeader, customHeaders)
-        } else {
-          DefaultHttpDataSource.Factory().also { it.setDefaultRequestProperties(mapOf("Authorization" to authHeader)) }
-        }
+        // Headers and token are read per request (not captured now), and only sent to the server's own hosts
+        val dataSourceFactory = HostFilteredHttpDataSourceFactory({ DeviceManager.serverConnectionConfig }, { DeviceManager.token })
         mediaSource = HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItems[0])
       }
       mPlayer.setMediaSource(mediaSource)
@@ -616,6 +604,21 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
   fun handlePlayerPlaybackError(errorMessage: String) {
     // On error and was attempting to direct play - fallback to transcode
     currentPlaybackSession?.let { playbackSession ->
+      // A stream started at home has the LAN address in its track URLs. When the LAN goes away
+      // (you left the house) the player errors out. The same session works against the primary
+      // address, so rebuild the URLs and carry on from the current position, instead of
+      // restarting as a transcode or stopping.
+      val config = DeviceManager.serverConnectionConfig
+      if (!playbackSession.isLocal && config != null && !config.localAddress.isNullOrEmpty() &&
+              playbackSession.serverAddress == config.localAddress && config.address != config.localAddress) {
+        AbsLogger.info("PlayerNotificationService", "handlePlayerPlaybackError: Stream on the LAN address failed — continuing on the primary address")
+        com.audiobookshelf.app.device.EndpointResolver.markUnhealthyAndFallback(config)
+        playbackSession.serverAddress = config.address
+        playbackSession.currentTime = getCurrentTimeSeconds()
+        Handler(Looper.getMainLooper()).post { preparePlayer(playbackSession, true, null) }
+        return
+      }
+
       if (playbackSession.isDirectPlay) {
         val playItemRequestPayload = getPlayItemRequestPayload(true)
         Log.d(tag, "Fallback to transcode $playItemRequestPayload.mediaPlayer")
@@ -2071,6 +2074,9 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
             }
   }
 
+  // The kind of network last seen, so the route is only re-checked when it really changes
+  private var lastNetworkKind: String? = null
+
   private val networkCallback =
           object : ConnectivityManager.NetworkCallback() {
             // Network capabilities have changed for the network
@@ -2079,6 +2085,18 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                     networkCapabilities: NetworkCapabilities
             ) {
               super.onCapabilitiesChanged(network, networkCapabilities)
+
+              // Leaving home (Wi-Fi to mobile data) or arriving: re-check LAN vs primary here, because
+              // JS doesn't run while the app is in the background and native traffic would keep
+              // aiming at the LAN address until a request timed out
+              val isCellular = networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                      !networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                      !networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+              val networkKind = if (isCellular) "cellular" else "other"
+              if (networkKind != lastNetworkKind) {
+                lastNetworkKind = networkKind
+                com.audiobookshelf.app.device.EndpointResolver.onNetworkChanged(DeviceManager.serverConnectionConfig, isCellular)
+              }
 
               isUnmeteredNetwork =
                       networkCapabilities.hasCapability(

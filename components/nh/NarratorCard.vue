@@ -23,6 +23,10 @@
 import { getAverageColorFromCoverUrl } from '@/utils/coverAverageColor'
 import { nhRatingWord } from '@/store/index'
 
+// Tints already worked out, by narrator name, so scrolling a card back into view (or coming back to
+// the page) doesn't download the cover again just to average its colour
+const tintCache = new Map()
+
 export default {
   props: {
     narrator: { type: Object, required: true },
@@ -33,7 +37,7 @@ export default {
   data() {
     return {
       failedIdx: {},
-      tint: null
+      tint: tintCache.get(this.narrator.name) || null
     }
   },
   computed: {
@@ -56,6 +60,7 @@ export default {
       this.$set(this.failedIdx, idx, true)
     },
     async onFirstCoverLoad(id) {
+      if (this.tint) return
       const avg = await getAverageColorFromCoverUrl(this, this.coverUrl(id))
       if (!avg) return
       const rgb = avg.rgba
@@ -65,6 +70,7 @@ export default {
         .map((v) => v.trim())
         .join(',')
       this.tint = `linear-gradient(160deg, rgba(${rgb},0.26) 0%, rgba(${rgb},0.07) 70%)`
+      tintCache.set(this.narrator.name, this.tint)
     }
   }
 }

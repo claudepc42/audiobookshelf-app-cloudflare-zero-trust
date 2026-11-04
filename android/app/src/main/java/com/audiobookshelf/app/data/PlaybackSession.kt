@@ -179,11 +179,14 @@ class PlaybackSession(
     if (coverPath == null)
             return Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/" + R.drawable.icon)
 
+    // A session started at home froze the LAN address into serverAddress; use today's route instead
+    // (for the server this session belongs to) so notification and widget art load away from home
+    val coverAddress = if (serverConnectionConfigId != null && serverConnectionConfigId == DeviceManager.serverConnectionConfigId) DeviceManager.serverAddress else serverAddress
     // As of v2.17.0 token is not needed with cover image requests
     if (checkIsServerVersionGte("2.17.0")) {
-      return Uri.parse("$serverAddress/api/items/$libraryItemId/cover")
+      return Uri.parse("$coverAddress/api/items/$libraryItemId/cover")
     }
-    return Uri.parse("$serverAddress/api/items/$libraryItemId/cover?token=${DeviceManager.token}")
+    return Uri.parse("$coverAddress/api/items/$libraryItemId/cover?token=${DeviceManager.token}")
   }
 
   @JsonIgnore

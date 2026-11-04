@@ -990,9 +990,6 @@ html[data-theme='nanohive'] #nh-series-header .nh-sh-cover {
 html[data-theme='nanohive'] #nh-series-header .nh-sh-cover.nh-on {
   display: block;
 }
-html.nh-covers-std[data-theme='nanohive'] #nh-series-header .nh-sh-cover {
-  aspect-ratio: 1 / 1.6;
-}
 html[data-theme='nanohive'] #nh-series-header .nh-sh-rate {
   display: flex;
   align-items: center;
@@ -1524,12 +1521,6 @@ html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-bg {
 }
 html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-fg {
   background-size: contain;
-}
-html[data-theme='nanohive'].nh-covers-std #nh-recent-series-row .nh-rs-covers {
-  height: calc(var(--nh-rs-cw) * 1.6);
-}
-html[data-theme='nanohive'].nh-covers-std #nh-recent-series-row .nh-rs-cover {
-  height: calc(var(--nh-rs-cw) * 1.6);
 }
 html[data-theme='nanohive'] #nh-recent-series-row .nh-rs-cover.c1 {
   transform: translate(0, 0);

@@ -287,6 +287,16 @@ class LocalStorage {
   async setNhSettings(settings) {
     try {
       await Preferences.set({ key: this.nhSettingsKey(), value: JSON.stringify(settings) })
+      // The Android home-screen widget can't know the per-user key above, so it reads this small
+      // fixed key: just the three values it uses (see NanoHiveMediaPlayerWidget.kt readNhWidgetStyle)
+      await Preferences.set({
+        key: 'nhWidget',
+        value: JSON.stringify({
+          accentColor: settings?.accentColor,
+          baseTheme: settings?.baseTheme,
+          widgetOpacity: settings?.nhGlassEffect?.cssVars?.['--nh-widget-opacity']
+        })
+      })
     } catch (error) {
       console.error('[LocalStorage] Failed to set NH settings', error)
     }
@@ -326,7 +336,10 @@ class LocalStorage {
   async setCachedUser(serverId, user) {
     if (!serverId || !user) return
     try {
-      await Preferences.set({ key: `cached-user-${serverId}`, value: JSON.stringify(user) })
+      // The cache is only for first paint; the live tokens come from secure storage, so don't keep
+      // the legacy user.token (a long-lived API token on old servers) in plain Preferences
+      const { token, accessToken, refreshToken, ...cacheable } = user
+      await Preferences.set({ key: `cached-user-${serverId}`, value: JSON.stringify(cacheable) })
     } catch (error) {
       console.error('[LocalStorage] Failed to set cached user', error)
     }

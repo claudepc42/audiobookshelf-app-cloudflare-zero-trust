@@ -36,6 +36,9 @@ class MediaProgressSyncer(
   var listeningTimerRunning: Boolean = false
 
   private var lastSyncTime: Long = 0
+  // When the server last accepted a sync. lastSyncTime can't serve for the metered-connection check
+  // because a local session resets it on every 15s local save, so it never got 60s old.
+  private var lastServerSyncTime: Long = 0
   private var failedSyncs: Int = 0
 
   var currentPlaybackSession: PlaybackSession? = null // copy of pb session currently syncing
@@ -69,6 +72,7 @@ class MediaProgressSyncer(
 
     listeningTimerRunning = true
     lastSyncTime = System.currentTimeMillis()
+    lastServerSyncTime = lastSyncTime
     currentPlaybackSession = playbackSession.clone()
     Log.d(
             tag,
@@ -86,7 +90,7 @@ class MediaProgressSyncer(
                   // last sync time is >= 60s
                   val shouldSyncServer =
                           PlayerNotificationService.isUnmeteredNetwork ||
-                                  System.currentTimeMillis() - lastSyncTime >=
+                                  System.currentTimeMillis() - lastServerSyncTime >=
                                           METERED_CONNECTION_SYNC_INTERVAL
 
                   val currentTime = playerNotificationService.getCurrentTimeSeconds()
@@ -209,7 +213,7 @@ class MediaProgressSyncer(
     MediaEventManager.seekEvent(currentPlaybackSession!!, null)
   }
 
-  // Currently unused
+  // Called by PlayerNotificationService when the server reports newer progress while a session is open
   fun syncFromServerProgress(mediaProgress: MediaProgress) {
     currentPlaybackSession?.let {
       it.updatedAt = mediaProgress.lastUpdate
@@ -262,7 +266,7 @@ class MediaProgressSyncer(
                 tag,
                 "Sync local device current serverConnectionConfigId=${DeviceManager.serverConnectionConfig?.id}"
         )
-        AbsLogger.info("MediaProgressSyncer", "sync: Saved local progress (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${it.id})")
+        logSyncOutcome("local-saved", "sync: Saved local progress (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${it.id})")
 
         // Local library item is linked to a server library item
         // Send sync to server also if connected to this server and local item belongs to this
@@ -276,9 +280,10 @@ class MediaProgressSyncer(
           apiHandler.sendLocalProgressSync(it) { syncSuccess, errorMsg ->
             if (syncSuccess) {
               failedSyncs = 0
+              lastServerSyncTime = System.currentTimeMillis()
               playerNotificationService.alertSyncSuccess()
               DeviceManager.dbManager.removePlaybackSession(it.id) // Remove session from db
-              AbsLogger.info("MediaProgressSyncer", "sync: Successfully synced local progress (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${it.id})")
+              logSyncOutcome("local-synced", "sync: Successfully synced local progress (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${it.id})")
             } else {
               failedSyncs++
               if (failedSyncs == 2) {
@@ -291,20 +296,21 @@ class MediaProgressSyncer(
             cb(SyncResult(true, syncSuccess, errorMsg))
           }
         } else {
-          AbsLogger.info("MediaProgressSyncer", "sync: Not sending local progress to server (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${it.id}) (hasNetworkConnection: $hasNetworkConnection) (isConnectedToSameServer: $isConnectedToSameServer)")
+          logSyncOutcome("local-not-sent", "sync: Not sending local progress to server (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${it.id}) (hasNetworkConnection: $hasNetworkConnection) (isConnectedToSameServer: $isConnectedToSameServer)")
           cb(SyncResult(false, null, null))
         }
       }
     } else if (hasNetworkConnection && shouldSyncServer) {
-      AbsLogger.info("MediaProgressSyncer", "sync: Sending progress sync to server (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${currentSessionId}) (${DeviceManager.serverConnectionConfigName})")
+      logSyncOutcome("stream-sending", "sync: Sending progress sync to server (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${currentSessionId}) (${DeviceManager.serverConnectionConfigName})")
 
       apiHandler.sendProgressSync(currentSessionId, syncData) { syncSuccess, errorMsg ->
         if (syncSuccess) {
-          AbsLogger.info("MediaProgressSyncer", "sync: Successfully synced progress (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${currentSessionId}) (${DeviceManager.serverConnectionConfigName})")
+          logSyncOutcome("stream-synced", "sync: Successfully synced progress (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: ${currentSessionId}) (${DeviceManager.serverConnectionConfigName})")
 
           failedSyncs = 0
           playerNotificationService.alertSyncSuccess()
           lastSyncTime = System.currentTimeMillis()
+          lastServerSyncTime = lastSyncTime
           DeviceManager.dbManager.removePlaybackSession(currentSessionId) // Remove session from db
         } else {
           failedSyncs++
@@ -317,8 +323,21 @@ class MediaProgressSyncer(
         cb(SyncResult(true, syncSuccess, errorMsg))
       }
     } else {
-      AbsLogger.info("MediaProgressSyncer", "sync: Not sending progress to server (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: $currentSessionId) (${DeviceManager.serverConnectionConfigName}) (hasNetworkConnection: $hasNetworkConnection)")
+      logSyncOutcome("stream-not-sent", "sync: Not sending progress to server (title: \"$currentDisplayTitle\") (currentTime: $currentTime) (session id: $currentSessionId) (${DeviceManager.serverConnectionConfigName}) (hasNetworkConnection: $hasNetworkConnection)")
       cb(SyncResult(false, null, null))
+    }
+  }
+
+  // Every 15-second sync tick used to write 2-3 INFO lines to the in-app log (hundreds of log files an
+  // hour of listening). Now a line reaches the in-app log only when the outcome changes (started
+  // sending, stopped sending, ...); the rest stay in logcat. Failures are still logged as errors.
+  private var lastSyncLogKey = ""
+  private fun logSyncOutcome(key: String, message: String) {
+    if (key != lastSyncLogKey) {
+      lastSyncLogKey = key
+      AbsLogger.info("MediaProgressSyncer", message)
+    } else {
+      Log.d(tag, message)
     }
   }
 

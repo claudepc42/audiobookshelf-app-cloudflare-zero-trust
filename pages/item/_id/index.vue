@@ -91,7 +91,7 @@
           <!-- NH source: community ratings widget, anchored directly under the Play/Read
                row (book-details.js nhRtMaintain(), lines 1243-1292). Renders nothing if
                the server has no NanoHive backend behind it. -->
-          <nh-ratings-widget v-if="nhThemeActive && !isPodcast && serverLibraryItemId" :item-key="serverLibraryItemId" />
+          <nh-ratings-widget v-if="nhThemeActive && !isPodcast && serverLibraryItemId && nhRatingsEnabledHere" :item-key="serverLibraryItemId" />
         </div>
 
         <div v-if="downloadItem" class="py-3">
@@ -238,10 +238,9 @@
 <script>
 import { Dialog } from '@capacitor/dialog'
 import { AbsFileSystem, AbsDownloader } from '@/plugins/capacitor'
-import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 import { getAverageColorFromCoverUrl } from '@/utils/coverAverageColor'
 import cellularPermissionHelpers from '@/mixins/cellularPermissionHelpers'
-import { NH_BOOK_SITES, NH_BOOK_SITE_LOGOS, nhReportStrings } from '@/store/index'
+import { NH_BOOK_SITES, NH_BOOK_SITE_LOGOS, nhReportStrings, nhRatingsLibOn } from '@/store/index'
 
 export default {
   async asyncData({ store, params, redirect, app, query }) {
@@ -397,6 +396,14 @@ export default {
     },
     publishedYear() {
       return this.mediaMetadata.publishedYear
+    },
+    // The ratings switch, the admin's lock (which forces showRatings off) and the library's own
+    // setting, same as every other ratings surface
+    nhRatingsEnabledHere() {
+      const s = this.$store.state.nhSettings
+      if (s.showRatings === false) return false
+      const library = this.$store.state.libraries.libraries.find((l) => l.id === this.libraryItem?.libraryId)
+      return nhRatingsLibOn(s.ratingLibs, library)
     },
     nhThemeActive() {
       return this.$store.state.nhThemeActive
@@ -863,33 +870,10 @@ export default {
       }
     },
     async startDownload(localFolder = null) {
-      const serverConfig = this.$store.state.user.serverConnectionConfig
-      if ((this.$platform === 'android' || this.$platform === 'ios') && serverConfig?.isSsoAuth) {
-        try {
-          const probeResult = await AbsCfZeroTrust.probeCfChallenge({
-            serverAddress: serverConfig.address,
-            cookies: serverConfig.customHeaders?.Cookie || ''
-          })
-          if (probeResult?.isCfProtected && !probeResult?.cookiesValid) {
-            try {
-              const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
-              if (result?.cookieHeader) {
-                const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
-                const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
-                this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
-              } else {
-                this.$toast.error('Cloudflare authentication required to download')
-                return
-              }
-            } catch (e) {
-              if (e?.message !== 'cancelled') this.$toast.error('Cloudflare authentication failed')
-              return
-            }
-          }
-        } catch (e) {
-          // probe failed — proceed with download anyway
-        }
-      }
+      // Renews a stale Cloudflare session first. A failed check just lets the download try anyway.
+      const cf = await this.$nativeHttp.ensureCfSession(this.$store.state.user.serverConnectionConfig)
+      if (cf.status === 'failed') this.$toast.error(this.$strings.ToastCloudflareAuthRequiredToDownload)
+      if (cf.status === 'failed' || cf.status === 'cancelled') return
 
       const payload = {
         libraryItemId: this.libraryItemId

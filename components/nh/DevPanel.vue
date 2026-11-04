@@ -18,8 +18,8 @@
     >
       <!-- Header -->
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px">
-        <span style="color: #e0c27a; font-family: 'Spectral', Georgia, serif; font-size: 1.1rem; font-weight: 500">NH UI Glass Effect Tuner</span>
-        <button @click="$emit('close')" style="color: #9a9085; font-size: 1.3rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center">✕</button>
+        <span style="color: var(--nh-amber, #e0c27a); font-family: 'Spectral', Georgia, serif; font-size: 1.1rem; font-weight: 500">NH UI Glass Effect Tuner</span>
+        <button @click="$emit('close')" style="color: var(--nh-muted, #9a9085); font-size: 1.3rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center">✕</button>
       </div>
 
       <p style="color: #dddad6; font-size: 0.78rem; line-height: 1.5; margin-bottom: 20px">
@@ -33,18 +33,18 @@
         <div style="margin-bottom: 18px">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
             <span style="color: #f4eee2; font-size: 0.82rem">Background Opacity</span>
-            <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.bgOpacity.toFixed(2) }}</span>
+            <span style="color: var(--nh-amber, #e0c27a); font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.bgOpacity.toFixed(2) }}</span>
           </div>
           <!-- 40px dead-space gutter (below) reserved on the right so the panel
                can be scrolled from anywhere alongside a slider without a touch
                starting on the slider track itself and dragging its value
                instead — sliders used to run edge-to-edge with nothing to grab. -->
           <div style="display: flex; align-items: center; gap: 8px">
-            <input type="range" min="0" max="1" step="0.01" :value="panel.bgOpacity" style="flex: 1; min-width: 0; accent-color: #e0c27a; height: 4px" @input="setPanel('bgOpacity', $event.target.value)" />
+            <input type="range" min="0" max="1" step="0.01" :value="panel.bgOpacity" style="flex: 1; min-width: 0; accent-color: var(--nh-amber, #e0c27a); height: 4px" @input="setPanel('bgOpacity', $event.target.value)" />
             <div style="width: 40px; flex-shrink: 0"></div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px">
-            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem"><span>0</span><span>1</span></div>
+            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: var(--nh-muted, #9a9085); font-size: 0.62rem"><span>0</span><span>1</span></div>
             <div style="width: 40px; flex-shrink: 0"></div>
           </div>
         </div>
@@ -52,14 +52,14 @@
         <div style="margin-bottom: 18px">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
             <span style="color: #f4eee2; font-size: 0.82rem">Scrim Opacity</span>
-            <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.scrimOpacity.toFixed(2) }}</span>
+            <span style="color: var(--nh-amber, #e0c27a); font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.scrimOpacity.toFixed(2) }}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px">
-            <input type="range" min="0" max="1" step="0.01" :value="panel.scrimOpacity" style="flex: 1; min-width: 0; accent-color: #e0c27a; height: 4px" @input="setPanel('scrimOpacity', $event.target.value)" />
+            <input type="range" min="0" max="1" step="0.01" :value="panel.scrimOpacity" style="flex: 1; min-width: 0; accent-color: var(--nh-amber, #e0c27a); height: 4px" @input="setPanel('scrimOpacity', $event.target.value)" />
             <div style="width: 40px; flex-shrink: 0"></div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px">
-            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem"><span>0</span><span>1</span></div>
+            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: var(--nh-muted, #9a9085); font-size: 0.62rem"><span>0</span><span>1</span></div>
             <div style="width: 40px; flex-shrink: 0"></div>
           </div>
         </div>
@@ -67,14 +67,14 @@
         <div style="margin-bottom: 18px">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
             <span style="color: #f4eee2; font-size: 0.82rem">Blur</span>
-            <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.blur }}px</span>
+            <span style="color: var(--nh-amber, #e0c27a); font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ panel.blur }}px</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px">
-            <input type="range" min="0" max="40" step="1" :value="panel.blur" style="flex: 1; min-width: 0; accent-color: #e0c27a; height: 4px" @input="setPanel('blur', $event.target.value)" />
+            <input type="range" min="0" max="40" step="1" :value="panel.blur" style="flex: 1; min-width: 0; accent-color: var(--nh-amber, #e0c27a); height: 4px" @input="setPanel('blur', $event.target.value)" />
             <div style="width: 40px; flex-shrink: 0"></div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px">
-            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem"><span>0px</span><span>40px</span></div>
+            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: var(--nh-muted, #9a9085); font-size: 0.62rem"><span>0px</span><span>40px</span></div>
             <div style="width: 40px; flex-shrink: 0"></div>
           </div>
         </div>
@@ -87,7 +87,7 @@
         <div v-for="ctrl in group.items" :key="ctrl.prop" style="margin-bottom: 18px">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
             <span style="color: #f4eee2; font-size: 0.82rem">{{ ctrl.label }}</span>
-            <span style="color: #e0c27a; font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ fmt(ctrl) }}</span>
+            <span style="color: var(--nh-amber, #e0c27a); font-size: 0.85rem; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-weight: 600">{{ fmt(ctrl) }}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px">
             <input
@@ -96,13 +96,13 @@
               :max="ctrl.max"
               :step="ctrl.step"
               :value="values[ctrl.prop]"
-              style="flex: 1; min-width: 0; accent-color: #e0c27a; height: 4px"
+              style="flex: 1; min-width: 0; accent-color: var(--nh-amber, #e0c27a); height: 4px"
               @input="apply(ctrl, $event.target.value)"
             />
             <div style="width: 40px; flex-shrink: 0"></div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px">
-            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: #9a9085; font-size: 0.62rem">
+            <div style="flex: 1; min-width: 0; display: flex; justify-content: space-between; color: var(--nh-muted, #9a9085); font-size: 0.62rem">
               <span>{{ ctrl.min }}{{ ctrl.unit }}</span>
               <span>{{ ctrl.max }}{{ ctrl.unit }}</span>
             </div>
@@ -119,7 +119,7 @@
           v-for="slot in slotList"
           :key="slot.key"
           :class="{ 'nh-tuner-armed-pulse': saveMode }"
-          style="flex: 1; height: 40px; border-radius: 12px; border: 1px solid rgba(224,194,122,0.35); background: rgba(224,194,122,0.08); color: #e0c27a; font-size: 0.82rem; font-weight: 600"
+          style="flex: 1; height: 40px; border-radius: 12px; border: 1px solid rgba(224,194,122,0.35); background: rgba(224,194,122,0.08); color: var(--nh-amber, #e0c27a); font-size: 0.82rem; font-weight: 600"
           @click="onSlotClick(slot.key)"
         >
           {{ slot.label }}
@@ -129,13 +129,13 @@
       <!-- Reset / Save buttons -->
       <div style="display: flex; gap: 10px">
         <button
-          style="flex: 1; height: 44px; border-radius: 12px; border: 1px solid rgba(224,194,122,0.35); background: rgba(224,194,122,0.12); color: #e0c27a; font-size: 0.88rem; font-weight: 600"
+          style="flex: 1; height: 44px; border-radius: 12px; border: 1px solid rgba(224,194,122,0.35); background: rgba(224,194,122,0.12); color: var(--nh-amber, #e0c27a); font-size: 0.88rem; font-weight: 600"
           @click="resetAll"
         >
           Reset to Defaults
         </button>
         <button
-          style="flex: 1; height: 44px; border-radius: 12px; border: 1px solid rgba(224,194,122,0.60); background: #e0c27a; color: #181512; font-size: 0.88rem; font-weight: 600"
+          style="flex: 1; height: 44px; border-radius: 12px; border: 1px solid rgba(224,194,122,0.60); background: var(--nh-amber, #e0c27a); color: #181512; font-size: 0.88rem; font-weight: 600"
           @click="toggleSaveMode"
         >
           {{ saveMode ? 'Cancel' : 'Save to Slot…' }}
@@ -316,8 +316,7 @@ export default {
       Object.entries(patch).forEach(([key, value]) => {
         this.$store.commit('setNhSetting', { key, value })
       })
-      const saved = (await this.$localStore.getNhSettings()) || {}
-      await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
+      await this.$store.dispatch('saveNhSettings')
     }
   }
 }
@@ -336,7 +335,7 @@ export default {
   }
   50% {
     box-shadow: 0 0 16px rgba(224, 194, 122, 0.45);
-    border-color: #e0c27a;
+    border-color: var(--nh-amber, #e0c27a);
   }
 }
 .nh-tuner-armed-pulse {

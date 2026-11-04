@@ -280,6 +280,13 @@ export default {
       if (this.activeIndex >= newVal.length) this.activeIndex = 0
       this.restartTimer()
       this.publishActiveCover()
+      this.syncAdvanceTimer()
+    },
+    advanceSeconds() {
+      this.syncAdvanceTimer()
+    },
+    heroPaused() {
+      this.syncAdvanceTimer()
     },
     activeIndex() {
       this.publishActiveCover()
@@ -304,8 +311,17 @@ export default {
     this.velocitySamples = []
     this.rafId = null
     this.dragMovedClearTimeout = null
+    // Plain (non-reactive) caches for work that doesn't change between renders
+    this.descriptionCache = new Map()
+    this.cachedCardWidth = 0
   },
   methods: {
+    // Width of the card, measured once (and again when the window resizes) instead of on every render
+    // of every slide, which forced a layout each time
+    cardWidth() {
+      if (!this.cachedCardWidth) this.cachedCardWidth = this.$el ? this.$el.offsetWidth : 0
+      return this.cachedCardWidth || 300
+    },
     publishActiveCover() {
       const slide = this.slides[this.activeIndex]
       if (!slide) return
@@ -336,7 +352,7 @@ export default {
         return { opacity: 0, pointerEvents: 'none', transform: `translateX(${diff * 100}%)`, transition }
       }
 
-      const cardWidth = this.$el ? this.$el.offsetWidth : 300
+      const cardWidth = this.cardWidth()
       const adjacentOpacity = diff !== 0 ? Math.min(1, Math.abs(px) / cardWidth * 1.5) : 1
 
       return {
@@ -370,8 +386,12 @@ export default {
       // structure instead of literal characters, without ever inserting the
       // raw HTML into the live document — DOMParser's parsed document is
       // inert, so embedded scripts/event handlers never execute.
+      const cached = this.descriptionCache.get(raw)
+      if (cached !== undefined) return cached
       const doc = new DOMParser().parseFromString(raw, 'text/html')
-      return doc.body.textContent || ''
+      const text = doc.body.textContent || ''
+      this.descriptionCache.set(raw, text)
+      return text
     },
     itemDuration(item) {
       const dur = item.media?.duration
@@ -505,6 +525,15 @@ export default {
         return null
       })
       if (res === null) return
+      // Same as ItemMoreMenuModal's reset: the downloaded copy keeps its own progress, which would be
+      // resumed and synced back to the server, undoing the reset
+      const localProgress = this.$store.getters['globals/getLocalMediaProgressByServerItemId'](slide.id)
+      if (localProgress) {
+        await this.$db.removeLocalMediaProgress(localProgress.id)
+        this.$store.commit('globals/removeLocalMediaProgressForItem', localProgress.id)
+      }
+      this.$store.commit('user/removeMediaProgress', prog.id)
+      this.$toast.success(this.$strings.ToastProgressReset)
       this.$emit('slide-removed', slide.id)
     },
     goTo(i) {
@@ -535,6 +564,20 @@ export default {
       this.lastAdvanceTime = Date.now()
       this.firstTouchTime = 0
       this.lastUserTouchTime = 0
+    },
+    resetCardWidth() {
+      this.cachedCardWidth = 0
+    },
+    // The once-a-second check only needs to run while the carousel can advance by itself: more than
+    // one slide, auto-advance on, and not paused
+    syncAdvanceTimer() {
+      const canAdvance = !this.heroPaused && this.advanceSeconds > 0 && this.slides.length > 1
+      if (canAdvance && !this.advanceInterval) {
+        this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
+      } else if (!canAdvance && this.advanceInterval) {
+        clearInterval(this.advanceInterval)
+        this.advanceInterval = null
+      }
     },
     checkAutoAdvance() {
       if (this.heroPaused) return
@@ -727,10 +770,12 @@ export default {
       // localStorage unavailable — default to not paused
     }
     this.lastAdvanceTime = Date.now()
-    this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
+    this.syncAdvanceTimer()
+    window.addEventListener('resize', this.resetCardWidth)
     this.publishActiveCover()
   },
   beforeDestroy() {
+    window.removeEventListener('resize', this.resetCardWidth)
     clearInterval(this.advanceInterval)
     clearTimeout(this.releaseClearTimeout)
     clearTimeout(this.dragMovedClearTimeout)

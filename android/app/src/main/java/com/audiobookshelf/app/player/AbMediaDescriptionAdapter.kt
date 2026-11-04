@@ -83,7 +83,7 @@ class AbMediaDescriptionAdapter (private val controller: MediaControllerCompat, 
       try {
         val cover = Glide.with(playerNotificationService)
           .asBitmap()
-          .load(uri)
+          .load(CoverLoadHelper.glideModel(uri))
           .placeholder(R.drawable.icon)
           .error(R.drawable.icon)
           .submit()

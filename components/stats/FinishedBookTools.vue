@@ -55,6 +55,10 @@ export default {
       titles: {}
     }
   },
+  created() {
+    // Deliberately not reactive: only the answers (titles) should re-render
+    this.requestedTitles = new Set()
+  },
   computed: {
     showTools() {
       return this.$store.state.nhSettings?.showFinishedBookTools !== false
@@ -62,14 +66,25 @@ export default {
     mediaProgress() {
       return this.$store.state.user.user?.mediaProgress || []
     },
-    recentlyFinished() {
+    recentlyFinishedRaw() {
       return this.mediaProgress
         .filter((p) => p?.isFinished && p.libraryItemId)
         .sort((a, b) => (b.finishedAt || b.lastUpdate || 0) - (a.finishedAt || a.lastUpdate || 0))
         .slice(0, 6)
-        .map((p) => ({ libraryItemId: p.libraryItemId, finishedAt: p.finishedAt, title: this.titleFor(p.libraryItemId) }))
+        .map((p) => ({ libraryItemId: p.libraryItemId, finishedAt: p.finishedAt }))
+    },
+    recentlyFinished() {
+      return this.recentlyFinishedRaw.map((r) => ({ ...r, title: this.titleFor(r.libraryItemId) }))
+    },
+    // Every book either list shows, so its title can be fetched once from a watcher
+    // (a computed must not start requests: it re-runs on every progress update)
+    neededTitleIds() {
+      return [...new Set([...this.recentlyFinishedRaw.map((r) => r.libraryItemId), ...this.almostDoneRaw.map((r) => r.libraryItemId)])]
     },
     almostDone() {
+      return this.almostDoneRaw.map((r) => ({ ...r, title: this.titleFor(r.libraryItemId) }))
+    },
+    almostDoneRaw() {
       const now = Date.now()
       const list = this.mediaProgress
       return list
@@ -83,7 +98,15 @@ export default {
         })
         .sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0))
         .slice(0, 6)
-        .map((p) => ({ libraryItemId: p.libraryItemId, progress: Math.max(p.progress || 0, p.ebookProgress || 0), title: this.titleFor(p.libraryItemId) }))
+        .map((p) => ({ libraryItemId: p.libraryItemId, progress: Math.max(p.progress || 0, p.ebookProgress || 0) }))
+    }
+  },
+  watch: {
+    neededTitleIds: {
+      immediate: true,
+      handler(ids) {
+        ids.forEach((id) => this.fetchTitle(id))
+      }
     }
   },
   methods: {
@@ -96,12 +119,13 @@ export default {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     },
     titleFor(libraryItemId) {
-      if (this.titles[libraryItemId]) return this.titles[libraryItemId]
-      this.fetchTitle(libraryItemId)
-      return '…'
+      return this.titles[libraryItemId] || '…'
     },
     async fetchTitle(libraryItemId) {
-      if (this.titles[libraryItemId]) return
+      // Each book is looked up once. One that fails (e.g. deleted from the server: 404) isn't asked
+      // about again on every progress update.
+      if (this.titles[libraryItemId] || this.requestedTitles.has(libraryItemId)) return
+      this.requestedTitles.add(libraryItemId)
       const item = await this.$nativeHttp.get(`/api/items/${libraryItemId}?minified=1`).catch(() => null)
       const title = item?.media?.metadata?.title
       if (title) this.$set(this.titles, libraryItemId, title)

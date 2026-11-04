@@ -9,6 +9,7 @@ import com.audiobookshelf.app.plugins.AbsLogger
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import java.security.KeyStore
+import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -22,6 +23,11 @@ class SecureStorage(private val context: Context) {
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val IV_LENGTH = 12
         private const val TAG_LENGTH = 128
+
+        // What is currently stored for each server's custom headers, shared by every SecureStorage
+        // instance. Encrypting uses a fresh random IV each time, so without this every device-data
+        // save rewrote every server's headers even when nothing had changed, and every read decrypted them.
+        private val customHeadersCache = ConcurrentHashMap<String, Map<String, String>>()
     }
 
     private val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply {
@@ -113,6 +119,7 @@ class SecureStorage(private val context: Context) {
         if (customHeaders.isNullOrEmpty()) {
             return removeCustomHeaders(serverConnectionId)
         }
+        if (customHeadersCache[serverConnectionId] == customHeaders) return true
         return try {
             val json = jacksonMapper.writeValueAsString(customHeaders)
             val key = getOrCreateKey()
@@ -126,6 +133,7 @@ class SecureStorage(private val context: Context) {
 
             val sharedPrefs = context.getSharedPreferences("SecureStorage", Context.MODE_PRIVATE)
             sharedPrefs.edit().putString("custom_headers_$serverConnectionId", encoded).apply()
+            customHeadersCache[serverConnectionId] = customHeaders.toMap()
 
             Log.d(TAG, "Successfully stored encrypted custom headers for server: $serverConnectionId")
             true
@@ -139,6 +147,7 @@ class SecureStorage(private val context: Context) {
      * Retrieves and decrypts the custom headers for a specific server connection
      */
     fun getCustomHeaders(serverConnectionId: String): Map<String, String>? {
+        customHeadersCache[serverConnectionId]?.let { return it }
         return try {
             val sharedPrefs = context.getSharedPreferences("SecureStorage", Context.MODE_PRIVATE)
             val encoded = sharedPrefs.getString("custom_headers_$serverConnectionId", null) ?: return null
@@ -154,9 +163,11 @@ class SecureStorage(private val context: Context) {
 
             val decryptedBytes = cipher.doFinal(encryptedBytes)
             val json = String(decryptedBytes, Charsets.UTF_8)
-            jacksonMapper.readValue<Map<String, String>>(json)
+            jacksonMapper.readValue<Map<String, String>>(json).also { customHeadersCache[serverConnectionId] = it }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to retrieve custom headers for server: $serverConnectionId", e)
+            // Otherwise a Keystore failure silently drops the CF cookie with no trace in the in-app logs
+            AbsLogger.error(TAG, "getCustomHeaders: Decrypt/read failed for server $serverConnectionId (${e.javaClass.simpleName}: ${e.message})")
             null
         }
     }
@@ -165,6 +176,7 @@ class SecureStorage(private val context: Context) {
      * Removes the custom headers for a specific server connection
      */
     fun removeCustomHeaders(serverConnectionId: String): Boolean {
+        customHeadersCache.remove(serverConnectionId)
         return try {
             val sharedPrefs = context.getSharedPreferences("SecureStorage", Context.MODE_PRIVATE)
             sharedPrefs.edit().remove("custom_headers_$serverConnectionId").apply()

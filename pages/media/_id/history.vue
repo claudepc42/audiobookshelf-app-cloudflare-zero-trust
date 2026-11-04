@@ -49,7 +49,8 @@ export default {
     },
     mediaEvents() {
       if (!this.mediaItemHistory) return []
-      return (this.mediaItemHistory.events || []).sort((a, b) => b.timestamp - a.timestamp)
+      // A copy: sorting the reactive array in place from inside a computed changes state while rendering
+      return [...(this.mediaItemHistory.events || [])].sort((a, b) => b.timestamp - a.timestamp)
     },
     mediaItemLibraryItemId() {
       if (!this.mediaItemHistory) return null
@@ -188,7 +189,10 @@ export default {
         console.error('Invalid media item history', mediaItemHistory)
         return
       }
-      if (mediaItemHistory.id !== this.mediaItemHistory.id) {
+      // An item never played has no history yet (this.mediaItemHistory is empty), so its first event
+      // used to throw here. Accept it when it is for this page's item.
+      const currentId = this.mediaItemHistory?.id || this.$route.params.id
+      if (mediaItemHistory.id !== currentId) {
         return
       }
       console.log('Media Item History updated')

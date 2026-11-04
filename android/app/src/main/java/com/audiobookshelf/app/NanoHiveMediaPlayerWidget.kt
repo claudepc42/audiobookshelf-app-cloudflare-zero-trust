@@ -42,6 +42,11 @@ class NanoHiveMediaPlayerWidget : AppWidgetProvider() {
   val tag = "NanoHiveMediaPlayerWidget"
   override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
     Log.d(tag, "onUpdate $appWidgetIds")
+    // After a reboot (and on most launchers after an app update) the widget is reset to its layout
+    // defaults ("Title / Artist / 0:00"), with buttons that do nothing. Redraw it from the last
+    // saved session instead of waiting for playback to start.
+    DbManager.initialize(context)
+    DeviceManager.refreshWidgets(context)
   }
 
   override fun onEnabled(context: Context) {
@@ -69,50 +74,11 @@ class NanoHiveMediaPlayerWidget : AppWidgetProvider() {
 // NH_SETTINGS_DEFAULTS.accentColor in store/index.js).
 internal val NH_AMBER_COLOR = Color.parseColor("#e0c27a")
 
-// Same "CapacitorStorage" SharedPreferences file/key that getNhWidgetOpacity
-// below reads — every native-side NH setting comes from this one place. See
-// node_modules/@capacitor/preferences's Android source for why this hardcoded
-// group name and JSON.stringify'd-value convention exist.
-private fun readNhSettingsJson(context: Context): JSONObject? {
-  return try {
-    val prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE)
-    val json = prefs.getString("nhSettings", null) ?: return null
-    JSONObject(json)
-  } catch (e: Exception) {
-    Log.w("NanoHiveMediaPlayerWidget", "readNhSettingsJson failed", e)
-    null
-  }
-}
+// The look of the widget, from the NanoHive settings. Read once per redraw (it used to be three
+// separate reads and JSON parses of the whole settings blob per placed widget).
+internal data class NhWidgetStyle(val opacity: Double, val accentColor: Int, val canvasColor: Int)
 
-// The NH UI Glass Effect Tuner's "Home Screen Widget" opacity slider (store/index.js's
-// --nh-widget-opacity) has no CSS effect at all — the widget isn't part of the WebView.
-// It rides along in that array purely to reuse the tuner's existing UI/persistence
-// machinery; this is where its value actually gets consumed.
-internal fun getNhWidgetOpacity(context: Context): Double {
-  return try {
-    val cssVars = readNhSettingsJson(context)?.optJSONObject("nhGlassEffect")?.optJSONObject("cssVars") ?: return 0.67
-    val value = cssVars.optDouble("--nh-widget-opacity", 0.67)
-    if (value.isNaN()) 0.67 else value.coerceIn(0.0, 1.0)
-  } catch (e: Exception) {
-    Log.w("NanoHiveMediaPlayerWidget", "getNhWidgetOpacity failed, using default", e)
-    0.67
-  }
-}
-
-// nhSettings.accentColor — the one color the Customizations menu actually
-// lets a user change (store/index.js's NH_SETTINGS_DEFAULTS.accentColor,
-// default "#e0c27a"). Drives every icon tint and the progress bar fill, so
-// the widget follows the same accent the rest of the app uses instead of a
-// value frozen at build time.
-internal fun getNhAccentColor(context: Context): Int {
-  return try {
-    val hex = readNhSettingsJson(context)?.optString("accentColor", "#e0c27a") ?: "#e0c27a"
-    Color.parseColor(hex)
-  } catch (e: Exception) {
-    Log.w("NanoHiveMediaPlayerWidget", "getNhAccentColor failed, using default", e)
-    NH_AMBER_COLOR
-  }
-}
+private const val NH_DEFAULT_OPACITY = 0.67
 
 // Ported from store/index.js's NH_BASE_THEMES — only the "canvas" background
 // color from each theme is needed here (rail/raised/rgb are for other UI
@@ -133,18 +99,41 @@ private val NH_BASE_THEME_CANVAS = mapOf(
   "wine" to "#1a1014"
 )
 
-// nhSettings.baseTheme — the other Customizations-menu setting that affects
-// the widget: which of the 12 base color themes the user picked (default
-// "warm"). Resolves to that theme's canvas color before the opacity slider's
-// alpha gets applied on top.
-internal fun getNhCanvasColor(context: Context): Int {
-  return try {
-    val themeKey = readNhSettingsJson(context)?.optString("baseTheme", "warm") ?: "warm"
-    Color.parseColor(NH_BASE_THEME_CANVAS[themeKey] ?: NH_BASE_THEME_CANVAS.getValue("warm"))
+/**
+ * Reads accent color, base theme and widget opacity from Capacitor's Preferences file.
+ *
+ * The app saves the settings per user ("nhSettings:<userId>"), which a widget can't know, so every save
+ * also writes a small "nhWidget" key holding just these three values (plugins/localStore.js). Installs
+ * that haven't saved since then still have only the old shared "nhSettings" key, which is the fallback.
+ * See node_modules/@capacitor/preferences's Android source for why this hardcoded group name and
+ * JSON.stringify'd-value convention exist.
+ */
+internal fun readNhWidgetStyle(context: Context): NhWidgetStyle {
+  var opacity = NH_DEFAULT_OPACITY
+  var accent = "#e0c27a"
+  var baseTheme = "warm"
+  try {
+    val prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE)
+    val widgetJson = prefs.getString("nhWidget", null)
+    if (widgetJson != null) {
+      val json = JSONObject(widgetJson)
+      accent = json.optString("accentColor", accent).ifEmpty { accent }
+      baseTheme = json.optString("baseTheme", baseTheme).ifEmpty { baseTheme }
+      opacity = json.optDouble("widgetOpacity", opacity)
+    } else {
+      prefs.getString("nhSettings", null)?.let { legacy ->
+        val json = JSONObject(legacy)
+        accent = json.optString("accentColor", accent).ifEmpty { accent }
+        baseTheme = json.optString("baseTheme", baseTheme).ifEmpty { baseTheme }
+        opacity = json.optJSONObject("nhGlassEffect")?.optJSONObject("cssVars")?.optDouble("--nh-widget-opacity", opacity) ?: opacity
+      }
+    }
   } catch (e: Exception) {
-    Log.w("NanoHiveMediaPlayerWidget", "getNhCanvasColor failed, using default", e)
-    Color.parseColor(NH_BASE_THEME_CANVAS.getValue("warm"))
+    Log.w("NanoHiveMediaPlayerWidget", "readNhWidgetStyle failed, using defaults", e)
   }
+  val accentColor = try { Color.parseColor(accent) } catch (e: Exception) { NH_AMBER_COLOR }
+  val canvasColor = Color.parseColor(NH_BASE_THEME_CANVAS[baseTheme] ?: NH_BASE_THEME_CANVAS.getValue("warm"))
+  return NhWidgetStyle(if (opacity.isNaN()) NH_DEFAULT_OPACITY else opacity.coerceIn(0.0, 1.0), accentColor, canvasColor)
 }
 
 internal fun withAlpha(baseColor: Int, opacity: Double): Int {
@@ -191,7 +180,7 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
   wholeWidgetClickI.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
   val wholeWidgetClickPI = PendingIntent.getActivity(
     context,
-    System.currentTimeMillis().toInt(),
+    "open-app".hashCode(),
     wholeWidgetClickI,
     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
   )
@@ -231,7 +220,7 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
   // is baked into the bitmap itself via Glide before it reaches the widget.
   val coverRadiusPx = (17 * context.resources.displayMetrics.density).toInt()
   val options = RequestOptions().override(300, 300).transform(RoundedCorners(coverRadiusPx)).placeholder(R.drawable.nh_logo).error(R.drawable.nh_logo)
-  Glide.with(context.applicationContext).asBitmap().load(imageUri).apply(options).into(awt)
+  Glide.with(context.applicationContext).asBitmap().load(com.audiobookshelf.app.player.CoverLoadHelper.glideModel(imageUri)).apply(options).into(awt)
 
   Log.i(tag, "Update NanoHive App Widget | Is Playing=$isPlaying | isAppClosed=$isAppClosed")
 
@@ -242,7 +231,8 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
   // color customization (Customizations menu → accentColor), not a color
   // frozen at build time — these otherwise come from androidx.mediarouter/
   // ExoPlayer as plain black/white glyphs with no NH-aware color of their own.
-  val accentColor = getNhAccentColor(context)
+  val style = readNhWidgetStyle(context)
+  val accentColor = style.accentColor
   views.setInt(R.id.widgetPlayPauseButton, "setColorFilter", accentColor)
   views.setInt(R.id.widgetRewindButton, "setColorFilter", accentColor)
   views.setInt(R.id.widgetFastForwardButton, "setColorFilter", accentColor)
@@ -254,9 +244,7 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
   // tunable from the app via the Glass Effect Tuner's widget-opacity slider.
   // Base color is the user's actual baseTheme customization, not a color
   // frozen at build time.
-  val opacity = getNhWidgetOpacity(context)
-  val canvasColor = getNhCanvasColor(context)
-  views.setInt(R.id.widgetBackground, "setBackgroundColor", withAlpha(canvasColor, opacity))
+  views.setInt(R.id.widgetBackground, "setBackgroundColor", withAlpha(style.canvasColor, style.opacity))
 
   // Mirrors the mini player's thin progress track (#playerTrack in
   // AudioPlayer.vue) — playbackSession.progress is already a 0-1 fraction.

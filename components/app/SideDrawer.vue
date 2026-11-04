@@ -118,7 +118,6 @@
 
 <script>
 import TouchEvent from '@/objects/TouchEvent'
-import { AbsCfZeroTrust } from '../../plugins/capacitor/AbsCfZeroTrust'
 
 export default {
   data() {
@@ -172,7 +171,7 @@ export default {
       return !!this.effectiveAddress && !!this.serverConnectionConfig?.localAddress && this.effectiveAddress === this.serverConnectionConfig.localAddress
     },
     hasCfCookies() {
-      return (this.$platform === 'android' || this.$platform === 'ios') && !!(this.serverConnectionConfig?.isSsoAuth)
+      return (this.$platform === 'android' || this.$platform === 'ios') && this.$nativeHttp.isCfConnection(this.serverConnectionConfig)
     },
     hasCustomHeaders() {
       return !!Object.keys(this.serverConnectionConfig?.customHeaders || {}).length
@@ -315,22 +314,12 @@ export default {
       const address = this.serverConnectionConfig?.address
       if (!address) return
       this.show = false
-      try {
-        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
-        if (result?.cookieHeader) {
-          const updatedConfig = {
-            ...this.serverConnectionConfig,
-            customHeaders: { Cookie: result.cookieHeader },
-            isSsoAuth: true
-          }
-          const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
-          this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
-          this.$toast.success(this.$strings.ToastCloudflareRefreshed)
-        }
-      } catch (e) {
-        if (e?.message !== 'cancelled') {
-          this.$toast.error(this.$strings.ToastCloudflareRefreshFailed)
-        }
+      // The user asked for this, so skip the probe and go straight to the login
+      const { status } = await this.$nativeHttp.ensureCfSession(this.serverConnectionConfig, { assumeStale: true })
+      if (status === 'refreshed') {
+        this.$toast.success(this.$strings.ToastCloudflareRefreshed)
+      } else if (status === 'failed') {
+        this.$toast.error(this.$strings.ToastCloudflareRefreshFailed)
       }
     },
     async disconnect() {
@@ -351,30 +340,9 @@ export default {
       this.show = false
     },
     async toggleNhTheme() {
-      const newVal = !this.nhThemeActive
-      this.$store.commit('setNhThemeActive', newVal)
-      if (newVal) {
-        document.documentElement.dataset.theme = 'nanohive'
-        this._loadNhFont()
-      } else {
-        // Restore whatever stock theme was set before NH; fall back to default (no attribute)
-        const previousTheme = await this.$localStore.getTheme()
-        if (previousTheme) {
-          document.documentElement.dataset.theme = previousTheme
-        } else {
-          delete document.documentElement.dataset.theme
-        }
-      }
-      const savedSettings = (await this.$localStore.getNhSettings()) || {}
-      await this.$localStore.setNhSettings({ ...savedSettings, active: newVal })
-    },
-    _loadNhFont() {
-      if (document.getElementById('nh-spectral-font')) return
-      const link = document.createElement('link')
-      link.id = 'nh-spectral-font'
-      link.rel = 'stylesheet'
-      link.href = 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap'
-      document.head.appendChild(link)
+      // Restores the stock theme when turning off; the saved flag is what boot reads back
+      await this.$store.dispatch('setNhThemeEnabled', !this.nhThemeActive)
+      await this.$store.dispatch('saveNhSettings')
     },
     touchstart(e) {
       this.touchEvent = new TouchEvent(e)
@@ -393,8 +361,7 @@ export default {
         return
       }
       try {
-        this.effectiveAddress = await this.$db.getEffectiveAddress()
-        await this.$db.resolveEndpoint()
+        // Only reads the current route; re-checking it belongs to network and config changes
         this.effectiveAddress = await this.$db.getEffectiveAddress()
       } catch (e) {
         this.effectiveAddress = null

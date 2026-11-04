@@ -74,6 +74,14 @@
             <div class="flex-grow" />
             <span v-if="!serverConfig.id" class="material-symbols" style="font-size: 1.1rem" @click="editServerAddress">edit</span>
           </div>
+          <!-- The address form (with its LAN field) is skipped for a saved server, so set it here -->
+          <div v-if="serverConfig.id" class="pt-3">
+            <p class="text-sm text-fg-muted mb-1">LAN address (optional)</p>
+            <div class="flex items-center space-x-2">
+              <ui-text-input v-model="serverConfig.localAddress" :disabled="processing" placeholder="http://192.168.1.x:13378" type="url" class="flex-grow h-10" />
+              <ui-btn :disabled="processing" :padding-x="3" class="h-10" @click="saveLocalAddress">{{ $strings.ButtonSave }}</ui-btn>
+            </div>
+          </div>
           <div class="w-full h-px bg-fg/10 my-2" />
           <form v-if="isLocalAuthEnabled" @submit.prevent="submitAuth" class="pt-3">
             <ui-text-input v-model="serverConfig.username" :disabled="processing" :placeholder="$strings.LabelUsername" class="w-full mb-2 text-lg" />
@@ -133,7 +141,6 @@ export default {
         isSsoAuth: false,
         localAddress: null
       },
-      cfCookiesBuffer: null,
       password: null,
       error: null,
       showForm: false,
@@ -419,7 +426,8 @@ export default {
       try {
         // Returns the same user response payload as /login
         const response = await CapacitorHttp.get({
-          url: backendEndpoint
+          url: backendEndpoint,
+          headers: this.serverConfig.customHeaders || {}
         })
         // v2.26.0+ returns accessToken and refreshToken on user object
         if (!response.data?.user?.token && !response.data?.user?.accessToken) {
@@ -470,22 +478,28 @@ export default {
       try {
         const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
         if (result?.cookieHeader) {
-          this.serverConfig.customHeaders = { Cookie: result.cookieHeader }
+          // Only the cookie is replaced; any other headers the user entered stay
+          this.serverConfig.customHeaders = { ...(this.serverConfig.customHeaders || {}), Cookie: result.cookieHeader }
           this.serverConfig.isSsoAuth = true
-          this.cfCookiesBuffer = result.cookieHeader
-          this.$toast.success('Cloudflare session saved — tap Submit to connect')
+          this.$toast.success(this.$strings.ToastCloudflareSessionSaved)
         }
       } catch (e) {
         if (e?.message !== 'cancelled') {
-          this.error = 'Cloudflare authentication failed'
+          this.error = this.$strings.ToastCloudflareRefreshFailed
         }
       } finally {
         this.processing = false
       }
     },
     async checkAndHandleCfZeroTrust(address) {
+      // Headers the user entered themselves (service tokens, a reverse-proxy key) mean they've set up
+      // their own way through Cloudflare: the README promises these skip the WebView login entirely,
+      // and a probe without credentials would only wipe them
+      const hasCustomHeaders = Object.keys(this.serverConfig.customHeaders || {}).some((name) => name.toLowerCase() !== 'cookie')
+      if (hasCustomHeaders) return undefined
+
       // Single native call: OkHttp probes /hls/, /s/, /status for CF redirect, and
-      // also verifies existing cookies against /hls/ if provided — all with reliable
+      // also verifies existing cookies against the path that redirected — all with reliable
       // followRedirects(false). CapacitorHttp is not used here at all.
       let probeResult
       try {
@@ -502,18 +516,18 @@ export default {
       // CF Zero Trust confirmed — persist the flag.
       this.serverConfig.isSsoAuth = true
 
-      // If existing cookies passed the CF check, no WebView needed.
-      if (probeResult.cookiesValid) return undefined
+      // If existing cookies passed the CF check, no WebView needed. If the check itself couldn't run
+      // (no signal, timeout) keep the saved cookie rather than discarding a probably-fine session.
+      if (probeResult.cookiesValid || probeResult.cookiesUnknown) return undefined
 
-      // Cookies missing or stale — clear them and open the WebView.
-      this.serverConfig.customHeaders = null
+      // Cookies missing or stale — open the WebView
       try {
         const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: address })
         if (result?.cookieHeader) return result.cookieHeader
-        this.error = 'Cloudflare authentication did not complete'
+        this.error = this.$strings.MessageCloudflareAuthNotCompleted
         return null
       } catch (e) {
-        if (e?.message !== 'cancelled') this.error = 'Cloudflare authentication failed'
+        if (e?.message !== 'cancelled') this.error = this.$strings.ToastCloudflareRefreshFailed
         return null
       }
     },
@@ -540,16 +554,15 @@ export default {
       // If this server previously used CF SSO, probe the session before doing anything else.
       // checkAndHandleCfZeroTrust returns: undefined (session still valid or no CF), a cookie
       // string (fresh cookies from WebView), or null (user cancelled / error).
-      if ((this.$platform === 'android' || this.$platform === 'ios') && config.isSsoAuth) {
+      if ((this.$platform === 'android' || this.$platform === 'ios') && this.$nativeHttp.isCfConnection(config)) {
         const cfCookies = await this.checkAndHandleCfZeroTrust(config.address)
         if (cfCookies === null) {
           this.processing = false
           return
         }
         if (cfCookies) {
-          this.serverConfig.customHeaders = { Cookie: cfCookies }
+          this.serverConfig.customHeaders = { ...(this.serverConfig.customHeaders || {}), Cookie: cfCookies }
           this.serverConfig.isSsoAuth = true
-          this.cfCookiesBuffer = cfCookies
         }
         // cfCookies === undefined: existing session still valid, proceed with stored cookies
       }
@@ -764,7 +777,7 @@ export default {
           return false
         })
     },
-    async submit(preventAutoLogin = false) {
+    async submit(preventAutoLogin = false, skipCfProbe = false) {
       if (!this.networkConnected || !this.serverConfig.address) return false
 
       const initialAddress = this.serverConfig.address
@@ -773,18 +786,19 @@ export default {
       // Add https:// if not provided
       this.serverConfig.address = this.prependProtocolIfNeeded(initialAddress)
 
-      // Normalize localAddress — LAN servers are almost always HTTP, so default to http:// not https://
-      if (this.serverConfig.localAddress) {
-        const la = this.serverConfig.localAddress.trim().replace(/\/+$/, '')
-        this.serverConfig.localAddress = la.startsWith('http://') || la.startsWith('https://') ? la : `http://${la}`
-      }
+      const enteredLocalAddress = this.serverConfig.localAddress
+      this.serverConfig.localAddress = this.normalizeLocalAddress(enteredLocalAddress)
+      // A LAN address that can't be parsed (normalizeLocalAddress sets the error) stops the submit
+      // instead of being saved as an address that silently never works
+      if (enteredLocalAddress && enteredLocalAddress.trim() && !this.serverConfig.localAddress) return false
 
       this.processing = true
       this.error = null
       this.authMethods = []
 
       // CF Zero Trust detection: probe on every submit so stale sessions are caught early.
-      if (this.$platform === 'android' || this.$platform === 'ios') {
+      // Not right after a fresh login: the cookie was just issued, and probing it again could loop
+      if ((this.$platform === 'android' || this.$platform === 'ios') && !skipCfProbe) {
         const cfCookies = await this.checkAndHandleCfZeroTrust(this.serverConfig.address)
         if (cfCookies === null) {
           this.processing = false
@@ -793,13 +807,10 @@ export default {
         if (cfCookies) {
           // Fresh cookies obtained from WebView — save them and restart submit so the
           // entire login flow begins with cookies already confirmed valid in serverConfig.
-          // Also store in cfCookiesBuffer as a backup in case customHeaders is dropped
-          // through the async OAuth roundtrip (Vue 2 reactivity edge case).
-          this.serverConfig.customHeaders = { Cookie: cfCookies }
+          this.serverConfig.customHeaders = { ...(this.serverConfig.customHeaders || {}), Cookie: cfCookies }
           this.serverConfig.isSsoAuth = true
-          this.cfCookiesBuffer = cfCookies
           this.processing = false
-          return this.submit(preventAutoLogin)
+          return this.submit(preventAutoLogin, true)
         }
       }
 
@@ -937,6 +948,45 @@ export default {
      * @param {string} address - The server address that may or may not have a protocol.
      * @returns {string} The address with a protocol prepended if it was missing.
      */
+    // LAN servers are almost always HTTP, so default to http:// not https://
+    normalizeLocalAddress(address) {
+      const la = (address || '').trim().replace(/\/+$/, '')
+      if (!la) return null
+      // Scheme and host are case-insensitive: lowercasing them also keeps the saved string equal to
+      // what the HTTP client normalizes request URLs to
+      const withScheme = /^https?:\/\//i.test(la) ? la : `http://${la}`
+      try {
+        const url = new URL(withScheme)
+        // Same as the main address: the saved value is scheme://host[:port][/path]
+        return `${url.protocol}//${url.host}${url.pathname === '/' ? '' : url.pathname.replace(/\/+$/, '')}`
+      } catch (e) {
+        this.error = 'The LAN address is not a valid address'
+        return null
+      }
+    },
+    async saveLocalAddress() {
+      const id = this.serverConfig.id
+      if (!id) return
+      this.error = null
+      const entered = this.serverConfig.localAddress
+      const localAddress = this.normalizeLocalAddress(entered)
+      if (entered && entered.trim() && !localAddress) return
+      this.processing = true
+      try {
+        await this.$db.setServerLocalAddress(id, localAddress)
+        this.serverConfig.localAddress = localAddress
+        // Keep the server list in step with what was saved
+        const updatedDeviceData = { ...this.deviceData }
+        updatedDeviceData.serverConnectionConfigs = this.deviceData.serverConnectionConfigs.map((scc) => (scc.id === id ? { ...scc, localAddress } : scc))
+        this.$store.commit('setDeviceData', updatedDeviceData)
+        this.$toast.success(this.$strings.ToastSaved || 'Saved')
+      } catch (error) {
+        console.error('[ServerConnectForm] Failed to save LAN address', error)
+        this.error = 'Failed to save LAN address'
+      } finally {
+        this.processing = false
+      }
+    },
     prependProtocolIfNeeded(address) {
       return address.startsWith('http://') || address.startsWith('https://') ? address : `https://${address}`
     },
@@ -968,13 +1018,6 @@ export default {
 
       console.log('Successfully logged in: ' + user.username)
 
-      // Restore CF cookies from buffer if they were lost through the async OAuth roundtrip
-      if (this.cfCookiesBuffer && !this.serverConfig.customHeaders?.Cookie) {
-        this.serverConfig.customHeaders = { Cookie: this.cfCookiesBuffer }
-        this.serverConfig.isSsoAuth = true
-      }
-      this.cfCookiesBuffer = null
-
       this.$store.commit('setServerSettings', serverSettings)
       this.$store.commit('libraries/setEReaderDevices', ereaderDevices)
       this.$setServerLanguageCode(serverSettings.language)
@@ -994,8 +1037,11 @@ export default {
             return
           }
 
-          // If the token was updated during a refresh (in nativeHttp.js) it gets updated in the store, so refetch
-          this.serverConfig.token = this.$store.getters['user/getToken'] || this.serverConfig.token
+          // If the token was updated during a refresh (in nativeHttp.js) it gets updated in the store, so refetch.
+          // Only when the store is on this same server: after a dropped connection it can still hold another server's token
+          if (this.$store.getters['user/getServerConnectionConfigId'] === this.serverConfig.id) {
+            this.serverConfig.token = this.$store.getters['user/getToken'] || this.serverConfig.token
+          }
         }
       } else {
         // Server version before new JWT auth, use old user.token

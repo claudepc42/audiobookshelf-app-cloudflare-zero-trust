@@ -10,6 +10,8 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 
 data class AbsLog(
   var id:String,
@@ -35,10 +37,21 @@ class AbsLogger : Plugin() {
   companion object {
     var onLogEmitter:((log:AbsLog) -> Unit)? = null
 
+    // Old logs used to be cleared only when the activity was created, so an app process that stayed
+    // alive for days never pruned. Also prune every so many logs, on a background thread.
+    private const val CLEAN_EVERY_N_LOGS = 500
+    private val logsSinceClean = AtomicInteger(0)
+
     fun log(level:String, tag:String, message:String) {
       val absLog = AbsLog(id = UUID.randomUUID().toString(), tag, level, message, timestamp = System.currentTimeMillis())
       DeviceManager.dbManager.saveLog(absLog)
       onLogEmitter?.let { it(absLog) }
+      if (logsSinceClean.incrementAndGet() >= CLEAN_EVERY_N_LOGS) {
+        logsSinceClean.set(0)
+        thread(isDaemon = true) {
+          try { DeviceManager.dbManager.cleanLogs() } catch (e: Exception) { Log.e("AbsLogger", "cleanLogs failed", e) }
+        }
+      }
     }
     fun info(tag:String, message:String) {
       Log.i("AbsLogger", message)

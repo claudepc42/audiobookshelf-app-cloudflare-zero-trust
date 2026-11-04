@@ -42,7 +42,6 @@
 
 <script>
 import { Dialog } from '@capacitor/dialog'
-import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 
 export default {
   props: {
@@ -94,29 +93,11 @@ export default {
     }
   },
   methods: {
-    // Pre-emptively check for a stale CF session and refresh it before hitting the API,
-    // same pattern used before downloads/playback (see startDownload in pages/item/_id/index.vue).
-    // Avoids a generic "failed to create bookmark" error when the real cause is CF session expiry.
+    // Pre-emptively check for a stale CF session and refresh it before hitting the API (the same
+    // check runs before downloads). Avoids a generic "failed to create bookmark" error when the
+    // real cause is CF session expiry. A failed or cancelled login just lets the request fail normally.
     async ensureCfSessionValid() {
-      const serverConfig = this.$store.state.user.serverConnectionConfig
-      if ((this.$platform !== 'android' && this.$platform !== 'ios') || !serverConfig?.isSsoAuth) return
-
-      try {
-        const probeResult = await AbsCfZeroTrust.probeCfChallenge({
-          serverAddress: serverConfig.address,
-          cookies: serverConfig.customHeaders?.Cookie || ''
-        })
-        if (!probeResult?.isCfProtected || probeResult?.cookiesValid) return
-
-        const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
-        if (result?.cookieHeader) {
-          const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
-          const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
-          this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
-        }
-      } catch (e) {
-        // probe or webview failed/cancelled — proceed and let the request fail normally if session is actually stale
-      }
+      await this.$nativeHttp.ensureCfSession(this.$store.state.user.serverConnectionConfig)
     },
     bookmarkPlaceholder() {
       // using a method prevents caching the date

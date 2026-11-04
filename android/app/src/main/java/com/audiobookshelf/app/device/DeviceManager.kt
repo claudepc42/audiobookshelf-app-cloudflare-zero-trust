@@ -38,7 +38,7 @@ object DeviceManager {
   val serverConnectionConfigName get() = serverConnectionConfig?.name ?: ""
   val serverConnectionConfigString get() = serverConnectionConfig?.name ?: "No server connection"
   val serverAddress
-    get() = EndpointResolver.effectiveAddress.ifEmpty { serverConnectionConfig?.address ?: "" }
+    get() = EndpointResolver.addressFor(serverConnectionConfig)
   val serverUserId
     get() = serverConnectionConfig?.userId ?: ""
   val token
@@ -63,17 +63,35 @@ object DeviceManager {
    * refreshes that aren't triggered by an actual playback change.
    */
   fun refreshWidgets(context: Context) {
+    redrawWidgets(context, deviceData.lastPlaybackSession, lastWidgetIsPlaying, lastWidgetIsAppClosed)
+  }
+
+  /** Redraws every placed instance of both widgets (stock and NanoHive) with the given state */
+  private fun redrawWidgets(context: Context, playbackSession: PlaybackSession?, isPlaying: Boolean, isAppClosed: Boolean) {
     val appWidgetManager = AppWidgetManager.getInstance(context)
 
     val componentName = ComponentName(context, MediaPlayerWidget::class.java)
     for (widgetId in appWidgetManager.getAppWidgetIds(componentName)) {
-      updateAppWidget(context, appWidgetManager, widgetId, deviceData.lastPlaybackSession, lastWidgetIsPlaying, lastWidgetIsAppClosed)
+      updateAppWidget(context, appWidgetManager, widgetId, playbackSession, isPlaying, isAppClosed)
     }
 
     val nhComponentName = ComponentName(context, NanoHiveMediaPlayerWidget::class.java)
     for (widgetId in appWidgetManager.getAppWidgetIds(nhComponentName)) {
-      updateNanoHiveAppWidget(context, appWidgetManager, widgetId, deviceData.lastPlaybackSession, lastWidgetIsPlaying, lastWidgetIsAppClosed)
+      updateNanoHiveAppWidget(context, appWidgetManager, widgetId, playbackSession, isPlaying, isAppClosed)
     }
+  }
+
+  /**
+   * Forgets the last playback session and redraws the widgets: after a logout or a server switch they
+   * kept showing the previous user's book.
+   */
+  fun clearLastPlaybackSession(context: Context) {
+    if (deviceData.lastPlaybackSession == null) return
+    deviceData.lastPlaybackSession = null
+    dbManager.saveDeviceData(deviceData)
+    lastWidgetIsPlaying = false
+    lastWidgetIsAppClosed = true
+    redrawWidgets(context, null, false, true)
   }
 
   init {
@@ -222,63 +240,30 @@ object DeviceManager {
                 lastWidgetIsPlaying = isPlaying
                 lastWidgetIsAppClosed = PlayerNotificationService.isClosed
 
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-                val playbackSession = pns.getCurrentPlaybackSessionCopy()
-
-                val componentName = ComponentName(context, MediaPlayerWidget::class.java)
-                for (widgetId in appWidgetManager.getAppWidgetIds(componentName)) {
-                  updateAppWidget(
-                          context,
-                          appWidgetManager,
-                          widgetId,
-                          playbackSession,
-                          isPlaying,
-                          PlayerNotificationService.isClosed
-                  )
+                val liveSession = pns.getCurrentPlaybackSessionCopy()
+                if (liveSession != null) {
+                  // The service's own session only knows where playback started; the player knows
+                  // where it is now. Without this the widget's progress bar and times stayed frozen.
+                  liveSession.currentTime = pns.getCurrentTimeSeconds()
+                  if (!isPlaying) {
+                    // Remember the position for the redraws that happen without the service
+                    // (closed, widget refresh, after a reboot)
+                    deviceData.lastPlaybackSession = liveSession
+                    dbManager.saveDeviceData(deviceData)
+                  }
                 }
+                // The service has no session once it's destroyed (e.g. app removed from recents after
+                // the player was closed) — keep showing the last book instead of "Unknown"
+                val playbackSession = liveSession ?: deviceData.lastPlaybackSession
 
-                val nhComponentName = ComponentName(context, NanoHiveMediaPlayerWidget::class.java)
-                for (widgetId in appWidgetManager.getAppWidgetIds(nhComponentName)) {
-                  updateNanoHiveAppWidget(
-                          context,
-                          appWidgetManager,
-                          widgetId,
-                          playbackSession,
-                          isPlaying,
-                          PlayerNotificationService.isClosed
-                  )
-                }
+                redrawWidgets(context, playbackSession, isPlaying, PlayerNotificationService.isClosed)
               }
 
               override fun onPlayerClosed() {
                 lastWidgetIsPlaying = false
                 lastWidgetIsAppClosed = PlayerNotificationService.isClosed
 
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-
-                val componentName = ComponentName(context, MediaPlayerWidget::class.java)
-                for (widgetId in appWidgetManager.getAppWidgetIds(componentName)) {
-                  updateAppWidget(
-                          context,
-                          appWidgetManager,
-                          widgetId,
-                          deviceData.lastPlaybackSession,
-                          false,
-                          PlayerNotificationService.isClosed
-                  )
-                }
-
-                val nhComponentName = ComponentName(context, NanoHiveMediaPlayerWidget::class.java)
-                for (widgetId in appWidgetManager.getAppWidgetIds(nhComponentName)) {
-                  updateNanoHiveAppWidget(
-                          context,
-                          appWidgetManager,
-                          widgetId,
-                          deviceData.lastPlaybackSession,
-                          false,
-                          PlayerNotificationService.isClosed
-                  )
-                }
+                redrawWidgets(context, deviceData.lastPlaybackSession, false, PlayerNotificationService.isClosed)
               }
             })
   }

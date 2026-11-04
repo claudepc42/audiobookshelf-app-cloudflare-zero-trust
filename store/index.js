@@ -2,6 +2,8 @@ import { Network } from '@capacitor/network'
 import { AbsDatabase } from '@/plugins/capacitor'
 import { AbsAudioPlayer } from '@/plugins/capacitor'
 import { PlayMethod } from '@/plugins/constants'
+import { loadNhFont } from '@/utils/nhFont'
+import { AbsWidgetUpdater } from '@/plugins/capacitor/AbsWidgetUpdater'
 
 // NanoHive customization settings — ported from nanohive-abs-theme/theme/enhancements.js
 // defaultSettings (lines 27-53). Fields with no destination in this mobile app
@@ -449,6 +451,12 @@ export const state = () => ({
   // settings, so a lock lifting later restores their original preference.
   nhServerConfig: null,
   nhServerLocks: {},
+  // The user's own value for every setting an admin lock is currently forcing off. The forced
+  // false lives only in nhSettings; saving writes these instead, so lifting the lock restores
+  // what the user really had.
+  nhLockedOriginals: {},
+  // Don't retry a failed series-meta fetch before this time
+  nhSeriesMetaRetryAt: 0,
   isNetworkListenerInit: false,
   serverSettings: null,
   lastBookshelfScrollData: {},
@@ -528,6 +536,40 @@ export const getters = {
 }
 
 export const actions = {
+  // Loads this user's saved NanoHive settings (per user, see localStore.nhSettingsKey) and applies
+  // them: boot, and again whenever a different user signs in.
+  async loadNhSettings({ commit, dispatch }) {
+    const settings = await this.$localStore.getNhSettings()
+    commit('setNhSettings', settings || {})
+    // On unless the user explicitly turned it off
+    await dispatch('setNhThemeEnabled', settings?.active !== false)
+    return settings
+  },
+  // Turns the NanoHive theme on or off and puts the right stock theme back when it goes off
+  async setNhThemeEnabled({ commit }, active) {
+    commit('setNhThemeActive', active)
+    if (active) {
+      document.documentElement.dataset.theme = 'nanohive'
+      loadNhFont()
+      return
+    }
+    const previousTheme = await this.$localStore.getTheme()
+    if (previousTheme) document.documentElement.dataset.theme = previousTheme
+    else delete document.documentElement.dataset.theme
+  },
+  // The one way to persist NanoHive settings. Merges the in-memory settings over the saved ones,
+  // but writes the user's own values for anything an admin lock is forcing off.
+  async saveNhSettings({ state }) {
+    const saved = (await this.$localStore.getNhSettings()) || {}
+    const merged = { ...saved, ...state.nhSettings, ...state.nhLockedOriginals, active: state.nhThemeActive }
+    await this.$localStore.setNhSettings(merged)
+    // The home-screen widget only redrew when the opacity slider moved, so a new accent colour or
+    // base theme showed up at the next play/pause. Redraw it when any of its three values changed.
+    const widgetLook = (s) => `${s.accentColor}|${s.baseTheme}|${s.nhGlassEffect?.cssVars?.['--nh-widget-opacity']}`
+    if (widgetLook(saved) !== widgetLook(merged)) {
+      AbsWidgetUpdater.refresh().catch(() => {})
+    }
+  },
   // Listen for network connection
   // Initialises the Capacitor Network listener and the AbsAudioPlayer metered-network listener.
   async setupNetworkListener({ state, commit }) {
@@ -602,10 +644,27 @@ export const mutations = {
   setNhHomeCoverUrl(state, val) {
     state.nhHomeCoverUrl = val
   },
+  // Settings loaded from storage. Server locks that are already known are forced on top, and the
+  // loaded values are kept so they can be saved and restored.
   setNhSettings(state, settings) {
-    state.nhSettings = { ...NH_SETTINGS_DEFAULTS, ...settings }
+    const loaded = { ...NH_SETTINGS_DEFAULTS, ...settings }
+    const originals = {}
+    const forced = { ...loaded }
+    Object.keys(state.nhServerLocks).forEach((lk) => {
+      const key = NH_LOCKS[lk]
+      if (!key) return
+      originals[key] = loaded[key]
+      forced[key] = false
+    })
+    state.nhLockedOriginals = originals
+    state.nhSettings = forced
   },
   setNhSetting(state, { key, value }) {
+    // A locked setting stays off; remember what the user picked for when the lock lifts
+    if (Object.prototype.hasOwnProperty.call(state.nhLockedOriginals, key)) {
+      state.nhLockedOriginals = { ...state.nhLockedOriginals, [key]: value }
+      return
+    }
     state.nhSettings = { ...state.nhSettings, [key]: value }
   },
   setIsFirstLoad(state, val) {
@@ -651,6 +710,31 @@ export const mutations = {
   },
   setNhThemeActive(state, val) {
     state.nhThemeActive = val
+    // Keep the saved flag in step: every save merges this object, and a stale `active` there
+    // used to turn NanoHive back on
+    state.nhSettings = { ...state.nhSettings, active: val }
+  },
+  // Server change or logout: nothing cached from the previous server (or user) applies any more
+  resetNhCaches(state) {
+    state.nhRatingsBulk = null
+    state.nhRatingsBulkAt = 0
+    state.nhRatingsDead = false
+    state.nhRatingsBulkFails = 0
+    state.nhRatingsRetryAt = 0
+    state.nhCollectionArt = null
+    state.nhSeriesCovers = null
+    state.nhSeriesDescs = null
+    state.nhAvatars = null
+    state.nhSeriesDescText = {}
+    state.nhSeriesMetaRetryAt = 0
+    state.nhServerConfig = null
+    state.nhServerLocks = {}
+    // No locks any more: give the user's own values back
+    state.nhSettings = { ...state.nhSettings, ...state.nhLockedOriginals }
+    state.nhLockedOriginals = {}
+  },
+  setNhSeriesMetaRetryAt(state, val) {
+    state.nhSeriesMetaRetryAt = val
   },
   setNhRatingsBulk(state, items) {
     state.nhRatingsBulk = items
@@ -679,7 +763,10 @@ export const mutations = {
     state.nhAvatars = avatars || {}
   },
   setNhSeriesDescText(state, { seriesId, text }) {
-    state.nhSeriesDescText = { ...state.nhSeriesDescText, [seriesId]: text }
+    const next = { ...state.nhSeriesDescText }
+    if (text === undefined) delete next[seriesId]
+    else next[seriesId] = text
+    state.nhSeriesDescText = next
   },
   setNhServerConfig(state, cfg) {
     state.nhServerConfig = cfg || {}
@@ -689,13 +776,23 @@ export const mutations = {
     })
     state.nhServerLocks = locks
     // Live-only override: forces locked settings off in the CURRENT session
-    // state, never written to localStorage, so lifting the lock later restores
+    // state. saveNhSettings writes the user's own values (nhLockedOriginals)
+    // instead of the forced ones, so lifting the lock later restores
     // whatever the user actually had saved.
-    const forced = { ...state.nhSettings }
-    Object.keys(locks).forEach((lk) => {
-      forced[NH_LOCKS[lk]] = false
+    const previous = state.nhLockedOriginals
+    const settings = { ...state.nhSettings }
+    const originals = {}
+    Object.keys(NH_LOCKS).forEach((lk) => {
+      const key = NH_LOCKS[lk]
+      if (locks[lk]) {
+        originals[key] = Object.prototype.hasOwnProperty.call(previous, key) ? previous[key] : settings[key]
+        settings[key] = false
+      } else if (Object.prototype.hasOwnProperty.call(previous, key)) {
+        settings[key] = previous[key] // the lock was lifted
+      }
     })
-    state.nhSettings = forced
+    state.nhLockedOriginals = originals
+    state.nhSettings = settings
   },
   // NH source: nh-rating-change listener (enhancements.js:4735-4744) — patch the
   // shared cache in place after a save instead of a full refetch, so every open
@@ -709,6 +806,8 @@ export const mutations = {
   },
   setNhRatingsDead(state, val) {
     state.nhRatingsDead = val
+    // Looks again after a minute; the shared fetch clears the flag if the backend answers
+    state.nhRatingsRetryAt = val ? Date.now() + 60000 : 0
   },
   setServerSettings(state, val) {
     state.serverSettings = val

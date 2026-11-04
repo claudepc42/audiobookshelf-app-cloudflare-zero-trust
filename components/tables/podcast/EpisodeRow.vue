@@ -62,7 +62,6 @@
 
 <script>
 import { AbsFileSystem, AbsDownloader } from '@/plugins/capacitor'
-import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 import cellularPermissionHelpers from '@/mixins/cellularPermissionHelpers'
 
 export default {
@@ -215,33 +214,10 @@ export default {
       this.startDownload(localFolder)
     },
     async startDownload(localFolder) {
-      const serverConfig = this.$store.state.user.serverConnectionConfig
-      if ((this.$platform === 'android' || this.$platform === 'ios') && serverConfig?.isSsoAuth) {
-        try {
-          const probeResult = await AbsCfZeroTrust.probeCfChallenge({
-            serverAddress: serverConfig.address,
-            cookies: serverConfig.customHeaders?.Cookie || ''
-          })
-          if (probeResult?.isCfProtected && !probeResult?.cookiesValid) {
-            try {
-              const result = await AbsCfZeroTrust.openCfWebView({ serverAddress: serverConfig.address })
-              if (result?.cookieHeader) {
-                const updatedConfig = { ...serverConfig, customHeaders: { Cookie: result.cookieHeader }, isSsoAuth: true }
-                const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
-                this.$store.commit('user/setServerConnectionConfig', savedConfig || updatedConfig)
-              } else {
-                this.$toast.error('Cloudflare authentication required to download')
-                return
-              }
-            } catch (e) {
-              if (e?.message !== 'cancelled') this.$toast.error('Cloudflare authentication failed')
-              return
-            }
-          }
-        } catch (e) {
-          // probe failed — proceed with download anyway
-        }
-      }
+      // Renews a stale Cloudflare session first. A failed check just lets the download try anyway.
+      const cf = await this.$nativeHttp.ensureCfSession(this.$store.state.user.serverConnectionConfig)
+      if (cf.status === 'failed') this.$toast.error(this.$strings.ToastCloudflareAuthRequiredToDownload)
+      if (cf.status === 'failed' || cf.status === 'cancelled') return
 
       var payload = {
         libraryItemId: this.libraryItemId,

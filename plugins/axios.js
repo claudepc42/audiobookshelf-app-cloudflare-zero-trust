@@ -91,9 +91,6 @@ export default function ({ $axios, store, $db }) {
             originalRequest.headers['Authorization'] = `Bearer ${token}`
             return $axios(originalRequest)
           })
-          .catch((err) => {
-            return Promise.reject(err)
-          })
       }
 
       originalRequest._retry = true
@@ -106,6 +103,8 @@ export default function ({ $axios, store, $db }) {
         if (!newAccessToken) {
           console.error('No new access token received')
           AbsLogger.error({ tag: 'axios', message: `onError: user/refreshToken returned no token while handling 401 on "${originalRequest.url}"` })
+          // Release requests that queued up behind this refresh, or they wait forever
+          processQueue(error, null)
           return Promise.reject(error)
         }
 
@@ -129,7 +128,13 @@ export default function ({ $axios, store, $db }) {
         // Process queued requests with error
         processQueue(refreshError, null)
 
-        await handleRefreshFailure(store.getters['user/getServerConnectionConfigId'])
+        // Only a refresh the server explicitly rejected means the session is dead. Any other
+        // failure (e.g. failing to save the new tokens) fails this request but keeps the user
+        // logged in. user/refreshToken currently never sets isDeadSession (it returns null instead,
+        // since this path has no cross-layer rotation check), so this only fires if that changes.
+        if (refreshError?.isDeadSession) {
+          await handleRefreshFailure(store.getters['user/getServerConnectionConfigId'])
+        }
 
         return Promise.reject(refreshError)
       } finally {

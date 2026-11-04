@@ -50,7 +50,10 @@ export default {
         return
       }
 
-      if (!data.localLibraryItem) {
+      if (data.failedParts) {
+        // Some files could not be downloaded, so nothing was added (a book with a missing track is worse than none)
+        this.$toast.error(this.$getString('MessageItemDownloadPartsFailed', [data.failedParts, data.totalParts]))
+      } else if (!data.localLibraryItem) {
         this.$toast.error(this.$strings.MessageItemDownloadCompleteFailedToCreate)
       } else {
         this.$eventBus.$emit('new-local-library-item', data.localLibraryItem)

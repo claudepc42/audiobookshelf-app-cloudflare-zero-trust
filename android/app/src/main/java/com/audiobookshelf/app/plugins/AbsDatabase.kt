@@ -41,7 +41,8 @@ class AbsDatabase : Plugin() {
 
     DeviceManager.dbManager.cleanLocalMediaProgress()
     DeviceManager.dbManager.cleanLocalLibraryItems()
-    DeviceManager.dbManager.cleanLogs()
+    // Reads every log entry, so not on the main thread during startup
+    kotlin.concurrent.thread(isDaemon = true) { DeviceManager.dbManager.cleanLogs() }
   }
 
   @PluginMethod
@@ -190,8 +191,35 @@ class AbsDatabase : Plugin() {
       }
 
       DeviceManager.serverConnectionConfig = serverConnectionConfig
-      com.audiobookshelf.app.device.EndpointResolver.resolve(DeviceManager.serverConnectionConfig)
       call.resolve(JSObject(jacksonMapper.writeValueAsString(DeviceManager.serverConnectionConfig)))
+      // After answering: a token refresh saves the config too, and shouldn't wait on a LAN probe.
+      // Only a new server or a changed address needs one; native requests use the primary until it's done.
+      if (com.audiobookshelf.app.device.EndpointResolver.needsResolve(DeviceManager.serverConnectionConfig)) {
+        com.audiobookshelf.app.device.EndpointResolver.resolve(DeviceManager.serverConnectionConfig)
+      }
+    }
+  }
+
+  @PluginMethod
+  fun setServerLocalAddress(call: PluginCall) {
+    val serverConnectionConfigId = call.getString("serverConnectionConfigId") ?: return call.reject("serverConnectionConfigId is required")
+    val localAddress = call.getString("localAddress")?.trim()?.ifEmpty { null }
+
+    GlobalScope.launch(Dispatchers.IO) {
+      val config = DeviceManager.deviceData.serverConnectionConfigs.find { it.id == serverConnectionConfigId }
+      if (config == null) {
+        call.reject("Server connection config not found")
+        return@launch
+      }
+      if (config.localAddress != localAddress) {
+        config.localAddress = localAddress
+        DeviceManager.dbManager.saveDeviceData(DeviceManager.deviceData)
+        // Re-check the route if this is the server in use
+        if (DeviceManager.serverConnectionConfig?.id == serverConnectionConfigId) {
+          com.audiobookshelf.app.device.EndpointResolver.resolve(config)
+        }
+      }
+      call.resolve()
     }
   }
 
@@ -226,6 +254,7 @@ class AbsDatabase : Plugin() {
       DeviceManager.dbManager.saveDeviceData(DeviceManager.deviceData)
       if (DeviceManager.serverConnectionConfig?.id == serverConnectionConfigId) {
         DeviceManager.serverConnectionConfig = null
+        DeviceManager.clearLastPlaybackSession(context)
       }
       call.resolve()
     }
@@ -273,6 +302,8 @@ class AbsDatabase : Plugin() {
       DeviceManager.serverConnectionConfig = null
       DeviceManager.deviceData.lastServerConnectionConfigId = null
       DeviceManager.dbManager.saveDeviceData(DeviceManager.deviceData)
+      // The widgets would otherwise keep showing the signed-out user's last book
+      DeviceManager.clearLastPlaybackSession(context)
       call.resolve()
     }
   }

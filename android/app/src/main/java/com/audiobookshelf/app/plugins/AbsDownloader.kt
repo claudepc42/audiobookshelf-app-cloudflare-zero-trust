@@ -37,7 +37,18 @@ class AbsDownloader : Plugin() {
       notifyListeners("onDownloadItem", JSObject(jacksonMapper.writeValueAsString(downloadItem)))
     }
     override fun onDownloadItemPartUpdate(downloadItemPart:DownloadItemPart) {
-      notifyListeners("onDownloadItemPartUpdate", JSObject(jacksonMapper.writeValueAsString(downloadItemPart)))
+      // Only what changes while downloading. The part's track, ebook file and episode (with its
+      // description and chapters) used to be serialized and parsed again on every update.
+      val update = JSObject()
+      update.put("id", downloadItemPart.id)
+      update.put("downloadItemId", downloadItemPart.downloadItemId)
+      update.put("bytesDownloaded", downloadItemPart.bytesDownloaded)
+      update.put("progress", downloadItemPart.progress)
+      update.put("completed", downloadItemPart.completed)
+      update.put("failed", downloadItemPart.failed)
+      update.put("isMoving", downloadItemPart.isMoving)
+      update.put("moved", downloadItemPart.moved)
+      notifyListeners("onDownloadItemPartUpdate", update)
     }
     override fun onDownloadItemComplete(jsobj:JSObject) {
       notifyListeners("onItemDownloadComplete", jsobj)
@@ -50,7 +61,13 @@ class AbsDownloader : Plugin() {
     folderScanner = FolderScanner(mainActivity)
     apiHandler = ApiHandler(mainActivity)
     downloadItemManager = DownloadItemManager(downloadManager, folderScanner, mainActivity, clientEventEmitter)
+    // After a crash or force-stop nothing resumes the downloads that were running; remove their leftovers
+    downloadItemManager.cleanUpInterruptedDownloads()
   }
+
+  // Downloads started but still waiting for the server's answer. The queue only knows an item once
+  // that answer has arrived, so a second tap in between used to queue the same item twice.
+  private val pendingDownloadIds: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
   @PluginMethod
   fun downloadLibraryItem(call: PluginCall) {
@@ -61,12 +78,14 @@ class AbsDownloader : Plugin() {
     Log.d(tag, "Download library item $libraryItemId to folder $localFolderId / episode: $episodeId")
 
     val downloadId = if (episodeId.isEmpty()) libraryItemId else "$libraryItemId-$episodeId"
-    if (downloadItemManager.downloadItemQueue.find { it.id == downloadId } != null) {
+    if (downloadItemManager.downloadItemQueue.find { it.id == downloadId } != null || !pendingDownloadIds.add(downloadId)) {
       Log.d(tag, "Download already started for this media entity $downloadId")
       return call.resolve(JSObject("{\"error\":\"Download already started for this media entity\"}"))
     }
 
     apiHandler.getLibraryItemWithProgress(libraryItemId, episodeId) { libraryItem ->
+      // From here the item is either queued (the queue knows it) or failed
+      pendingDownloadIds.remove(downloadId)
       if (libraryItem == null) {
         call.resolve(JSObject("{\"error\":\"Server request failed\"}"))
       } else {
@@ -132,7 +151,10 @@ class AbsDownloader : Plugin() {
   private fun startLibraryItemDownload(libraryItem: LibraryItem, localFolder: LocalFolder, episode:PodcastEpisode?) {
     val isInternal = localFolder.id.startsWith("internal-")
 
-    val tempFolderPath = if (isInternal) "${mainActivity.filesDir}/downloads/${libraryItem.id}" else mainActivity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+    // Every download gets its own temp folder. They used to share one, so two queued books with a
+    // track of the same name (01.mp3) overwrote each other's file before it was moved.
+    val tempFolderName = if (episode != null) "${libraryItem.id}-${episode.id}" else libraryItem.id
+    val tempFolderPath = if (isInternal) "${mainActivity.filesDir}/downloads/${libraryItem.id}" else "${mainActivity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)}/$tempFolderName"
 
     Log.d(tag, "downloadCacheDirectory=$tempFolderPath")
 

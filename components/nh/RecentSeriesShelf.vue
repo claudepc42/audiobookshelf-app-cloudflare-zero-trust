@@ -4,9 +4,9 @@
     <div class="nh-rs-scroll">
       <div v-for="s in series" :key="s.id" class="nh-rs-card" @click="openSeries(s)">
         <div class="nh-rs-covers">
-          <div v-for="(cover, i) in s.covers" :key="i" :class="['nh-rs-cover', `c${i + 1}`]">
-            <i class="nh-rs-bg" :style="{ backgroundImage: `url(${cover})` }" />
-            <i class="nh-rs-fg" :style="{ backgroundImage: `url(${cover})` }" />
+          <div v-for="(book, i) in s.books" :key="i" :class="['nh-rs-cover', `c${i + 1}`]">
+            <i class="nh-rs-bg" :style="{ backgroundImage: `url(${coverSrc(book)})` }" />
+            <i class="nh-rs-fg" :style="{ backgroundImage: `url(${coverSrc(book)})` }" />
           </div>
           <div class="nh-rs-count">{{ s.count }}</div>
         </div>
@@ -58,7 +58,10 @@ export default {
           id: s.id,
           name: s.name,
           count: books.length,
-          covers: books.slice(0, 3).map((b) => this.coverSrc(b))
+          // Just enough to build the cover URL at render time. The URL itself isn't kept (it holds
+          // the server address and, on servers older than 2.17, the access token) because this list is
+          // cached in plain storage.
+          books: books.slice(0, 3).map((b) => ({ id: b.id, updatedAt: b.updatedAt, media: { coverPath: b.media?.coverPath } }))
         }
       })
     },
@@ -72,6 +75,8 @@ export default {
       if (key === this.lastKey) return
 
       const res = await this.$nativeHttp.get(`/api/libraries/${libId}/series?sort=addedAt&desc=1&limit=${this.recentSeriesCount}&page=0`).catch(() => null)
+      // The library can change while the request is out: don't show (or cache) the old library's series
+      if (this.currentLibraryId !== libId) return
       if (!res || !res.results) {
         // Fetch failed — leave lastKey unset so the next navigation/settings
         // change retries, and keep whatever is already showing (cache or prior
@@ -90,7 +95,8 @@ export default {
     const libId = this.currentLibraryId
     if (libId) {
       const cached = await this.$localStore.getNhRecentSeriesCache(libId)
-      if (cached && cached.length) this.series = cached
+      // Entries cached by older versions held cover URLs instead of books; those are skipped
+      if (cached && cached.length && cached.every((s) => s.books)) this.series = cached
     }
     this.fetchSeries()
   }

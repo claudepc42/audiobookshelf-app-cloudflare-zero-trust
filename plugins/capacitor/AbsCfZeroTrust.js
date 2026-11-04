@@ -10,11 +10,7 @@ class AbsCfZeroTrustWeb extends WebPlugin {
   }
 
   async probeCfChallenge({ serverAddress, cookies }) {
-    return { isCfProtected: false, cookiesValid: false }
-  }
-
-  async addListener(eventName, listenerFunc) {
-    return super.addListener(eventName, listenerFunc)
+    return { isCfProtected: false, cookiesValid: false, cookiesUnknown: false }
   }
 }
 

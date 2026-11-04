@@ -129,7 +129,15 @@ export default {
       this.hasScrolled = this.$refs.logContainer.scrollTop > 0
     },
     maskLogMessage(message) {
-      return message.replace(/(https?:\/\/)\S+/g, '$1[SERVER_ADDRESS]')
+      return (
+        message
+          // Host and port only, so the path ("/api/me") and any closing quote stay readable
+          .replace(/(https?:\/\/)[^/\s"')]+/g, '$1[SERVER_ADDRESS]')
+          // Saved servers are named "<address> (<username>)", which leaves the username behind
+          .replace(/(\[SERVER_ADDRESS\]) \([^)]*\)/g, '$1 ([USER])')
+          // Server config ids are base64 of "<address>@<username>"
+          .replace(/\b[A-Za-z0-9+/]{24,}={0,2}/g, '[ID]')
+      )
     },
     loadLogs() {
       this.isLoading = true
@@ -155,8 +163,10 @@ export default {
   mounted() {
     AbsLogger.addListener('onLog', (log) => {
       log.maskedMessage = this.maskLogMessage(log.message)
+      // New lines almost always arrive in order, so append rather than re-sorting the whole list
+      const last = this.logs[this.logs.length - 1]
       this.logs.push(log)
-      this.logs.sort((a, b) => a.timestamp - b.timestamp)
+      if (last && last.timestamp > log.timestamp) this.logs.sort((a, b) => a.timestamp - b.timestamp)
 
       this.$nextTick(() => {
         this.scrollToBottom()

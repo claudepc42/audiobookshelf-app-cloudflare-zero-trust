@@ -109,14 +109,15 @@ export const mutations = {
   updateDownloadItemPart(state, downloadItemPart) {
     const downloadItem = state.itemDownloads.find((i) => i.id == downloadItemPart.downloadItemId)
     if (!downloadItem) {
-      console.error('updateDownloadItemPart: Download item not found for itemPart', JSON.stringify(downloadItemPart))
+      console.error('updateDownloadItemPart: Download item not found for itemPart', downloadItemPart.id)
       return
     }
 
     let totalBytes = 0
     let totalBytesDownloaded = 0
     downloadItem.downloadItemParts = downloadItem.downloadItemParts.map((dip) => {
-      let newDip = dip.id == downloadItemPart.id ? downloadItemPart : dip
+      // Updates carry only what changes while downloading; the rest of the part stays as queued
+      let newDip = dip.id == downloadItemPart.id ? { ...dip, ...downloadItemPart } : dip
 
       totalBytes += newDip.completed ? Number(newDip.bytesDownloaded) : Number(newDip.fileSize)
       totalBytesDownloaded += Number(newDip.bytesDownloaded)
@@ -126,7 +127,6 @@ export const mutations = {
 
     if (totalBytes > 0) {
       downloadItem.itemProgress = Math.min(1, totalBytesDownloaded / totalBytes)
-      console.log(`updateDownloadItemPart: filename=${downloadItemPart.filename}, totalBytes=${totalBytes}, downloaded=${totalBytesDownloaded}, itemProgress=${downloadItem.itemProgress}`)
     } else {
       downloadItem.itemProgress = 0
     }

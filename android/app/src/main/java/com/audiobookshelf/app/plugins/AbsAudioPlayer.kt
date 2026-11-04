@@ -108,6 +108,9 @@ class AbsAudioPlayer : Plugin() {
         }
 
         override fun onMediaItemHistoryUpdated(mediaItemHistory:MediaItemHistory) {
+          // Only the history page and the Session History modal listen, and only while open. Serializing
+          // the whole history for nobody was the cost of every 15-second save.
+          if (!hasListeners("onMediaItemHistoryUpdated")) return
           notifyListeners("onMediaItemHistoryUpdated", JSObject(jacksonMapper.writeValueAsString(mediaItemHistory)))
         }
 

@@ -194,8 +194,7 @@ export default {
           })
         await this.$nativeHttp.post('/_nh/api/stats', { total: Math.round(st?.totalTime || 0), days })
         this.$store.commit('setNhSetting', { key: 'familyStats', value: true })
-        const saved = (await this.$localStore.getNhSettings()) || {}
-        await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
+        await this.$store.dispatch('saveNhSettings')
         this.load()
       } catch (e) {
         this.$toast.error(this.$strings.ToastShareStatsFailed)
@@ -209,8 +208,7 @@ export default {
         // ignore — still clear the local flag
       }
       this.$store.commit('setNhSetting', { key: 'familyStats', value: false })
-      const saved = (await this.$localStore.getNhSettings()) || {}
-      await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
+      await this.$store.dispatch('saveNhSettings')
       this.users = null
       this.load()
     }

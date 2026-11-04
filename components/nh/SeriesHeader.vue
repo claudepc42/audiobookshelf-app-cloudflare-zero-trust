@@ -192,6 +192,13 @@ export default {
     descOpen() {
       this.$nextTick(this.measureDescClamp)
     },
+    // The custom description is fetched once the series meta says this series has one
+    'nhStore.state.nhSeriesDescs': {
+      immediate: true,
+      handler() {
+        this.ensureNhSeriesDescText(this.seriesId)
+      }
+    },
     // Re-measure when an async custom-description override lands after the
     // initial render (nhSeriesDescText resolves lazily).
     displayDescription() {

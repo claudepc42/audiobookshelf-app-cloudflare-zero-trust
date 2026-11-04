@@ -4,9 +4,21 @@ import android.util.Log
 import com.audiobookshelf.app.data.*
 import com.audiobookshelf.app.device.DeviceManager
 import com.audiobookshelf.app.player.PlayerNotificationService
+import java.util.concurrent.Executors
 
 object MediaEventManager {
   const val tag = "MediaEventManager"
+
+  // A listening history only needs recent activity. It used to grow forever (about 240 Save events per
+  // listening hour), and every event rewrote and re-sent the whole thing.
+  private const val MAX_EVENTS_PER_ITEM = 1000
+
+  // Read-modify-write of an item's history happens on this one thread, so two events (a Save from a
+  // server-sync callback and a Seek from the main thread) can't overlap and drop one, and Play/Seek
+  // no longer read and write the history on the main thread.
+  private val historyExecutor = Executors.newSingleThreadExecutor { runnable ->
+    Thread(runnable, "MediaEventHistory").also { it.isDaemon = true }
+  }
 
   var clientEventEmitter: PlayerNotificationService.ClientEventEmitter? = null
 
@@ -56,15 +68,8 @@ object MediaEventManager {
           mediaProgress: MediaProgressWrapper,
           description: String
   ) {
-    val mediaItemHistory = getMediaItemHistoryMediaItem(mediaProgress.mediaItemId)
-    if (mediaItemHistory == null) {
-      Log.w(
-              tag,
-              "addSyncEvent: Media Item History not created yet for media item id ${mediaProgress.mediaItemId}"
-      )
-      return
-    }
-
+    // Values are read here, on the calling thread, before the session can change again
+    val mediaItemId = mediaProgress.mediaItemId
     val mediaItemEvent =
             MediaItemEvent(
                     name = eventName,
@@ -76,10 +81,19 @@ object MediaEventManager {
                     serverSyncMessage = null,
                     timestamp = System.currentTimeMillis()
             )
-    mediaItemHistory.events.add(mediaItemEvent)
-    DeviceManager.dbManager.saveMediaItemHistory(mediaItemHistory)
 
-    clientEventEmitter?.onMediaItemHistoryUpdated(mediaItemHistory)
+    historyExecutor.execute {
+      try {
+        val mediaItemHistory = getMediaItemHistoryMediaItem(mediaItemId)
+        if (mediaItemHistory == null) {
+          Log.w(tag, "addSyncEvent: Media Item History not created yet for media item id $mediaItemId")
+          return@execute
+        }
+        saveAndNotify(mediaItemHistory, mediaItemEvent)
+      } catch (e: Exception) {
+        Log.e(tag, "addSyncEvent failed", e)
+      }
+    }
   }
 
   private fun addPlaybackEvent(
@@ -87,10 +101,6 @@ object MediaEventManager {
           playbackSession: PlaybackSession,
           syncResult: SyncResult?
   ) {
-    val mediaItemHistory =
-            getMediaItemHistoryMediaItem(playbackSession.mediaItemId)
-                    ?: createMediaItemHistoryForSession(playbackSession)
-
     val mediaItemEvent =
             MediaItemEvent(
                     name = eventName,
@@ -102,7 +112,26 @@ object MediaEventManager {
                     serverSyncMessage = syncResult?.serverSyncMessage,
                     timestamp = System.currentTimeMillis()
             )
+    val mediaItemId = playbackSession.mediaItemId
+    // What a new history needs, taken now because the session object keeps changing
+    val newHistoryTemplate = createMediaItemHistoryForSession(playbackSession)
+
+    historyExecutor.execute {
+      try {
+        val mediaItemHistory = getMediaItemHistoryMediaItem(mediaItemId) ?: newHistoryTemplate
+        saveAndNotify(mediaItemHistory, mediaItemEvent)
+      } catch (e: Exception) {
+        Log.e(tag, "addPlaybackEvent failed", e)
+      }
+    }
+  }
+
+  private fun saveAndNotify(mediaItemHistory: MediaItemHistory, mediaItemEvent: MediaItemEvent) {
     mediaItemHistory.events.add(mediaItemEvent)
+    // Keep the newest events only
+    while (mediaItemHistory.events.size > MAX_EVENTS_PER_ITEM) {
+      mediaItemHistory.events.removeAt(0)
+    }
     DeviceManager.dbManager.saveMediaItemHistory(mediaItemHistory)
 
     clientEventEmitter?.onMediaItemHistoryUpdated(mediaItemHistory)
@@ -113,7 +142,6 @@ object MediaEventManager {
   }
 
   private fun createMediaItemHistoryForSession(playbackSession: PlaybackSession): MediaItemHistory {
-    Log.i(tag, "Creating new media item history for media \"${playbackSession.displayTitle}\"")
     val libraryItemId = playbackSession.libraryItemId ?: ""
     val episodeId: String? = playbackSession.episodeId
     return MediaItemHistory(

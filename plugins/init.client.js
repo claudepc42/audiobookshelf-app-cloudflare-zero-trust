@@ -360,19 +360,10 @@ export default async ({ store, app }, inject) => {
   })
 
   // NanoHive theme — overrides the stock theme if the user previously activated it
-  app.$localStore?.getNhSettings()?.then(async (nhSettings) => {
+  store.dispatch('loadNhSettings')?.then(async (nhSettings) => {
     // Persisted customizations (accent colour, base theme, font, etc.) load regardless
     // of whether NH is currently active, so they're ready the instant the user toggles it on.
-    if (nhSettings) store.commit('setNhSettings', nhSettings)
-    if (nhSettings?.active) {
-      store.commit('setNhThemeActive', true)
-      document.documentElement.dataset.theme = 'nanohive'
-      const link = document.createElement('link')
-      link.id = 'nh-spectral-font'
-      link.rel = 'stylesheet'
-      link.href = 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap'
-      document.head.appendChild(link)
-    }
+    // An explicit "off" now sticks across restarts (loadNhSettings only turns NH on by default).
 
     // Applies the shipped Glass Effect Tuner defaults once, ever, overwriting
     // any existing active tuning (Slot 1-3 untouched). Gated on a flag that's
@@ -440,6 +431,10 @@ export default async ({ store, app }, inject) => {
    * Listen for url open events for the app. This handles both custom URL scheme links as well as URLs your app handles
    */
   App.addListener('appUrlOpen', (data) => {
+    // On a cold launch this fires before the components that care have mounted, and the event bus
+    // keeps nothing for late subscribers. Remember the URL so AudioPlayerContainer can pick it up
+    // once the UI is ready (it clears this when it handles a URL live).
+    eventBus.lastUrlOpen = data.url
     eventBus.$emit('url-open', data.url)
   })
 }

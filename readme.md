@@ -60,7 +60,7 @@ Session tokens are encrypted at rest, not stored in plaintext — see [Security 
 
 ### 2. Custom HTTP headers (service tokens / advanced)
 
-For service tokens or other header-gated reverse proxies, tap **Custom Headers** below the Submit button to enter headers manually (e.g. `CF-Access-Client-Id` / `CF-Access-Client-Secret`). Headers entered this way skip the WebView SSO detection entirely, and are sent with every request the app makes — login, browsing, streaming, downloads, background sync, and live updates.
+For service tokens or other header-gated reverse proxies, tap **Custom Headers** below the Submit button to enter headers manually (e.g. `CF-Access-Client-Id` / `CF-Access-Client-Secret`). Headers entered this way skip the WebView SSO detection entirely, and are sent with every request to your server's main address — login, browsing, streaming, downloads, background sync, and live updates. They are not sent to the LAN address (§5): LAN traffic doesn't pass through Cloudflare, so they would do nothing there. Names and values are checked when you add them (a stray space or a non-ASCII character would make every request fail).
 
 ### 3. Auto-connect on cold start
 
@@ -80,7 +80,7 @@ When adding or editing a server, an optional **LAN address** field appears below
 
 When you're home, the app automatically routes streaming and downloads through the LAN address — full local network speed, no Cloudflare overhead, no bandwidth cap. Away from home, it falls back to your main address automatically. One server entry the whole time — no duplicate configs to manage.
 
-Downloads use an in-app client rather than the Android system Download Manager, so they get full LAN speed too instead of being throttled by VPN split-tunneling.
+Downloads over the LAN address (plain `http://`) use an in-app client rather than the Android system Download Manager, so they get full LAN speed too instead of being throttled by VPN split-tunneling. Downloads from your main (`https://`) address still use the system Download Manager. If any file of a book fails, nothing is added and you're told how many failed, instead of getting a book with a broken track.
 
 > **Typical result:** streaming and downloads at 50–250 MB/s on a gigabit LAN, automatically, with zero extra setup after the initial field is filled in.
 

@@ -44,15 +44,8 @@ export default {
     // Mirrors the "turn off" branch of SideDrawer.vue's toggleNhTheme() —
     // this modal only ever offers turning NanoHive off, never on.
     async turnOffNhTheme() {
-      this.$store.commit('setNhThemeActive', false)
-      const previousTheme = await this.$localStore.getTheme()
-      if (previousTheme) {
-        document.documentElement.dataset.theme = previousTheme
-      } else {
-        delete document.documentElement.dataset.theme
-      }
-      const savedSettings = (await this.$localStore.getNhSettings()) || {}
-      await this.$localStore.setNhSettings({ ...savedSettings, active: false })
+      await this.$store.dispatch('setNhThemeEnabled', false)
+      await this.$store.dispatch('saveNhSettings')
       this.show = false
     }
   }

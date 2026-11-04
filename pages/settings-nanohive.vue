@@ -1,6 +1,6 @@
 <template>
   <div class="w-full h-full px-4 py-6 overflow-y-auto">
-    <p class="text-xs mb-6" style="color: #9a9085">Personalise the look of your library. Changes save automatically.</p>
+    <p class="text-xs mb-6" style="color: var(--nh-muted, #9a9085)">Personalise the look of your library. Changes save automatically.</p>
 
     <!-- NH source: panelSearch() (enhancements.js:1332-1348) — a live filter over
          the settings, essential once there are this many. Ported at our own
@@ -9,27 +9,27 @@
          manipulation matching NH's real technique instead of forcing this
          through Vue's own reactivity system for a large template refactor. -->
     <div class="relative mb-6">
-      <span class="material-symbols absolute" style="left: 10px; top: 50%; transform: translateY(-50%); font-size: 1.1rem; color: #8a8075">search</span>
+      <span class="material-symbols absolute" style="left: 10px; top: 50%; transform: translateY(-50%); font-size: 1.1rem; color: var(--nh-muted-2, #8a8075)">search</span>
       <input
         ref="searchInput"
         v-model="panelSearch"
         type="text"
         placeholder="Search settings…"
         class="w-full text-sm rounded-lg py-2 pl-8 pr-8"
-        style="background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: #d8cfc2"
+        style="background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--nh-text-2, #d8cfc2)"
         @input="filterSections"
       />
       <button v-if="panelSearch" type="button" class="absolute" style="right: 8px; top: 50%; transform: translateY(-50%)" @click="clearPanelSearch">
-        <span class="material-symbols" style="font-size: 1.1rem; color: #8a8075">close</span>
+        <span class="material-symbols" style="font-size: 1.1rem; color: var(--nh-muted-2, #8a8075)">close</span>
       </button>
     </div>
-    <p v-if="panelSearch && noSectionsMatch" class="text-xs mb-4" style="color: #8a8075">No settings match "{{ panelSearch }}".</p>
+    <p v-if="panelSearch && noSectionsMatch" class="text-xs mb-4" style="color: var(--nh-muted-2, #8a8075)">No settings match "{{ panelSearch }}".</p>
 
     <div data-section>
       <!-- Branding & Style -->
-      <p class="uppercase text-xs font-semibold mb-3" style="color: #e0c27a; letter-spacing: 0.08em">Branding &amp; Style</p>
+      <p class="uppercase text-xs font-semibold mb-3" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">Branding &amp; Style</p>
 
-      <p class="text-sm mb-2" style="color: #d8cfc2">Accent Colour</p>
+      <p class="text-sm mb-2" style="color: var(--nh-text-2, #d8cfc2)">Accent Colour</p>
       <div class="flex flex-wrap gap-2 mb-2">
         <button
           v-for="color in presetColors"
@@ -41,11 +41,11 @@
         />
         <label class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center cursor-pointer" :style="{ border: !isKnownAccent ? '2px solid #fff' : '2px solid rgba(255,255,255,0.3)' }">
           <input type="color" class="opacity-0 w-0 h-0 absolute" :value="settings.accentColor" @input="updateSetting('accentColor', $event.target.value)" />
-          <span class="material-symbols text-base" style="color: #d8cfc2">palette</span>
+          <span class="material-symbols text-base" style="color: var(--nh-text-2, #d8cfc2)">palette</span>
         </label>
       </div>
 
-      <p class="text-sm mb-2 mt-5" style="color: #d8cfc2">Base Theme</p>
+      <p class="text-sm mb-2 mt-5" style="color: var(--nh-text-2, #d8cfc2)">Base Theme</p>
       <div class="grid grid-cols-3 gap-2 mb-5">
         <button
           v-for="(theme, key) in baseThemes"
@@ -55,7 +55,7 @@
           :style="{
             background: theme.canvas,
             color: '#f4eee2',
-            border: settings.baseTheme === key ? '2px solid #e0c27a' : '2px solid rgba(255,255,255,0.10)'
+            border: settings.baseTheme === key ? '2px solid var(--nh-amber, #e0c27a)' : '2px solid rgba(255,255,255,0.10)'
           }"
           @click="updateSetting('baseTheme', key)"
         >
@@ -63,7 +63,7 @@
         </button>
       </div>
 
-      <p class="text-sm mb-2" style="color: #d8cfc2">Main Font</p>
+      <p class="text-sm mb-2" style="color: var(--nh-text-2, #d8cfc2)">Main Font</p>
       <div class="flex flex-wrap gap-2 mb-5">
         <button
           v-for="font in googleFonts"
@@ -72,9 +72,9 @@
           class="px-3 py-1.5 rounded-lg text-sm"
           :style="{
             fontFamily: font,
-            color: settings.mainFont === font ? '#fff' : '#9a9085',
+            color: settings.mainFont === font ? '#fff' : 'var(--nh-muted, #9a9085)',
             background: settings.mainFont === font ? 'rgba(255,255,255,0.10)' : 'transparent',
-            border: settings.mainFont === font ? '1px solid #e0c27a' : '1px solid rgba(255,255,255,0.10)'
+            border: settings.mainFont === font ? '1px solid var(--nh-amber, #e0c27a)' : '1px solid rgba(255,255,255,0.10)'
           }"
           @click="updateSetting('mainFont', font)"
         >
@@ -84,22 +84,22 @@
 
       <div class="py-3 flex items-center">
         <div class="pr-4 flex-1">
-          <p style="color: #d8cfc2">Font Size Scale</p>
-          <p class="text-xs" style="color: #9a9085">1.0 = default size. Range 0.8&ndash;1.3.</p>
+          <p style="color: var(--nh-text-2, #d8cfc2)">Font Size Scale</p>
+          <p class="text-xs" style="color: var(--nh-muted, #9a9085)">1.0 = default size. Range 0.8&ndash;1.3.</p>
         </div>
-        <ui-text-input type="number" :value="settings.fontScale" step="0.05" min="0.8" max="1.3" style="width: 90px" @input="updateSetting('fontScale', Number($event) || 1)" />
+        <ui-text-input type="number" :value="settings.fontScale" step="0.05" min="0.8" max="1.3" style="width: 90px" @input="updateNumberSetting('fontScale', $event, 0.8, 1.3)" />
       </div>
 
       <div class="py-3 flex items-center">
         <div class="pr-4 flex-1">
-          <p style="color: #d8cfc2">Hamburger Menu Text Size</p>
-          <p class="text-xs" style="color: #9a9085">Extra scale for the hamburger menu's text only, applied on top of Font Size Scale above. 1.0 = default size. Range 0.8&ndash;1.3.</p>
+          <p style="color: var(--nh-text-2, #d8cfc2)">Hamburger Menu Text Size</p>
+          <p class="text-xs" style="color: var(--nh-muted, #9a9085)">Extra scale for the hamburger menu's text only, applied on top of Font Size Scale above. 1.0 = default size. Range 0.8&ndash;1.3.</p>
         </div>
-        <ui-text-input type="number" :value="settings.drawerFontScale" step="0.05" min="0.8" max="1.3" style="width: 90px" @input="updateSetting('drawerFontScale', Number($event) || 1)" />
+        <ui-text-input type="number" :value="settings.drawerFontScale" step="0.05" min="0.8" max="1.3" style="width: 90px" @input="updateNumberSetting('drawerFontScale', $event, 0.8, 1.3)" />
       </div>
 
       <div class="py-3 flex items-center">
-        <p class="pr-4 flex-1" style="color: #d8cfc2">Custom Logo</p>
+        <p class="pr-4 flex-1" style="color: var(--nh-text-2, #d8cfc2)">Custom Logo</p>
       </div>
       <div class="flex items-center gap-2 mb-3">
         <ui-text-input :value="settings.logoUrl" placeholder="Leave empty for the default logo" clearable class="flex-1" @input="updateSetting('logoUrl', $event)" />
@@ -121,14 +121,14 @@
         <div class="w-10 flex justify-center" @click="updateSetting('useServerLogo', !settings.useServerLogo)">
           <ui-toggle-switch :value="settings.useServerLogo" @input="updateSetting('useServerLogo', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Use Server's Logo<span class="text-xs pl-2" style="color: #9a9085">Overrides your own logo above, colorize still applies</span></p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Use Server's Logo<span class="text-xs pl-2" style="color: var(--nh-muted, #9a9085)">Overrides your own logo above, colorize still applies</span></p>
       </div>
 
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('colorizeLogo', !settings.colorizeLogo)">
           <ui-toggle-switch :value="settings.colorizeLogo" @input="updateSetting('colorizeLogo', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Colorize Logo with Accent Colour</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Colorize Logo with Accent Colour</p>
       </div>
 
       <div class="flex items-center py-2">
@@ -136,47 +136,47 @@
           <ui-toggle-switch :value="settings.finishedBadgeUsesAccent" @input="updateSetting('finishedBadgeUsesAccent', $event)" />
         </div>
         <div class="pl-4">
-          <p style="color: #d8cfc2">Finished Checkmark Uses Accent Colour</p>
-          <p class="text-xs" style="color: #9a9085">Off keeps finished badges green, so they're always easy to spot regardless of accent colour.</p>
+          <p style="color: var(--nh-text-2, #d8cfc2)">Finished Checkmark Uses Accent Colour</p>
+          <p class="text-xs" style="color: var(--nh-muted, #9a9085)">Off keeps finished badges green, so they're always easy to spot regardless of accent colour.</p>
         </div>
       </div>
     </div>
 
     <div data-section>
       <!-- Home & Carousel -->
-      <p class="uppercase text-xs font-semibold mb-3 mt-8" style="color: #e0c27a; letter-spacing: 0.08em">Home &amp; Carousel</p>
+      <p class="uppercase text-xs font-semibold mb-3 mt-8" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">Home &amp; Carousel</p>
 
       <div class="py-3 flex items-center">
-        <p class="pr-4 flex-1" style="color: #d8cfc2">Carousel Auto-Advance (seconds, 0 disables)</p>
-        <ui-text-input type="number" :value="settings.carouselTiming" min="0" max="60" style="width: 90px" @input="updateSetting('carouselTiming', Number($event) || 0)" />
+        <p class="pr-4 flex-1" style="color: var(--nh-text-2, #d8cfc2)">Carousel Auto-Advance (seconds, 0 disables)</p>
+        <ui-text-input type="number" :value="settings.carouselTiming" min="0" max="60" style="width: 90px" @input="updateNumberSetting('carouselTiming', $event, 0, 60)" />
       </div>
 
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('greetingUsesAccent', !settings.greetingUsesAccent)">
           <ui-toggle-switch :value="settings.greetingUsesAccent" @input="updateSetting('greetingUsesAccent', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Greeting Label Uses Accent Color</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Greeting Label Uses Accent Color</p>
       </div>
 
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('showCustomRecentSeries', !settings.showCustomRecentSeries)">
           <ui-toggle-switch :value="settings.showCustomRecentSeries" @input="updateSetting('showCustomRecentSeries', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Expanded Recent Series</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Expanded Recent Series</p>
       </div>
 
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('customSeriesCards', !settings.customSeriesCards)">
           <ui-toggle-switch :value="settings.customSeriesCards" @input="updateSetting('customSeriesCards', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Stacked Series Covers</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Stacked Series Covers</p>
       </div>
 
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" :class="{ 'opacity-40 pointer-events-none': isLocked('lockHeroCarousel') }" @click="updateSetting('showHeroCarousel', !settings.showHeroCarousel)">
           <ui-toggle-switch :value="settings.showHeroCarousel" @input="updateSetting('showHeroCarousel', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Home Carousel<span v-if="isLocked('lockHeroCarousel')" class="text-xs pl-2" style="color: #9a9085">Locked by admin</span></p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Home Carousel<span v-if="isLocked('lockHeroCarousel')" class="text-xs pl-2" style="color: var(--nh-muted, #9a9085)">Locked by admin</span></p>
       </div>
 
       <div class="flex items-center py-2">
@@ -184,8 +184,8 @@
           <ui-toggle-switch :value="settings.cinematicBg" @input="updateSetting('cinematicBg', $event)" />
         </div>
         <div class="pl-4">
-          <p style="color: #d8cfc2">Cinematic Background</p>
-          <p class="text-xs" style="color: #9a9085">Blurred cover art behind Home and item pages.</p>
+          <p style="color: var(--nh-text-2, #d8cfc2)">Cinematic Background</p>
+          <p class="text-xs" style="color: var(--nh-muted, #9a9085)">Blurred cover art behind Home and item pages.</p>
         </div>
       </div>
 
@@ -194,8 +194,8 @@
           <ui-toggle-switch :value="settings.autoplaySeries" @input="updateSetting('autoplaySeries', $event)" />
         </div>
         <div class="pl-4">
-          <p style="color: #d8cfc2">Autoplay Next in Series</p>
-          <p class="text-xs" style="color: #9a9085">When a book finishes, start the next one in the same series automatically.</p>
+          <p style="color: var(--nh-text-2, #d8cfc2)">Autoplay Next in Series</p>
+          <p class="text-xs" style="color: var(--nh-muted, #9a9085)">When a book finishes, start the next one in the same series automatically.</p>
         </div>
       </div>
 
@@ -204,8 +204,8 @@
           <ui-toggle-switch :value="settings.crossLibrarySearch" @input="updateSetting('crossLibrarySearch', $event)" />
         </div>
         <div class="pl-4">
-          <p style="color: #d8cfc2">Search Every Library at Once<span v-if="isLocked('lockGlobalSearch')" class="text-xs pl-2" style="color: #9a9085">Locked by admin</span></p>
-          <p class="text-xs" style="color: #9a9085">When off, search only looks in your current library.</p>
+          <p style="color: var(--nh-text-2, #d8cfc2)">Search Every Library at Once<span v-if="isLocked('lockGlobalSearch')" class="text-xs pl-2" style="color: var(--nh-muted, #9a9085)">Locked by admin</span></p>
+          <p class="text-xs" style="color: var(--nh-muted, #9a9085)">When off, search only looks in your current library.</p>
         </div>
       </div>
 
@@ -213,7 +213,7 @@
         <div class="w-10 flex justify-center" @click="updateSetting('showFinishedBookTools', !settings.showFinishedBookTools)">
           <ui-toggle-switch :value="settings.showFinishedBookTools" @input="updateSetting('showFinishedBookTools', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Finished Book Tools on Stats Page</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Finished Book Tools on Stats Page</p>
       </div>
 
       <div class="flex items-center py-2">
@@ -221,12 +221,12 @@
           <ui-toggle-switch :value="settings.showRateFinished" @input="updateSetting('showRateFinished', $event)" />
         </div>
         <div class="pl-4">
-          <p style="color: #d8cfc2">"Rate What You Finished" Home Shelf</p>
-          <p class="text-xs" style="color: #9a9085">Books you finished but haven't rated yet. Needs Community Ratings enabled for the library.</p>
+          <p style="color: var(--nh-text-2, #d8cfc2)">"Rate What You Finished" Home Shelf</p>
+          <p class="text-xs" style="color: var(--nh-muted, #9a9085)">Books you finished but haven't rated yet. Needs Community Ratings enabled for the library.</p>
         </div>
       </div>
 
-      <p class="text-sm mb-2 mt-3" style="color: #d8cfc2">Continue Reading Shelf</p>
+      <p class="text-sm mb-2 mt-3" style="color: var(--nh-text-2, #d8cfc2)">Continue Reading Shelf</p>
       <div class="flex flex-wrap gap-2 mb-3">
         <button
           v-for="mode in continueReadingModes"
@@ -234,9 +234,9 @@
           type="button"
           class="px-3 py-1.5 rounded-lg text-sm"
           :style="{
-            color: settings.continueReadingMode === mode.value ? '#e0c27a' : '#9a9085',
+            color: settings.continueReadingMode === mode.value ? 'var(--nh-amber, #e0c27a)' : 'var(--nh-muted, #9a9085)',
             background: settings.continueReadingMode === mode.value ? 'rgba(224,194,122,0.12)' : 'transparent',
-            border: settings.continueReadingMode === mode.value ? '1px solid #e0c27a' : '1px solid rgba(255,255,255,0.10)'
+            border: settings.continueReadingMode === mode.value ? '1px solid var(--nh-amber, #e0c27a)' : '1px solid rgba(255,255,255,0.10)'
           }"
           @click="updateSetting('continueReadingMode', mode.value)"
         >
@@ -245,80 +245,80 @@
       </div>
 
       <div class="py-3 flex items-center">
-        <p class="pr-4 flex-1" style="color: #d8cfc2">Recent Series Count</p>
-        <ui-text-input type="number" :value="settings.recentSeriesCount" min="1" max="50" style="width: 90px" @input="updateSetting('recentSeriesCount', Number($event) || 12)" />
+        <p class="pr-4 flex-1" style="color: var(--nh-text-2, #d8cfc2)">Recent Series Count</p>
+        <ui-text-input type="number" :value="settings.recentSeriesCount" min="1" max="50" style="width: 90px" @input="updateNumberSetting('recentSeriesCount', $event, 1, 50, true)" />
       </div>
 
-      <p class="text-xs uppercase mb-2 mt-4" style="color: #8a8075; letter-spacing: 0.08em">Reorder Home Shelves</p>
+      <p class="text-xs uppercase mb-2 mt-4" style="color: var(--nh-muted-2, #8a8075); letter-spacing: 0.08em">Reorder Home Shelves</p>
       <div v-for="(key, index) in orderedSectionKeys" :key="key" class="flex items-center py-1.5">
-        <p class="flex-1" style="color: #d8cfc2">{{ sectionLabels[key] }}</p>
+        <p class="flex-1" style="color: var(--nh-text-2, #d8cfc2)">{{ sectionLabels[key] }}</p>
         <button type="button" class="w-8 h-8 flex items-center justify-center" :disabled="index === 0" :style="{ opacity: index === 0 ? 0.3 : 1 }" @click="moveSection(index, -1)">
-          <span class="material-symbols text-xl" style="color: #d8cfc2">arrow_upward</span>
+          <span class="material-symbols text-xl" style="color: var(--nh-text-2, #d8cfc2)">arrow_upward</span>
         </button>
         <button type="button" class="w-8 h-8 flex items-center justify-center" :disabled="index === orderedSectionKeys.length - 1" :style="{ opacity: index === orderedSectionKeys.length - 1 ? 0.3 : 1 }" @click="moveSection(index, 1)">
-          <span class="material-symbols text-xl" style="color: #d8cfc2">arrow_downward</span>
+          <span class="material-symbols text-xl" style="color: var(--nh-text-2, #d8cfc2)">arrow_downward</span>
         </button>
       </div>
-      <button v-if="settings.homeOrder && settings.homeOrder.length" type="button" class="text-xs mb-4 mt-1" style="color: #9a9085" @click="updateSetting('homeOrder', [])">Reset to default order</button>
+      <button v-if="settings.homeOrder && settings.homeOrder.length" type="button" class="text-xs mb-4 mt-1" style="color: var(--nh-muted, #9a9085)" @click="updateSetting('homeOrder', [])">Reset to default order</button>
 
-      <p class="text-xs uppercase mb-2 mt-4" style="color: #8a8075; letter-spacing: 0.08em">Hide Homepage Shelves</p>
+      <p class="text-xs uppercase mb-2 mt-4" style="color: var(--nh-muted-2, #8a8075); letter-spacing: 0.08em">Hide Homepage Shelves</p>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideHomeRecentlyAdded', !settings.hideHomeRecentlyAdded)">
           <ui-toggle-switch :value="settings.hideHomeRecentlyAdded" @input="updateSetting('hideHomeRecentlyAdded', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Recently Added</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Recently Added</p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideHomeRecentSeries', !settings.hideHomeRecentSeries)">
           <ui-toggle-switch :value="settings.hideHomeRecentSeries" @input="updateSetting('hideHomeRecentSeries', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Recent Series</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Recent Series</p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideHomeContinueSeries', !settings.hideHomeContinueSeries)">
           <ui-toggle-switch :value="settings.hideHomeContinueSeries" @input="updateSetting('hideHomeContinueSeries', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Continue Series</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Continue Series</p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideHomeListenAgain', !settings.hideHomeListenAgain)">
           <ui-toggle-switch :value="settings.hideHomeListenAgain" @input="updateSetting('hideHomeListenAgain', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Listen Again</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Listen Again</p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideHomeDiscover', !settings.hideHomeDiscover)">
           <ui-toggle-switch :value="settings.hideHomeDiscover" @input="updateSetting('hideHomeDiscover', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Discover</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Discover</p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideHomeNewAuthors', !settings.hideHomeNewAuthors)">
           <ui-toggle-switch :value="settings.hideHomeNewAuthors" @input="updateSetting('hideHomeNewAuthors', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Newest Authors</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Newest Authors</p>
       </div>
     </div>
 
     <div data-section>
       <!-- Community Ratings -->
-      <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: #e0c27a; letter-spacing: 0.08em">Community Ratings</p>
-      <p class="text-xs mb-3" style="color: #8a8075">Talks to a NanoHive server's own ratings backend. Only appears if your server has one — otherwise these settings do nothing.</p>
+      <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">Community Ratings</p>
+      <p class="text-xs mb-3" style="color: var(--nh-muted-2, #8a8075)">Talks to a NanoHive server's own ratings backend. Only appears if your server has one — otherwise these settings do nothing.</p>
 
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" :class="{ 'opacity-40 pointer-events-none': isLocked('lockRatings') }" @click="updateSetting('showRatings', !settings.showRatings)">
           <ui-toggle-switch :value="settings.showRatings" @input="updateSetting('showRatings', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Enable Ratings &amp; Reviews<span v-if="isLocked('lockRatings')" class="text-xs pl-2" style="color: #9a9085">Locked by admin</span></p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Enable Ratings &amp; Reviews<span v-if="isLocked('lockRatings')" class="text-xs pl-2" style="color: var(--nh-muted, #9a9085)">Locked by admin</span></p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" :class="{ 'opacity-40 pointer-events-none': isLocked('lockCardRatings') }" @click="updateSetting('showCardRatings', !settings.showCardRatings)">
           <ui-toggle-switch :value="settings.showCardRatings" @input="updateSetting('showCardRatings', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Show Star Badges on Covers<span v-if="isLocked('lockCardRatings')" class="text-xs pl-2" style="color: #9a9085">Locked by admin</span></p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Show Star Badges on Covers<span v-if="isLocked('lockCardRatings')" class="text-xs pl-2" style="color: var(--nh-muted, #9a9085)">Locked by admin</span></p>
       </div>
 
-      <p class="text-sm mb-2 mt-3" style="color: #d8cfc2">Rating Precision</p>
+      <p class="text-sm mb-2 mt-3" style="color: var(--nh-text-2, #d8cfc2)">Rating Precision</p>
       <div class="flex flex-wrap gap-2 mb-3">
         <button
           v-for="opt in starStepOptions"
@@ -326,9 +326,9 @@
           type="button"
           class="px-3 py-1.5 rounded-lg text-sm"
           :style="{
-            color: settings.starStep === opt.value ? '#e0c27a' : '#9a9085',
+            color: settings.starStep === opt.value ? 'var(--nh-amber, #e0c27a)' : 'var(--nh-muted, #9a9085)',
             background: settings.starStep === opt.value ? 'rgba(224,194,122,0.12)' : 'transparent',
-            border: settings.starStep === opt.value ? '1px solid #e0c27a' : '1px solid rgba(255,255,255,0.10)'
+            border: settings.starStep === opt.value ? '1px solid var(--nh-amber, #e0c27a)' : '1px solid rgba(255,255,255,0.10)'
           }"
           @click="updateSetting('starStep', opt.value)"
         >
@@ -336,17 +336,17 @@
         </button>
       </div>
 
-      <p v-if="libraries.length > 1" class="text-xs uppercase mb-2 mt-4" style="color: #8a8075; letter-spacing: 0.08em">Per-Library Override</p>
+      <p v-if="libraries.length > 1" class="text-xs uppercase mb-2 mt-4" style="color: var(--nh-muted-2, #8a8075); letter-spacing: 0.08em">Per-Library Override</p>
       <div v-for="lib in libraries" :key="lib.id" class="flex items-center py-1.5">
-        <p class="flex-1" style="color: #d8cfc2">{{ lib.name }}</p>
+        <p class="flex-1" style="color: var(--nh-text-2, #d8cfc2)">{{ lib.name }}</p>
         <ui-toggle-switch :value="isRatingLibOn(lib.id)" @input="setRatingLibOverride(lib.id, $event)" />
       </div>
     </div>
 
     <div data-section>
       <!-- Book Lookup Sites -->
-      <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: #e0c27a; letter-spacing: 0.08em">Book Lookup Sites</p>
-      <p class="text-xs mb-3" style="color: #8a8075">Buttons on the item page for finding a book elsewhere. Defaults to Goodreads plus a local site for your language.</p>
+      <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">Book Lookup Sites</p>
+      <p class="text-xs mb-3" style="color: var(--nh-muted-2, #8a8075)">Buttons on the item page for finding a book elsewhere. Defaults to Goodreads plus a local site for your language.</p>
       <div class="flex flex-wrap gap-2 mb-6">
         <button
           v-for="site in bookSites"
@@ -354,52 +354,52 @@
           type="button"
           class="px-3 py-1.5 rounded-lg text-sm"
           :style="{
-            color: isBookSiteSelected(site.id) ? '#e0c27a' : '#9a9085',
+            color: isBookSiteSelected(site.id) ? 'var(--nh-amber, #e0c27a)' : 'var(--nh-muted, #9a9085)',
             background: isBookSiteSelected(site.id) ? 'rgba(224,194,122,0.12)' : 'transparent',
-            border: isBookSiteSelected(site.id) ? '1px solid #e0c27a' : '1px solid rgba(255,255,255,0.10)'
+            border: isBookSiteSelected(site.id) ? '1px solid var(--nh-amber, #e0c27a)' : '1px solid rgba(255,255,255,0.10)'
           }"
           @click="toggleBookSite(site.id)"
         >
           {{ site.name }}
         </button>
       </div>
-      <button v-if="settings.bookSites !== null" type="button" class="text-xs mb-4 -mt-4" style="color: #9a9085" @click="updateSetting('bookSites', null)">Reset to language default</button>
+      <button v-if="settings.bookSites !== null" type="button" class="text-xs mb-4 -mt-4" style="color: var(--nh-muted, #9a9085)" @click="updateSetting('bookSites', null)">Reset to language default</button>
     </div>
 
     <div data-section>
       <!-- Sidebar Menus -->
-      <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: #e0c27a; letter-spacing: 0.08em">Sidebar Menus</p>
-      <p class="text-xs mb-3" style="color: #8a8075">Hide bottom-tab entries you don't use.</p>
+      <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">Sidebar Menus</p>
+      <p class="text-xs mb-3" style="color: var(--nh-muted-2, #8a8075)">Hide bottom-tab entries you don't use.</p>
 
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideRailSeries', !settings.hideRailSeries)">
           <ui-toggle-switch :value="settings.hideRailSeries" @input="updateSetting('hideRailSeries', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Series</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Series</p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideRailCollections', !settings.hideRailCollections)">
           <ui-toggle-switch :value="settings.hideRailCollections" @input="updateSetting('hideRailCollections', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Collections</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Collections</p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideRailAuthors', !settings.hideRailAuthors)">
           <ui-toggle-switch :value="settings.hideRailAuthors" @input="updateSetting('hideRailAuthors', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Authors</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Authors</p>
       </div>
       <div class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('hideRailNarrators', !settings.hideRailNarrators)">
           <ui-toggle-switch :value="settings.hideRailNarrators" @input="updateSetting('hideRailNarrators', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Narrators</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Narrators</p>
       </div>
       <div class="flex items-center py-2 mb-6">
         <div class="w-10 flex justify-center" @click="updateSetting('hideRailStats', !settings.hideRailStats)">
           <ui-toggle-switch :value="settings.hideRailStats" @input="updateSetting('hideRailStats', $event)" />
         </div>
-        <p class="pl-4" style="color: #d8cfc2">Hide Stats</p>
+        <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">Hide Stats</p>
       </div>
     </div>
 
@@ -410,17 +410,17 @@
          showing zero rows when a search term doesn't match it would read as a
          bug ("where did Server Defaults go?"), not filtering working correctly. -->
     <template v-if="isAdminOrUp && nhThemeActive">
-      <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: #e0c27a; letter-spacing: 0.08em">Server Defaults</p>
-      <p class="text-xs mb-3" style="color: #8a8075">What every new user on this server sees before they customize anything.</p>
+      <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">Server Defaults</p>
+      <p class="text-xs mb-3" style="color: var(--nh-muted-2, #8a8075)">What every new user on this server sees before they customize anything.</p>
       <div class="flex gap-2 mb-2">
         <ui-btn small color="primary" :loading="srvSaving" @click="saveServerDefaults">Save Current as Server Default</ui-btn>
         <ui-btn small color="bg bg-opacity-50" :loading="srvSaving" @click="clearServerDefaults">Clear</ui-btn>
       </div>
-      <p v-if="srvStatus" class="text-xs mb-4" style="color: #9a9085">{{ srvStatus }}</p>
+      <p v-if="srvStatus" class="text-xs mb-4" style="color: var(--nh-muted, #9a9085)">{{ srvStatus }}</p>
 
-      <p class="text-xs uppercase mb-2 mt-4" style="color: #8a8075; letter-spacing: 0.08em">Force Off For Everyone</p>
+      <p class="text-xs uppercase mb-2 mt-4" style="color: var(--nh-muted-2, #8a8075); letter-spacing: 0.08em">Force Off For Everyone</p>
       <div v-for="lock in serverLocks" :key="lock.key" class="flex items-center py-1.5">
-        <p class="flex-1" style="color: #d8cfc2">{{ lock.label }}</p>
+        <p class="flex-1" style="color: var(--nh-text-2, #d8cfc2)">{{ lock.label }}</p>
         <ui-toggle-switch :value="isLocked(lock.key)" @input="setLock(lock.key, $event)" />
       </div>
     </template>
@@ -565,11 +565,18 @@ export default {
       this.srvStatus = ''
       try {
         const existing = (await this.$nativeHttp.get('/_nh/server-config.json').catch(() => ({}))) || {}
-        const merged = { ...existing, ...this.settings }
-        delete merged.themeVersion
-        // Never leak per-device/session-only state into the shared server default.
-        delete merged.nhGlassEffect
-        delete merged.nhGlassEffectSlots
+        // The user's own values, not what an admin lock is forcing in memory
+        const pushed = { ...this.settings, ...this.$store.state.nhLockedOriginals }
+        // Never leak per-device/session-only or personal state into the shared server default:
+        // the glass tuner, this app's own on/off flag and text size, the local profile photo, the
+        // "use the server's logo" opt-in, and the shared-ranking opt-in
+        ;['themeVersion', 'nhGlassEffect', 'nhGlassEffectSlots', 'active', 'drawerFontScale', 'localAvatarDataUrl', 'useServerLogo', 'familyStats'].forEach((k) => delete pushed[k])
+        // NanoHive web applies the page switches (the cinematic background) to every user, so keep
+        // the server's own value rather than this phone's
+        if (Object.prototype.hasOwnProperty.call(existing, 'cinematicBg')) pushed.cinematicBg = existing.cinematicBg
+        else delete pushed.cinematicBg
+        // Lock flags stay as they are on the server (they're not in pushed)
+        const merged = { ...existing, ...pushed }
         await this.putServerConfig(merged)
         this.$store.commit('setNhServerConfig', merged)
         this.srvStatus = 'Saved.'
@@ -615,10 +622,19 @@ export default {
       ;[list[index], list[target]] = [list[target], list[index]]
       this.updateSetting('homeOrder', list)
     },
+    // For the number fields: typing "12" on the way to "1.2" must not apply 12 (or write storage) on
+    // every keystroke. The value is clamped to the range the label states and saved once typing pauses.
+    updateNumberSetting(key, raw, min, max, integer = false) {
+      const n = Number(raw)
+      if (raw === '' || !Number.isFinite(n)) return
+      let value = Math.min(max, Math.max(min, n))
+      if (integer) value = Math.round(value)
+      clearTimeout(this.numberSettingTimers[key])
+      this.numberSettingTimers[key] = setTimeout(() => this.updateSetting(key, value), 600)
+    },
     async updateSetting(key, value) {
       this.$store.commit('setNhSetting', { key, value })
-      const saved = (await this.$localStore.getNhSettings()) || {}
-      await this.$localStore.setNhSettings({ ...saved, ...this.$store.state.nhSettings })
+      await this.$store.dispatch('saveNhSettings')
     },
     pickLogo() {
       this.$refs.logoInput.click()
@@ -678,7 +694,8 @@ export default {
     // href). Preload every font's webface here so all previews render in
     // their real typeface immediately, not just the selected one.
     preloadFontPreviews() {
-      const families = this.googleFonts.filter((f) => f.toLowerCase() !== 'spectral').map((f) => `family=${f.replace(/ /g, '+')}:wght@400;500;600;700`)
+      // Regular weight only: a preview just shows the font's name in its own typeface
+      const families = this.googleFonts.filter((f) => f.toLowerCase() !== 'spectral').map((f) => `family=${f.replace(/ /g, '+')}`)
       let link = document.getElementById('nh-font-preview-preload')
       if (!link) {
         link = document.createElement('link')
@@ -688,6 +705,12 @@ export default {
       }
       link.href = `https://fonts.googleapis.com/css2?${families.join('&')}&display=swap`
     }
+  },
+  created() {
+    this.numberSettingTimers = {}
+  },
+  beforeDestroy() {
+    Object.values(this.numberSettingTimers).forEach(clearTimeout)
   },
   mounted() {
     this.preloadFontPreviews()

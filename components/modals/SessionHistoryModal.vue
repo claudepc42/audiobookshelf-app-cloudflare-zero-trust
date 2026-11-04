@@ -67,14 +67,23 @@ export default {
 
         // Find the next pause/stop after this play
         let stopEvt = null
+        let lastActivity = null
+        let interrupted = false
         for (let j = i + 1; j < sorted.length; j++) {
           if (stopEvents.includes(sorted[j].name)) {
             stopEvt = sorted[j]
             break
           }
           // Another play before a stop means the previous session was interrupted
-          if (playEvents.includes(sorted[j].name)) break
+          if (playEvents.includes(sorted[j].name)) {
+            interrupted = true
+            break
+          }
+          if (sorted[j].name === 'Save' || sorted[j].name === 'Seek') lastActivity = sorted[j]
         }
+        // The app was killed or crashed mid-session, so no Pause was ever recorded. End that session
+        // at the last sign of life instead of showing it as still playing.
+        if (!stopEvt && interrupted && lastActivity) stopEvt = lastActivity
 
         result.push({
           startTime: evt.timestamp,
@@ -100,7 +109,7 @@ export default {
       }
       try {
         const history = await this.$db.getMediaItemHistory(this.mediaId)
-        this.rawEvents = history?.events || []
+        this.rawEvents = Object.freeze(history?.events || [])
       } catch (e) {
         console.error('[SessionHistoryModal] loadHistory failed', e)
         this.rawEvents = []
@@ -108,22 +117,38 @@ export default {
     },
     onHistoryUpdated(history) {
       if (!history || history.id !== this.mediaId) return
-      this.rawEvents = history.events || []
+      // Display-only, so Vue doesn't need to make every event reactive
+      this.rawEvents = Object.freeze(history.events || [])
+    },
+    // The live listener only runs while the modal is open: the history arrives every 15 seconds of
+    // playback, and re-sorting it in a hidden modal was background work for nothing. loadHistory()
+    // fetches fresh data when it opens.
+    async startListening() {
+      if (this.historyListener) return
+      const listener = await AbsAudioPlayer.addListener('onMediaItemHistoryUpdated', this.onHistoryUpdated)
+      if (this.value) this.historyListener = listener
+      else listener.remove() // closed again while the listener was being added
+    },
+    stopListening() {
+      this.historyListener?.remove()
+      this.historyListener = null
     }
   },
   watch: {
     value(open) {
-      if (open) this.loadHistory()
+      if (open) {
+        this.loadHistory()
+        this.startListening()
+      } else {
+        this.stopListening()
+      }
     },
     mediaId(id) {
       if (this.show && id) this.loadHistory()
     }
   },
-  async mounted() {
-    this.historyListener = await AbsAudioPlayer.addListener('onMediaItemHistoryUpdated', this.onHistoryUpdated)
-  },
   beforeDestroy() {
-    this.historyListener?.remove()
+    this.stopListening()
   }
 }
 </script>

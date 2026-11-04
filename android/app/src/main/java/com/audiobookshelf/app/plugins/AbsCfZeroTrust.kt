@@ -20,9 +20,12 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.audiobookshelf.app.data.ServerConnectionConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 
 @CapacitorPlugin(name = "AbsCfZeroTrust")
 class AbsCfZeroTrust : Plugin() {
@@ -38,59 +41,97 @@ class AbsCfZeroTrust : Plugin() {
       }
     }
 
-    fun probeCfChallenge(serverAddress: String): Boolean {
-      val client = OkHttpClient.Builder()
-        .connectTimeout(6, TimeUnit.SECONDS)
-        .readTimeout(6, TimeUnit.SECONDS)
+    // One client for every probe (each one used to build two, with their own pools and threads)
+    private val probeClient: OkHttpClient by lazy {
+      OkHttpClient.Builder()
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(4, TimeUnit.SECONDS)
         .followRedirects(false)
         .build()
-      // CF Zero Trust only protects specific paths. Probe media paths first (/hls/, /s/)
-      // since those are what CF guards in a typical ABS setup, then fall back to /status.
-      val paths = listOf("/hls/", "/s/", "/status")
-      for (path in paths) {
-        try {
-          val request = Request.Builder().url("$serverAddress$path").head().build()
-          val response = client.newCall(request).execute()
-          val location = response.header("Location") ?: response.header("location") ?: ""
-          response.close()
+    }
+
+    // CF Zero Trust only protects specific paths. Probe media paths first (/hls/, /s/)
+    // since those are what CF guards in a typical ABS setup, then fall back to /status.
+    private val probePaths = listOf("/hls/", "/s/", "/status")
+
+    private val cfCheckInFlight = AtomicBoolean(false)
+
+    /** The same test the JS side uses to decide a connection went through Cloudflare */
+    fun isCfConnection(config: ServerConnectionConfig?): Boolean {
+      return config != null && (config.isSsoAuth || !config.customHeaders?.get("Cookie").isNullOrEmpty())
+    }
+
+    /** True if [path] on the server answers with a redirect to Cloudflare Access. Null on a network error. */
+    private fun redirectsToCf(serverAddress: String, path: String, cookies: String): Boolean? {
+      return try {
+        val builder = Request.Builder().url("$serverAddress$path").head()
+        if (cookies.isNotEmpty()) builder.addHeader("Cookie", cookies)
+        probeClient.newCall(builder.build()).execute().use { response ->
+          val location = response.header("Location") ?: ""
           if (response.code in 300..399 && location.isNotEmpty()) {
             val host = Uri.parse(location).host ?: ""
-            if (host == "cloudflareaccess.com" || host.endsWith(".cloudflareaccess.com")) return true
+            host == "cloudflareaccess.com" || host.endsWith(".cloudflareaccess.com")
+          } else {
+            false
           }
-        } catch (e: Exception) {
-          // network error on this path — try next
+        }
+      } catch (e: Exception) {
+        null
+      }
+    }
+
+    /**
+     * Finds a path that Cloudflare Access protects, i.e. one that redirects an unauthenticated
+     * request to the CF login. Returns null if none does, or if the server couldn't be reached.
+     */
+    fun findCfProtectedPath(serverAddress: String): String? {
+      for (path in probePaths) {
+        val redirected = redirectsToCf(serverAddress, path, "")
+        if (redirected == true) return path
+        // The server can't be reached; the remaining paths would only repeat the timeout
+        if (redirected == null) return null
+      }
+      return null
+    }
+
+    fun probeCfChallenge(serverAddress: String): Boolean = findCfProtectedPath(serverAddress) != null
+
+    enum class CookieState { VALID, STALE, UNKNOWN }
+
+    /** Tests [cookies] against the path that was found to be protected */
+    fun checkCookies(serverAddress: String, path: String, cookies: String): CookieState {
+      if (cookies.isEmpty()) return CookieState.STALE
+      return when (redirectsToCf(serverAddress, path, cookies)) {
+        true -> CookieState.STALE
+        false -> CookieState.VALID
+        null -> CookieState.UNKNOWN // a timeout says nothing about the cookie
+      }
+    }
+
+    /**
+     * Called by native code that got a CF-looking failure (a non-JSON reply, a failed download, a
+     * stream error). Looks at the real session of the saved primary address, off the calling thread,
+     * one check at a time, and tells JS only if the session really is stale.
+     * [onExpired] runs on the background thread.
+     */
+    fun checkSessionAndNotify(onExpired: () -> Unit = {}) {
+      val config = DeviceManager.serverConnectionConfig
+      // No CF session to go stale on a connection that never went through CF
+      if (!isCfConnection(config) || config == null) return
+      if (!cfCheckInFlight.compareAndSet(false, true)) return
+      thread(isDaemon = true) {
+        try {
+          // The primary address, not whatever route (LAN or primary) the failing request used
+          val path = findCfProtectedPath(config.address)
+          if (path != null && checkCookies(config.address, path, config.customHeaders?.get("Cookie") ?: "") == CookieState.STALE) {
+            Log.w("AbsCfZeroTrust", "CF session is stale — notifying JS")
+            notifyCfSessionExpired()
+            onExpired()
+          }
+        } finally {
+          cfCheckInFlight.set(false)
         }
       }
-      return false
-    }
-  }
-
-  private fun checkCookiesValid(serverAddress: String, cookies: String): Boolean {
-    return try {
-      val client = OkHttpClient.Builder()
-        .connectTimeout(6, TimeUnit.SECONDS)
-        .readTimeout(6, TimeUnit.SECONDS)
-        .followRedirects(false)
-        .build()
-      // Check against a CF-protected path (/hls/) so stale cookies are caught.
-      // 404 from ABS = CF let it through (cookies valid). 3xx to cloudflareaccess.com = stale.
-      val request = Request.Builder()
-        .url("$serverAddress/hls/")
-        .head()
-        .addHeader("Cookie", cookies)
-        .build()
-      val response = client.newCall(request).execute()
-      val location = response.header("Location") ?: response.header("location") ?: ""
-      response.close()
-      if (response.code in 300..399 && location.isNotEmpty()) {
-        val host = Uri.parse(location).host ?: ""
-        val isCfRedirect = host == "cloudflareaccess.com" || host.endsWith(".cloudflareaccess.com")
-        !isCfRedirect  // stale if CF redirected, valid otherwise
-      } else {
-        true  // ABS responded (not CF) — cookies are valid
-      }
-    } catch (e: Exception) {
-      false
     }
   }
 
@@ -102,11 +143,13 @@ class AbsCfZeroTrust : Plugin() {
     }
     val existingCookies = call.getString("cookies") ?: ""
     Thread {
-      val isCfProtected = probeCfChallenge(serverAddress)
-      val cookiesValid = isCfProtected && existingCookies.isNotEmpty() && checkCookiesValid(serverAddress, existingCookies)
+      val protectedPath = findCfProtectedPath(serverAddress)
+      val cookieState = if (protectedPath != null) checkCookies(serverAddress, protectedPath, existingCookies) else CookieState.STALE
       val result = JSObject()
-      result.put("isCfProtected", isCfProtected)
-      result.put("cookiesValid", cookiesValid)
+      result.put("isCfProtected", protectedPath != null)
+      result.put("cookiesValid", cookieState == CookieState.VALID)
+      // The check itself failed (timeout, no signal): callers keep the saved cookie and skip the login
+      result.put("cookiesUnknown", cookieState == CookieState.UNKNOWN)
       call.resolve(result)
     }.also { it.isDaemon = true }.start()
   }
@@ -227,6 +270,9 @@ class AbsCfZeroTrust : Plugin() {
         if (!resolved) {
           call.reject("cancelled")
         }
+        // Without this every login leaks its WebView until garbage collection
+        webView.stopLoading()
+        webView.destroy()
       }
       dialog.show()
       webView.loadUrl(serverAddress)

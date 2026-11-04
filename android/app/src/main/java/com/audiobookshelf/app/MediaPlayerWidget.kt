@@ -28,6 +28,11 @@ class MediaPlayerWidget : AppWidgetProvider() {
   val tag = "MediaPlayerWidget"
   override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
     Log.d(tag, "onUpdate $appWidgetIds")
+    // After a reboot (and on most launchers after an app update) the widget is reset to its layout
+    // defaults ("Title / Artist / 0:00"), with buttons that do nothing. Redraw it from the last
+    // saved session instead of waiting for playback to start.
+    DbManager.initialize(context)
+    DeviceManager.refreshWidgets(context)
   }
 
   override fun onEnabled(context: Context) {
@@ -58,7 +63,7 @@ internal fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManage
   wholeWidgetClickI.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
   val wholeWidgetClickPI = PendingIntent.getActivity(
     context,
-    System.currentTimeMillis().toInt(),
+    "open-app".hashCode(),
     wholeWidgetClickI,
     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
   )
@@ -91,7 +96,7 @@ internal fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManage
   views.setTextViewText(R.id.widgetMediaTitle, title)
 
   val options = RequestOptions().override(300, 300).placeholder(R.drawable.icon).error(R.drawable.icon)
-  Glide.with(context.applicationContext).asBitmap().load(imageUri).apply(options).into(awt)
+  Glide.with(context.applicationContext).asBitmap().load(com.audiobookshelf.app.player.CoverLoadHelper.glideModel(imageUri)).apply(options).into(awt)
 
   Log.i(tag, "Update App Widget | Is Playing=$isPlaying | isAppClosed=$isAppClosed")
 

@@ -26,7 +26,7 @@
             <p class="nh-rf-sheet-a">{{ activeRow.info.author }}</p>
           </div>
         </div>
-        <div class="nh-rf-pick" @mousemove="onPickerMove" @mouseleave="previewValue = null" @click="onPickerClick" @touchstart.passive="onPickerMove" @touchend.passive="onPickerClick">
+        <div class="nh-rf-pick" @mousemove="onPickerMove" @mouseleave="previewValue = null" @click="onPickerClick" @touchstart.passive="onPickerMove">
           <span class="nh-rt-stars">
             <span>★★★★★</span>
             <span class="nh-rt-fill" :style="{ width: fillPercent(previewValue !== null ? previewValue : pickedValue) + '%' }">★★★★★</span>
@@ -53,11 +53,14 @@
 import { nhRateFinishedStrings, nhRatingsLibOn, nhStarText } from '@/store/index'
 import nhRatingsBulk from '@/mixins/nhRatingsBulk'
 
+// The shelf is rebuilt on every Home visit, so what it learned about each book is kept here
+const sharedItemInfo = {}
+
 export default {
   mixins: [nhRatingsBulk],
   data() {
     return {
-      itemInfo: {},
+      itemInfo: { ...sharedItemInfo },
       fetching: {},
       activeRow: null,
       pickedValue: 0,
@@ -96,7 +99,14 @@ export default {
         .sort((a, b) => (b.finishedAt || b.lastUpdate || 0) - (a.finishedAt || a.lastUpdate || 0))
         .map((p) => p.libraryItemId)
     },
+    // Everything showShelf needs except having rows: when any of this is false there is nothing to
+    // fetch book info for
+    shelfEnabled() {
+      return this.nhThemeActive && !this.$store.state.nhRatingsDead && this.nhSettings.showRateFinished !== false && nhRatingsLibOn(this.nhSettings.ratingLibs, this.currentLibrary)
+    },
     unratedIds() {
+      // Without the ratings cache every finished book looks unrated, which meant 20 requests per visit
+      if (!this.shelfEnabled || !this.nhRatingsBulk) return []
       const myId = this.me?.id ? String(this.me.id) : null
       return this.finishedIds
         .filter((id) => {
@@ -112,13 +122,7 @@ export default {
         .slice(0, 10)
     },
     showShelf() {
-      return (
-        this.nhThemeActive &&
-        !this.$store.state.nhRatingsDead &&
-        this.nhSettings.showRateFinished !== false &&
-        nhRatingsLibOn(this.nhSettings.ratingLibs, this.currentLibrary) &&
-        this.rows.length > 0
-      )
+      return this.shelfEnabled && this.rows.length > 0
     }
   },
   watch: {
@@ -146,18 +150,22 @@ export default {
       this.$set(this.fetching, id, false)
       if (!item) return
       const md = item.media?.metadata || {}
-      this.$set(this.itemInfo, id, {
+      const info = {
         title: md.title || '',
         author: md.authorName || (md.authors || []).map((a) => a.name).join(', ') || '',
         libraryId: item.libraryId
-      })
+      }
+      sharedItemInfo[id] = info
+      this.$set(this.itemInfo, id, info)
     },
     valueFromPointer(e) {
       const picker = e.currentTarget.querySelector('.nh-rt-stars')
       const rect = picker.getBoundingClientRect()
-      const point = e.touches && e.touches[0] ? e.touches[0] : e
+      const point = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e
       const st = this.starStep
       const v = Math.ceil(((point.clientX - rect.left) / rect.width) * (5 / st)) * st
+      // NaN would be sent as null, which the server reads as "remove my rating"
+      if (!Number.isFinite(v)) return null
       return Math.max(st, Math.min(5, v))
     },
     onPickerMove(e) {
@@ -165,6 +173,7 @@ export default {
     },
     async onPickerClick(e) {
       const v = this.valueFromPointer(e)
+      if (v === null) return
       this.pickedValue = v
       const row = this.activeRow
       if (!row) return

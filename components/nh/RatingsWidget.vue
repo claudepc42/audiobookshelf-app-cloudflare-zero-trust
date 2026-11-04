@@ -1,7 +1,7 @@
 <template>
   <div v-if="!dead" id="nh-ratings">
     <div class="nh-rt-main">
-      <span id="nh-rt-picker" v-nh-star-nudge class="nh-rt-stars" @mousemove="onPickerMove" @mouseleave="onPickerLeave" @click="onPickerClick" @touchstart.passive="onPickerMove" @touchend.passive="onPickerClick">
+      <span id="nh-rt-picker" v-nh-star-nudge class="nh-rt-stars" @mousemove="onPickerMove" @mouseleave="onPickerLeave" @click="onPickerClick" @touchstart.passive="onPickerMove">
         <span>★★★★★</span>
         <span class="nh-rt-fill" :style="{ width: fillPercent(previewValue !== null ? previewValue : avg) + '%' }">★★★★★</span>
       </span>
@@ -63,7 +63,7 @@
 </template>
 
 <script>
-import { nhStarText, nhRatingStrings, nhRatingWord } from '@/store/index'
+import { nhStarText, nhRatingStrings, nhRatingWord, nhRatingsLibOn } from '@/store/index'
 import nhSeriesMeta from '@/mixins/nhSeriesMeta'
 
 export default {
@@ -95,7 +95,15 @@ export default {
       return this.$store.state.nhSettings
     },
     dead() {
-      return this.$store.state.nhRatingsDead || this.gone
+      return this.$store.state.nhRatingsDead || this.gone || this.ratingsOff
+    },
+    // Same gate as the card badges, search and the shelf: the user's switch, the admin's lock (which
+    // forces showRatings off) and the library's own setting
+    ratingsOff() {
+      if (this.nhSettings.showRatings === false) return true
+      // A series key (series:<id>) belongs to the current library; a book belongs to its own
+      const library = this.$store.getters['libraries/getCurrentLibrary']
+      return !nhRatingsLibOn(this.nhSettings.ratingLibs, library)
     },
     starStep() {
       return this.nhSettings.starStep
@@ -175,7 +183,7 @@ export default {
       }
     },
     async fetch() {
-      if (this.fetching || this.$store.state.nhRatingsDead) return
+      if (this.fetching || this.$store.state.nhRatingsDead || this.ratingsOff) return
       this.fetching = true
       try {
         // NH source: book-details.js:1082 — an admin always fetches through the
@@ -189,16 +197,17 @@ export default {
         this.tries = 0
       } catch (e) {
         this.fetching = false
+        // 404 means the server has no NanoHive backend (a stock server has no /_nh route): retrying
+        // won't change that, so stop at once and let the rest of the app know
+        if (e?.status === 404) {
+          this.gone = true
+          this.$store.commit('setNhRatingsDead', true)
+          return
+        }
         this.tries++
-        // $nativeHttp's thrown Error only carries a message string (often the raw
-        // response body, not the status code), so a reliable 404-vs-transient-error
-        // split isn't available here the way NH's own fetch()-based client can do it
-        // (book-details.js:992, checking r.status directly). Retry with backoff
-        // (mirrors nhRtRetry, book-details.js:974-984) and treat exhausted retries as
-        // "unavailable for this item" — scoped to THIS widget instance only (NH
-        // source: nhRt.dead is per-instance too), not a global kill switch. Only the
-        // shared bulk cache (mixins/nhRatingsBulk.js) sets the session-wide dead flag,
-        // matching NH's own nhRs.dead vs. nhRt.dead distinction.
+        // Anything else: retry with backoff (mirrors nhRtRetry, book-details.js:974-984) and
+        // treat exhausted retries as "unavailable for this item" — scoped to THIS widget
+        // instance only (NH source: nhRt.dead is per-instance too).
         if (this.tries > 6) {
           this.gone = true
           return
@@ -209,9 +218,12 @@ export default {
     valueFromPointer(e) {
       const picker = e.currentTarget
       const rect = picker.getBoundingClientRect()
-      const point = e.touches && e.touches[0] ? e.touches[0] : e
+      const point = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e
       const st = this.starStep
       const v = Math.ceil(((point.clientX - rect.left) / rect.width) * (5 / st)) * st
+      // NaN (no pointer position) must never reach save(): it is sent as null, which the server
+      // reads as "remove my rating and review"
+      if (!Number.isFinite(v)) return null
       return Math.max(st, Math.min(5, v))
     },
     onPickerMove(e) {
@@ -224,6 +236,7 @@ export default {
     onPickerClick(e) {
       if (!this.me) return
       const v = this.valueFromPointer(e)
+      if (v === null) return
       this.status = '…'
       this.save(v, this.editorOpen ? this.draft : (this.mine && this.mine.review) || '')
     },
