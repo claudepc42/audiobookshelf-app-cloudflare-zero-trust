@@ -27,6 +27,7 @@
       v-for="(slide, i) in slides"
       :key="`content-${slide.id}`"
       ref="slideEl"
+      :data-slide-index="i"
       class="absolute inset-0 z-20 flex flex-col px-5 pt-5 pb-5"
       :style="slideStyle(i)"
     >
@@ -679,10 +680,18 @@ export default {
       if (!els) return
       const cardWidth = this.$el ? this.$el.offsetWidth : 300
       const px = this.dragOffset
+      // Vue 2 keeps a v-for ref array in the order the elements were first created, not in slide
+      // order: after the slides reorder (the book just played moves to the front) els[i] is a
+      // different slide's element, so the drag moved the wrong card and left the right one stuck.
+      // Each element carries its current index instead.
+      const byIndex = {}
+      els.forEach((e) => {
+        byIndex[e.dataset.slideIndex] = e
+      })
       this.slides.forEach((_, i) => {
         const diff = i - this.activeIndex
         if (Math.abs(diff) > 1) return // stays hidden/untouched, per slideStyle()
-        const el = els[i]
+        const el = byIndex[i]
         if (!el) return
         el.style.transition = 'none'
         el.style.transform = `translateX(calc(${diff * 100}% + ${px}px))`
