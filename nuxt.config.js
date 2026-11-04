@@ -12,7 +12,7 @@ export default {
 
   publicRuntimeConfig: {
     version: pkg.version,
-    cfztVersion: 'v12.9'
+    cfztVersion: 'v13.0'
   },
 
   head: {

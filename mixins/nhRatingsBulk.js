@@ -31,6 +31,9 @@ export default {
   methods: {
     ensureNhRatingsBulk() {
       if (!this.nhStore) return
+      // No server yet (fresh install, or before login): the request would go out with a relative
+      // URL and fail with "no protocol", which also counted toward the back-off below.
+      if (!this.nhStore.getters['user/getServerAddress']) return
       const state = this.nhStore.state
       if (state.nhRatingsDead && Date.now() < state.nhRatingsRetryAt) return
       const stale = Date.now() - state.nhRatingsBulkAt > STALE_MS

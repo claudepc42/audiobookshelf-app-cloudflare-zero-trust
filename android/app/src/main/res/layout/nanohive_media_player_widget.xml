@@ -140,17 +140,20 @@
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="top">
 
         <!-- padding shrinks the effective rendered size by ~10% relative
              to filling the full row height, per direct request — these
              stay match_parent + adjustViewBounds (proportional), just
-             with a small inset carved out of that same box. -->
+             with a small inset carved out of that same box. These two are a fixed 32dp, not the
+             full row height: they used to fill the row, so a widget stretched to two rows or more
+             got huge icons that squeezed the title and author down to a few letters. (maxHeight
+             was tried first and has no effect here.) 32dp is about the row height at the default
+             97dp widget, so that size is unchanged. -->
         <ImageView
           android:id="@+id/widgetBookmarkButton"
-          android:layout_width="wrap_content"
-          android:layout_height="match_parent"
-          android:adjustViewBounds="true"
+          android:layout_width="32dp"
+          android:layout_height="32dp"
           android:padding="5dp"
           android:layout_marginEnd="7dp"
           android:scaleType="fitCenter"
@@ -158,9 +161,8 @@
 
         <ImageView
           android:id="@+id/widgetSleepTimerButton"
-          android:layout_width="wrap_content"
-          android:layout_height="match_parent"
-          android:adjustViewBounds="true"
+          android:layout_width="32dp"
+          android:layout_height="32dp"
           android:padding="5dp"
           android:scaleType="fitCenter"
           android:src="@drawable/nh_widget_icon_sleep" />

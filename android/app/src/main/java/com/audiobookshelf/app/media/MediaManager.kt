@@ -9,8 +9,13 @@ import com.audiobookshelf.app.device.DeviceManager
 import com.audiobookshelf.app.server.ApiHandler
 import com.getcapacitor.JSObject
 import java.util.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONException
 import org.json.JSONObject
 import kotlin.coroutines.resume
@@ -19,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class MediaManager(private var apiHandler: ApiHandler, var ctx: Context) {
   val tag = "MediaManager"
+  private val AUTHORIZE_TIMEOUT_MS = 10_000L
 
   private var serverLibraryItems = mutableListOf<LibraryItem>() // Store all items here
 
@@ -716,21 +722,30 @@ class MediaManager(private var apiHandler: ApiHandler, var ctx: Context) {
     return successfulPing
   }
 
+  // authorize() goes through the default client, which has no overall call timeout, so a server that
+  // accepts the connection and then stalls would hold the Android Auto load for as long as it likes.
   private suspend fun authorize(config:ServerConnectionConfig) : MutableList<MediaProgress> {
     var mediaProgress:MutableList<MediaProgress> = mutableListOf()
-    suspendCoroutine { cont ->
-      apiHandler.authorize(config) {
-        Log.d(tag, "authorize: Authorized server config ${config.address} result = $it")
-        if (!it.isNullOrEmpty()) {
-          mediaProgress = it
+    val finished = withTimeoutOrNull(AUTHORIZE_TIMEOUT_MS) {
+      suspendCancellableCoroutine<Unit> { cont ->
+        apiHandler.authorize(config) {
+          Log.d(tag, "authorize: Authorized server config ${config.address} result = $it")
+          if (!it.isNullOrEmpty()) {
+            mediaProgress = it
+          }
+          if (cont.isActive) cont.resume(Unit)
         }
-        cont.resume(mediaProgress)
       }
     }
+    if (finished == null) Log.w(tag, "authorize: Timed out for server config ${config.address}")
     return mediaProgress
   }
 
-  private fun checkSetValidServerConnectionConfig(cb: (Boolean) -> Unit) = runBlocking {
+  // Pinging the saved servers one after another can take many seconds on a bad connection, so it runs
+  // here instead of blocking the thread that Android Auto called us on. `cb` is called from this scope.
+  private val serverCheckScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+  private fun checkSetValidServerConnectionConfig(cb: (Boolean) -> Unit) = serverCheckScope.launch {
     Log.d(tag, "checkSetValidServerConnectionConfig | serverConfigIdUsed=$serverConfigIdUsed | lastServerConnectionConfigId=${DeviceManager.deviceData.lastServerConnectionConfigId}")
 
     coroutineScope {

@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.R
 import androidx.mediarouter.app.MediaRouteChooserDialog
 import androidx.mediarouter.media.MediaRouteSelector
@@ -276,6 +277,11 @@ class CastManager constructor(val mainActivity:Activity) {
           if (it.castPlayer == null) {
             Log.d(tag, "Initializing castPlayer on session started - switch to cast player")
             it.castPlayer = CastPlayer(castContext).apply {
+              onLoadFailed = {
+                mainActivity.runOnUiThread {
+                  Toast.makeText(mainActivity, com.audiobookshelf.app.R.string.cast_load_failed, Toast.LENGTH_LONG).show()
+                }
+              }
               addListener(PlayerListener(it))
               setSessionAvailabilityListener(CastSessionAvailabilityListener())
             }

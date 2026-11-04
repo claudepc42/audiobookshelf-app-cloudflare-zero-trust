@@ -37,6 +37,10 @@ import org.json.JSONObject
 class CastPlayer(var castContext: CastContext) : BasePlayer() {
   val tag = "CastPlayer"
 
+  // Called when the Chromecast reports that it could not load the media (for example because it could
+  // not reach the server address), so the user is told instead of just seeing nothing play.
+  var onLoadFailed: (() -> Unit)? = null
+
   private val RENDERER_COUNT = 3
   private val RENDERER_INDEX_VIDEO = 0
   private val RENDERER_INDEX_AUDIO = 1
@@ -150,6 +154,7 @@ class CastPlayer(var castContext: CastContext) : BasePlayer() {
 
     remoteMediaClient?.load(loadRequestData)?.setResultCallback {
       Log.d(tag, "Loaded cast player result ${it.status} | ${it.mediaError} | ${it.customData}")
+      if (!it.status.isSuccess) onLoadFailed?.invoke()
     }
 
     Log.d(tag, "Loaded cast player request data $loadRequestData")
