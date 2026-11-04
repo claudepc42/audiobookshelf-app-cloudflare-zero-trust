@@ -9,7 +9,7 @@
       <div class="w-full rounded-lg bg-primary border border-border overflow-y-auto overflow-x-hidden relative mt-16" style="max-height: 80vh" @click.stop.prevent>
         <div class="w-full h-full">
           <template v-for="session in sessions">
-            <modals-session-history-session-history-item :key="session.startTime" :session="session" :playback-rate="_playbackRate" @click="clickSession" />
+            <modals-session-history-item :key="session.startTime" :session="session" :playback-rate="_playbackRate" @click="clickSession" />
           </template>
           <div v-if="!sessions.length" class="flex h-32 items-center justify-center px-6 text-center">
             <p class="text-lg text-fg-muted">{{ $strings.MessageNoListeningHistory }}</p>
