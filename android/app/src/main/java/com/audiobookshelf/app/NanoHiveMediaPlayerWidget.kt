@@ -224,7 +224,7 @@ internal fun updateNanoHiveAppWidget(context: Context, appWidgetManager: AppWidg
 
   Log.i(tag, "Update NanoHive App Widget | Is Playing=$isPlaying | isAppClosed=$isAppClosed")
 
-  val playPauseResource = if (isPlaying) androidx.mediarouter.R.drawable.ic_media_pause_dark else androidx.mediarouter.R.drawable.ic_media_play_dark
+  val playPauseResource = if (isPlaying) R.drawable.nh_widget_icon_pause else R.drawable.nh_widget_icon_play
   views.setImageViewResource(R.id.widgetPlayPauseButton, playPauseResource)
 
   // Tint the transport/bookmark/sleep icons with the user's actual accent
