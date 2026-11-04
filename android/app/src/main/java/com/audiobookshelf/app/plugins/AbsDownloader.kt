@@ -84,8 +84,9 @@ class AbsDownloader : Plugin() {
     }
 
     apiHandler.getLibraryItemWithProgress(libraryItemId, episodeId) { libraryItem ->
-      // From here the item is either queued (the queue knows it) or failed
-      pendingDownloadIds.remove(downloadId)
+      // Held until the item is queued (or has failed): building the parts takes a moment, and a second
+      // tap in that moment used to pass both checks
+      try {
       if (libraryItem == null) {
         call.resolve(JSObject("{\"error\":\"Server request failed\"}"))
       } else {
@@ -124,6 +125,9 @@ class AbsDownloader : Plugin() {
         } else {
           call.resolve(JSObject("{\"error\":\"Local Folder Not Found\"}"))
         }
+      }
+      } finally {
+        pendingDownloadIds.remove(downloadId)
       }
     }
   }

@@ -20,10 +20,11 @@ Vue.directive('click-outside', vClickOutside.directive)
 // font's line box and counter-shifts by exactly that difference; a font with
 // no sag measures ~0 and gets no transform at all (see the 0.5px guard).
 let nhStarNudgeCtx = null
-function nhStarNudge(el) {
+function nhStarNudge(el, tries = 0) {
   try {
     if (!el.isConnected) {
-      requestAnimationFrame(() => nhStarNudge(el))
+      // Waits a few frames for the element to attach; one removed before that must not retry forever
+      if (tries < 30) requestAnimationFrame(() => nhStarNudge(el, tries + 1))
       return
     }
     const cs = getComputedStyle(el)

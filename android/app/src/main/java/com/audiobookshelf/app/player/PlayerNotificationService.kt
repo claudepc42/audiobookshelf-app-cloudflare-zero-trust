@@ -184,6 +184,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
       val connectivityManager =
               getSystemService(ConnectivityManager::class.java) as ConnectivityManager
       connectivityManager.unregisterNetworkCallback(networkCallback)
+      connectivityManager.unregisterNetworkCallback(defaultNetworkCallback)
     } catch (error: Exception) {
       Log.e(tag, "Error unregistering network listening callback $error")
     }
@@ -231,6 +232,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     val connectivityManager =
             getSystemService(ConnectivityManager::class.java) as ConnectivityManager
     connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+    connectivityManager.registerDefaultNetworkCallback(defaultNetworkCallback)
 
     DbManager.initialize(ctx)
 
@@ -2074,8 +2076,32 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
             }
   }
 
-  // The kind of network last seen, so the route is only re-checked when it really changes
-  private var lastNetworkKind: String? = null
+  // The route (LAN vs primary) has to be re-checked whenever the DEFAULT network changes: Wi-Fi to
+  // mobile data, one Wi-Fi network to another, or losing the network. networkCallback below only sees
+  // validated, unmetered networks, so it never fires for mobile data (which is metered) or for losing
+  // Wi-Fi. This one follows the default network whatever it is.
+  private var lastDefaultNetwork: Network? = null
+  private var lastDefaultWasCellular = false
+
+  private val defaultNetworkCallback =
+          object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+              val isCellular = networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                      !networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                      !networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+              if (network != lastDefaultNetwork || isCellular != lastDefaultWasCellular) {
+                lastDefaultNetwork = network
+                lastDefaultWasCellular = isCellular
+                com.audiobookshelf.app.device.EndpointResolver.onNetworkChanged(DeviceManager.serverConnectionConfig, isCellular)
+              }
+            }
+
+            override fun onLost(network: Network) {
+              // The next default network reports through onCapabilitiesChanged; forget this one so a
+              // return to the same network is treated as a change
+              if (network == lastDefaultNetwork) lastDefaultNetwork = null
+            }
+          }
 
   private val networkCallback =
           object : ConnectivityManager.NetworkCallback() {
@@ -2086,17 +2112,6 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
             ) {
               super.onCapabilitiesChanged(network, networkCapabilities)
 
-              // Leaving home (Wi-Fi to mobile data) or arriving: re-check LAN vs primary here, because
-              // JS doesn't run while the app is in the background and native traffic would keep
-              // aiming at the LAN address until a request timed out
-              val isCellular = networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
-                      !networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
-                      !networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-              val networkKind = if (isCellular) "cellular" else "other"
-              if (networkKind != lastNetworkKind) {
-                lastNetworkKind = networkKind
-                com.audiobookshelf.app.device.EndpointResolver.onNetworkChanged(DeviceManager.serverConnectionConfig, isCellular)
-              }
 
               isUnmeteredNetwork =
                       networkCapabilities.hasCapability(

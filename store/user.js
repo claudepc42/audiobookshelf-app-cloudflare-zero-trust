@@ -16,6 +16,10 @@ export const state = () => ({
   // session." Cleared the moment a real login (attemptConnection or
   // ServerConnectForm) commits a fresh setUser.
   isHydratedFromCache: false,
+  // Books where the merge of the server's progress and this device's picked an earlier position than
+  // the one it discarded: { local, server, applied: 'local' | 'server' }. layouts/default.vue asks
+  // the user about them.
+  progressConflicts: [],
   settings: {
     mobileOrderBy: 'addedAt',
     mobileOrderDesc: true,
@@ -233,6 +237,30 @@ function mergeMediaProgressLists(current, incoming) {
   return Array.from(byId.values())
 }
 
+function progressPosition(p) {
+  return Math.max(p?.progress || 0, p?.ebookProgress || 0)
+}
+
+// Merges a live server snapshot into what is already in the store, once the session is confirmed
+// (not the first merge after a cold start). The server is authoritative, with one exception: a record
+// here that is NEWER than the server's is kept, so a step back that hasn't reached the server yet
+// (going back a chapter) isn't undone by the next snapshot. Records the server no longer has (reset
+// on another device) are dropped. Also returns the records that kept an earlier position than the
+// server's, so the caller can ask the user about them.
+function mergeLiveMediaProgress(current, incoming) {
+  const currentById = new Map((current || []).filter((p) => p?.id).map((p) => [p.id, p]))
+  const conflicts = []
+  const merged = (incoming || []).map((p) => {
+    const local = p?.id ? currentById.get(p.id) : null
+    if (local && (local.lastUpdate || 0) > (p.lastUpdate || 0)) {
+      if (progressPosition(local) < progressPosition(p)) conflicts.push({ local, server: p, applied: 'local' })
+      return local
+    }
+    return p
+  })
+  return { merged, conflicts }
+}
+
 export const mutations = {
   logout(state) {
     state.user = null
@@ -241,9 +269,29 @@ export const mutations = {
   },
   setUser(state, user) {
     if (state.user?.mediaProgress?.length && user?.mediaProgress) {
-      user = { ...user, mediaProgress: mergeMediaProgressLists(state.user.mediaProgress, user.mediaProgress) }
+      const conflicts = []
+      if (state.isHydratedFromCache) {
+        // First live snapshot after a cold start: the list here is a stale cache, and an autosave that
+        // ran from a stale start can have a newer timestamp than the server's further-along record, so
+        // position decides. Where that discards a newer but earlier position, the user is asked.
+        const currentById = new Map(state.user.mediaProgress.filter((p) => p?.id).map((p) => [p.id, p]))
+        const merged = mergeMediaProgressLists(state.user.mediaProgress, user.mediaProgress)
+        merged.forEach((p) => {
+          const local = currentById.get(p.id)
+          if (local && p !== local && (local.lastUpdate || 0) > (p.lastUpdate || 0) && progressPosition(local) < progressPosition(p)) conflicts.push({ local, server: p, applied: 'server' })
+        })
+        user = { ...user, mediaProgress: merged }
+      } else {
+        const result = mergeLiveMediaProgress(state.user.mediaProgress, user.mediaProgress)
+        user = { ...user, mediaProgress: result.merged }
+        conflicts.push(...result.conflicts)
+      }
+      if (conflicts.length) state.progressConflicts = [...state.progressConflicts, ...conflicts]
     }
     state.user = user
+  },
+  clearProgressConflicts(state) {
+    state.progressConflicts = []
   },
   setAccessToken(state, accessToken) {
     state.accessToken = accessToken

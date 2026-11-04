@@ -90,6 +90,10 @@ data class DownloadItemPart(
   @JsonIgnore
   var usesOkHttp: Boolean = false
 
+  // Where the file ended up in a picked folder, so a download that is discarded can remove it again
+  @JsonIgnore
+  var movedDocUri: String? = null
+
   @get:JsonIgnore
   val serverUrl get() = buildServerUrl(serverPath)
 

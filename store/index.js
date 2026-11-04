@@ -457,6 +457,9 @@ export const state = () => ({
   nhLockedOriginals: {},
   // Don't retry a failed series-meta fetch before this time
   nhSeriesMetaRetryAt: 0,
+  // Bumped whenever the NanoHive caches are reset (server change or logout); a reply to a request
+  // made before the reset belongs to the old server and is ignored
+  nhCacheEpoch: 0,
   isNetworkListenerInit: false,
   serverSettings: null,
   lastBookshelfScrollData: {},
@@ -541,6 +544,9 @@ export const actions = {
   async loadNhSettings({ commit, dispatch }) {
     const settings = await this.$localStore.getNhSettings()
     commit('setNhSettings', settings || {})
+    // The widget reads one fixed key, so a different user's saved look has to be written to it when
+    // their settings load, not only when they next save
+    if (await this.$localStore.writeNhWidgetKey(settings || {})) AbsWidgetUpdater.refresh().catch(() => {})
     // On unless the user explicitly turned it off
     await dispatch('setNhThemeEnabled', settings?.active !== false)
     return settings
@@ -727,6 +733,7 @@ export const mutations = {
     state.nhAvatars = null
     state.nhSeriesDescText = {}
     state.nhSeriesMetaRetryAt = 0
+    state.nhCacheEpoch++
     state.nhServerConfig = null
     state.nhServerLocks = {}
     // No locks any more: give the user's own values back

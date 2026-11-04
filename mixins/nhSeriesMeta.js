@@ -5,6 +5,7 @@
 // One request at a time for the whole app. This used to be a flag on each component, so a page of
 // series cards sent one identical request per card until the first answer arrived.
 let sharedSeriesMetaPromise = null
+let sharedSeriesMetaEpoch = -1
 const SERIES_META_RETRY_MS = 60000
 
 export default {
@@ -35,21 +36,29 @@ export default {
   methods: {
     ensureNhSeriesMeta() {
       const state = this.nhStore?.state
-      if (!state || state.nhSeriesCovers || sharedSeriesMetaPromise) return
+      if (!state || state.nhSeriesCovers) return
+      // One in flight per cache epoch: a request left over from before a server switch must neither
+      // block the new server's fetch nor fill its caches
+      if (sharedSeriesMetaPromise && sharedSeriesMetaEpoch === state.nhCacheEpoch) return
       // A failed fetch is retried after a minute, not stored as "loaded and empty" for the session
       if (Date.now() < state.nhSeriesMetaRetryAt) return
       const store = this.nhStore
-      sharedSeriesMetaPromise = this.$nativeHttp
+      const epoch = state.nhCacheEpoch
+      const promise = this.$nativeHttp
         .get('/_nh/api/series-meta')
         .then((res) => {
+          if (store.state.nhCacheEpoch !== epoch) return
           store.commit('setNhSeriesMeta', { covers: res?.covers, descs: res?.descs, avatars: res?.avatars })
         })
         .catch(() => {
+          if (store.state.nhCacheEpoch !== epoch) return
           store.commit('setNhSeriesMetaRetryAt', Date.now() + SERIES_META_RETRY_MS)
         })
         .finally(() => {
-          sharedSeriesMetaPromise = null
+          if (sharedSeriesMetaPromise === promise) sharedSeriesMetaPromise = null
         })
+      sharedSeriesMetaPromise = promise
+      sharedSeriesMetaEpoch = epoch
     },
     // Reads the custom description text if it has been loaded, null otherwise. Read-only, so it's
     // safe to call while rendering; ensureNhSeriesDescText does the fetching.

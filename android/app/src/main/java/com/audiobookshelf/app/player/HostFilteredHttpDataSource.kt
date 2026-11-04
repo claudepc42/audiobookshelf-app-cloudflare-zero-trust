@@ -3,6 +3,7 @@ package com.audiobookshelf.app.player
 import android.net.Uri
 import com.audiobookshelf.app.data.ServerConnectionConfig
 import com.google.android.exoplayer2.upstream.*
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * DataSource.Factory for streaming from the ABS server. Everything is read when each request opens,
@@ -45,16 +46,20 @@ class HostFilteredHttpDataSource(
     return try { Uri.parse(address).host ?: "" } catch (e: Exception) { "" }
   }
 
-  private fun matchesHost(requestHost: String?, serverHost: String): Boolean {
-    if (requestHost == null || serverHost.isEmpty()) return false
-    return requestHost == serverHost || requestHost.endsWith(".$serverHost")
+  // Same scheme, host and port. Comparing hosts alone treated a LAN address on the primary's hostname
+  // (http://books.example.com:13378 next to https://books.example.com) as the primary, which sent the
+  // CF cookie and service tokens over plain HTTP.
+  private fun sameOrigin(uri: Uri, address: String?): Boolean {
+    if (address.isNullOrEmpty()) return false
+    val target = uri.toString().toHttpUrlOrNull() ?: return false
+    val server = address.toHttpUrlOrNull() ?: return false
+    return target.scheme == server.scheme && target.host.equals(server.host, ignoreCase = true) && target.port == server.port
   }
 
   override fun open(dataSpec: DataSpec): Long {
     val config = configSupplier()
-    val requestHost = dataSpec.uri.host
-    val isPrimary = matchesHost(requestHost, hostOf(config?.address))
-    val isLan = !isPrimary && matchesHost(requestHost, hostOf(config?.localAddress))
+    val isPrimary = sameOrigin(dataSpec.uri, config?.address)
+    val isLan = !isPrimary && sameOrigin(dataSpec.uri, config?.localAddress)
 
     appliedHeaderNames.forEach { delegate.clearRequestProperty(it) }
     val headers: Map<String, String> = if (isPrimary) config?.customHeaders ?: emptyMap() else emptyMap()

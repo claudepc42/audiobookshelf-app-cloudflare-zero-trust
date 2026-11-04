@@ -116,9 +116,13 @@ class DownloadItemManager(
     if (!cleanedUpInterrupted.compareAndSet(false, true)) return
     GlobalScope.launch(Dispatchers.IO) {
       try {
-        val leftovers = DeviceManager.dbManager.getDownloadItems()
+        // Not the items of this run: one queued right after startup is saved before this read happens
+        val leftovers = DeviceManager.dbManager.getDownloadItems().filter { saved -> downloadItemQueue.none { it.id == saved.id } }
         leftovers.forEach { item ->
-          item.downloadItemParts.forEach { part -> deletePartFiles(part, item.isInternalStorage) }
+          // A finished book whose queue entry outlived the process (the scan saved the library item
+          // before the entry was removed) owns its files; only the stale entry goes
+          val alreadyAdded = DeviceManager.dbManager.getLocalLibraryItemByLId(item.libraryItemId) != null
+          if (!alreadyAdded) item.downloadItemParts.forEach { part -> deletePartFiles(part, item.isInternalStorage) }
           DeviceManager.dbManager.removeDownloadItem(item.id)
         }
         if (leftovers.isNotEmpty()) AbsLogger.info(tag, "cleanUpInterruptedDownloads: Removed ${leftovers.size} interrupted download(s) from a previous run")
@@ -499,6 +503,7 @@ class DownloadItemManager(
                   resultDocFile.renameTo(downloadItemPart.filename)
                 }
 
+                downloadItemPart.movedDocUri = resultDocFile.uri.toString()
                 downloadItemPart.moved = true
                 downloadItemPart.isMoving = false
                 checkDownloadItemFinished(downloadItem)
@@ -540,7 +545,17 @@ class DownloadItemManager(
       // offset by the missing one's length) and no error. Remove what was downloaded and tell JS.
       Log.e(tag, "Download Item ${downloadItem.media.metadata.title} failed: $failedParts of ${downloadItem.downloadItemParts.size} files failed")
       AbsLogger.error(tag, "Download of \"${downloadItem.itemTitle}\" failed: $failedParts of ${downloadItem.downloadItemParts.size} files could not be downloaded, so nothing was added")
-      downloadItem.downloadItemParts.forEach { deletePartFiles(it, downloadItem.isInternalStorage) }
+      downloadItem.downloadItemParts.forEach { part ->
+        deletePartFiles(part, downloadItem.isInternalStorage)
+        // Parts that had already been moved into the picked folder
+        part.movedDocUri?.let { uri ->
+          try {
+            DocumentFileCompat.fromUri(mainActivity, Uri.parse(uri))?.delete()
+          } catch (e: Exception) {
+            Log.e(tag, "Failed to remove moved file of a failed download: ${part.filename}", e)
+          }
+        }
+      }
       if (downloadItem.isInternalStorage) File(downloadItem.itemFolderPath).delete() // only removes an empty folder
 
       val jsobj =

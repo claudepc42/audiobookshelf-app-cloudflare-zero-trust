@@ -124,6 +124,8 @@ export default {
     async fetchTitle(libraryItemId) {
       // Each book is looked up once. One that fails (e.g. deleted from the server: 404) isn't asked
       // about again on every progress update.
+      // The immediate watcher calls this before created() runs, so the set can't be assumed to exist
+      if (!this.requestedTitles) this.requestedTitles = new Set()
       if (this.titles[libraryItemId] || this.requestedTitles.has(libraryItemId)) return
       this.requestedTitles.add(libraryItemId)
       const item = await this.$nativeHttp.get(`/api/items/${libraryItemId}?minified=1`).catch(() => null)

@@ -202,10 +202,13 @@ export default function ({ store, $db, $socket }, inject) {
 
       // Relative /api/ requests wait for the cached session to be confirmed (see above); the token
       // is read after the wait because the confirmation may have refreshed it
+      // The store holds one server's token. If the active server changed since this request was built
+      // (switched servers while it waited), that token isn't for this URL.
+      const storeIsSameServer = () => !serverConnectionConfig?.id || store.state.user.serverConnectionConfig?.id === serverConnectionConfig.id
       if (usedStoreToken) {
         await waitForConfirmedSession()
         const confirmedToken = store.getters['user/getToken']
-        if (confirmedToken && headers['Authorization'] !== `Bearer ${confirmedToken}`) {
+        if (confirmedToken && storeIsSameServer() && headers['Authorization'] !== `Bearer ${confirmedToken}`) {
           headers['Authorization'] = `Bearer ${confirmedToken}`
         }
       }
@@ -223,7 +226,7 @@ export default function ({ store, $db, $socket }, inject) {
           // Refreshing again would rotate the token a second time (re-opening the cross-layer race
           // and burning the server's rate limit) — just retry with the token we already have.
           const currentToken = store.getters['user/getToken']
-          if (usedStoreToken && currentToken && headers['Authorization'] !== `Bearer ${currentToken}`) {
+          if (usedStoreToken && currentToken && storeIsSameServer() && headers['Authorization'] !== `Bearer ${currentToken}`) {
             AbsLogger.info({ tag: 'nativeHttp', message: `request: 401 for "${url}" (${method}) was sent with an older token than the current one — retrying with the current token instead of refreshing again` })
             return CapacitorHttp.request({ method, url, data, headers: { ...headers, Authorization: `Bearer ${currentToken}` }, ...options }).then((retryRes) => {
               if (retryRes.status >= 400) {

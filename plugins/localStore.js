@@ -287,18 +287,29 @@ class LocalStorage {
   async setNhSettings(settings) {
     try {
       await Preferences.set({ key: this.nhSettingsKey(), value: JSON.stringify(settings) })
-      // The Android home-screen widget can't know the per-user key above, so it reads this small
-      // fixed key: just the three values it uses (see NanoHiveMediaPlayerWidget.kt readNhWidgetStyle)
-      await Preferences.set({
-        key: 'nhWidget',
-        value: JSON.stringify({
-          accentColor: settings?.accentColor,
-          baseTheme: settings?.baseTheme,
-          widgetOpacity: settings?.nhGlassEffect?.cssVars?.['--nh-widget-opacity']
-        })
-      })
+      await this.writeNhWidgetKey(settings)
     } catch (error) {
       console.error('[LocalStorage] Failed to set NH settings', error)
+    }
+  }
+
+  // The Android home-screen widget can't know the per-user key above, so it reads this small fixed
+  // key: just the three values it uses (see NanoHiveMediaPlayerWidget.kt readNhWidgetStyle).
+  // Resolves true if the stored value changed.
+  async writeNhWidgetKey(settings) {
+    try {
+      const value = JSON.stringify({
+        accentColor: settings?.accentColor,
+        baseTheme: settings?.baseTheme,
+        widgetOpacity: settings?.nhGlassEffect?.cssVars?.['--nh-widget-opacity']
+      })
+      const existing = (await Preferences.get({ key: 'nhWidget' })) || {}
+      if (existing.value === value) return false
+      await Preferences.set({ key: 'nhWidget', value })
+      return true
+    } catch (error) {
+      console.error('[LocalStorage] Failed to write the widget settings', error)
+      return false
     }
   }
 

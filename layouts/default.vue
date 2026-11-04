@@ -26,6 +26,7 @@ import { CapacitorHttp } from '@capacitor/core'
 import { AbsLogger } from '@/plugins/capacitor'
 import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
 import { NH_BASE_THEMES, NH_GLASS_EFFECT_CONTROLS } from '@/store/index'
+import { Dialog } from '@capacitor/dialog'
 import { loadNhFont } from '@/utils/nhFont'
 
 export default {
@@ -89,11 +90,15 @@ export default {
     // cached from the old one (locks, ratings, series covers, avatars), signing in as a different user
     // loads that user's own settings, and a fresh login fetches the server's NanoHive config, which
     // used to be fetched once at app start, usually before there was a server to ask.
+    progressConflicts(list) {
+      if (list.length) this.askAboutProgressConflicts()
+    },
     nhServerKey(val, old) {
       const [oldServer, oldUser] = (old || '|').split('|')
       const [server, user] = (val || '|').split('|')
       if ((oldServer && oldServer !== server) || (oldUser && !user)) this.$store.commit('resetNhCaches')
-      if (oldUser && oldUser !== user) this.$store.dispatch('loadNhSettings')
+      // A different user signed in (including after a logout, when oldUser is empty), or signed out
+      if ((user && oldUser !== user) || (oldUser && !user)) this.$store.dispatch('loadNhSettings')
       if (server && user && this.nhThemeActive) this.fetchNhServerConfig()
     },
     'nhStoreHomeCoverUrl'(val) {
@@ -185,6 +190,9 @@ export default {
     currentPlaybackSession() {
       return this.$store.state.currentPlaybackSession
     },
+    progressConflicts() {
+      return this.$store.state.user.progressConflicts
+    },
     nhServerKey() {
       return `${this.$store.state.user.serverConnectionConfig?.id || ''}|${this.$store.state.user.user?.id || ''}`
     },
@@ -236,6 +244,29 @@ export default {
     }
   },
   methods: {
+    // This device and the server disagree about where you are, and the merge picked the EARLIER of the
+    // two positions (a step back that hasn't reached the server, or a stale start). Say so and let the
+    // user decide: the choice already applied stays unless they pick the other one.
+    async askAboutProgressConflicts() {
+      const conflicts = this.$store.state.user.progressConflicts
+      this.$store.commit('user/clearProgressConflicts')
+      const groups = [
+        [conflicts.filter((c) => c.applied === 'local'), 'MessageProgressKeptEarlier', 'ButtonProgressKeepDevice', 'ButtonProgressUseServer'],
+        [conflicts.filter((c) => c.applied === 'server'), 'MessageProgressUsedServerLater', 'ButtonProgressKeepServer', 'ButtonProgressUseDevice']
+      ]
+      for (const [group, messageKey, keepLabel, switchLabel] of groups) {
+        if (!group.length) continue
+        const { value: keepCurrent } = await Dialog.confirm({
+          title: this.$strings.HeaderConfirm,
+          message: this.$getString(messageKey, [group.length]),
+          okButtonTitle: this.$strings[keepLabel],
+          cancelButtonTitle: this.$strings[switchLabel]
+        })
+        if (keepCurrent) continue
+        // The user chose the other position: put that record in place
+        group.forEach((c) => this.$store.commit('user/updateUserMediaProgress', c.applied === 'local' ? c.server : c.local))
+      }
+    },
     flushNhHomeBg() {
       clearTimeout(this._nhHomeBgTimer)
       const url = this.nhStoreHomeCoverUrl
@@ -253,16 +284,21 @@ export default {
     // injection has. Only the kill-switches, which must win regardless of a
     // user's own saved choice, are wired up on this side.
     fetchNhServerConfig(attempt = 0) {
-      if (this._fetchingNhServerConfig) return
+      const epoch = this.$store.state.nhCacheEpoch
+      // A request left over from before a server switch doesn't block the new server's
+      if (this._fetchingNhServerConfig && this._nhServerConfigEpoch === epoch) return
       // Nothing to ask until there's a server; the nhServerKey watcher calls this again after login
       if (!this.$store.state.user.serverConnectionConfig?.address) return
       this._fetchingNhServerConfig = true
+      this._nhServerConfigEpoch = epoch
       this.$nativeHttp
         .get('/_nh/server-config.json')
         .then((cfg) => {
+          if (this.$store.state.nhCacheEpoch !== epoch) return
           this.$store.commit('setNhServerConfig', cfg)
         })
         .catch((err) => {
+          if (this.$store.state.nhCacheEpoch !== epoch) return
           this.$store.commit('setNhServerConfig', {})
           // A server with no NanoHive backend says 404 and that's final; anything else (no signal,
           // Cloudflare not ready yet) gets another try instead of sticking until the app restarts
@@ -271,7 +307,7 @@ export default {
           }
         })
         .then(() => {
-          this._fetchingNhServerConfig = false
+          if (this._nhServerConfigEpoch === epoch) this._fetchingNhServerConfig = false
         })
     },
     async checkForUpdates() {

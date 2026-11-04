@@ -320,6 +320,15 @@ class ApiHandler(var ctx:Context) {
       return
     }
 
+    // The refresh below is for the active server. A 401 for a request to any other server (a saved
+    // server Android Auto is pinging, say) must not refresh the active server's token and then retry
+    // that request with it, which would hand one server's access token to another.
+    if (!isRequestForActiveServer(originalRequest)) {
+      AbsLogger.info(tag, "handleTokenRefresh: 401 for a request to a server that is not the active one — not refreshing, failing the request")
+      callback(transientRefreshError("Request is for a server that is not the active connection"))
+      return
+    }
+
     synchronized(tokenRefreshLock) {
       if (isRefreshingToken) {
         AbsLogger.info(tag, "handleTokenRefresh: Refresh already in progress for server ${DeviceManager.serverConnectionConfigString} — queuing request to \"${originalRequest.url}\"")
@@ -521,8 +530,14 @@ class ApiHandler(var ctx:Context) {
     }
 
     if (newAccessToken != null) {
-      retryOriginalRequest(originalRequest, newAccessToken, httpClient, callback)
-      queued.forEach { retryOriginalRequest(it.request, newAccessToken, it.httpClient, it.callback) }
+      // The active server can change while a refresh is in flight; only requests for the server that
+      // just got this token may carry it
+      val retryIfActive = { request: Request, client: OkHttpClient?, cb: (JSObject) -> Unit ->
+        if (isRequestForActiveServer(request)) retryOriginalRequest(request, newAccessToken, client, cb)
+        else cb(transientRefreshError("The active server changed while refreshing, please retry"))
+      }
+      retryIfActive(originalRequest, httpClient, callback)
+      queued.forEach { retryIfActive(it.request, it.httpClient, it.callback) }
     } else if (explicitError != null) {
       callback(explicitError)
       queued.forEach { it.callback(explicitError) }
