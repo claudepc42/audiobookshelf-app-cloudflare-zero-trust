@@ -411,7 +411,10 @@ export default {
       // Set local library items first
       this.localLibraryItems = await this.$db.getLocalLibraryItems()
       const localCategories = this.getLocalMediaItemCategories()
-      if (!keepShelvesShowing()) this.shelves = localCategories
+      if (!keepShelvesShowing()) {
+        this.shelvesLibraryId = null
+        this.shelves = localCategories
+      }
       console.log('[categories] Local shelves set', this.shelves.length, this.lastLocalFetch)
 
       // Show last time's personalized shelves (Continue Series, Recently Added,
@@ -423,6 +426,7 @@ export default {
       if (hasServerSession) {
         cachedCategories = await this.$localStore.getPersonalizedShelvesCache(this.currentLibraryId)
         if (cachedCategories?.length && !keepShelvesShowing()) {
+          this.shelvesLibraryId = this.currentLibraryId
           this.shelves = cachedCategories.map((cat) => {
             if (cat.type == 'book' || cat.type == 'podcast' || cat.type == 'episode') {
               cat.entities = cat.entities.map((entity) => {
@@ -479,6 +483,7 @@ export default {
           const key = this.getShelfOrderKey(s)
           return key && !freshKeys.has(key)
         })
+        this.shelvesLibraryId = this.currentLibraryId
         this.shelves = [...freshShelves, ...carriedOverShelves]
         this.$localStore.setPersonalizedShelvesCache(this.currentLibraryId, this.shelves)
 
@@ -493,8 +498,10 @@ export default {
     },
     libraryChanged() {
       if (this.currentLibraryId) {
-        // Another library's shelves must not stay up while the new ones load
-        this.shelves = []
+        // Another library's shelves must not stay up while the new ones load. The layout also fires this event
+        // once the connection is up at startup, with the same library: clearing then blanked the whole page
+        // for about a second after it had shown from the stored copy.
+        if (this.shelvesLibraryId && this.shelvesLibraryId !== this.currentLibraryId) this.shelves = []
         console.log(`[categories] libraryChanged so fetching categories`)
         this.fetchCategories()
       }
@@ -505,6 +512,10 @@ export default {
     removeListeners() {
       this.$eventBus.$off('library-changed', this.libraryChanged)
     }
+  },
+  created() {
+    // Plain property, not reactive data: which library the shelves on screen belong to
+    this.shelvesLibraryId = this.shelves.length ? this.currentLibraryId : null
   },
   async mounted() {
     if (this.$route.query.error) {
