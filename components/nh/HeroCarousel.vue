@@ -229,7 +229,6 @@
 
 <script>
 import { Dialog } from '@capacitor/dialog'
-import { carouselLog, carouselWatch } from './carouselDebug'
 
 export default {
   props: {
@@ -280,8 +279,7 @@ export default {
     }
   },
   watch: {
-    slides(newVal, oldVal) {
-      carouselLog(`slides changed: ${oldVal.length} -> ${newVal.length}, first ids ${newVal.slice(0, 5).map((x) => String(x.id).slice(0, 6)).join(',')}`)
+    slides(newVal) {
       if (this.activeIndex >= newVal.length) this.activeIndex = 0
       this.restartTimer()
       this.publishActiveCover()
@@ -293,8 +291,7 @@ export default {
     heroPaused() {
       this.syncAdvanceTimer()
     },
-    activeIndex(to, from) {
-      carouselLog(`activeIndex ${from} -> ${to} (${this.isDragging ? 'during a drag' : 'after release or by code'})`)
+    activeIndex() {
       this.publishActiveCover(450)
     }
   },
@@ -632,8 +629,6 @@ export default {
     onTouchStart(e) {
       // The long timeout covers a gesture that never reaches touchend handling (a vertical scroll)
       this.holdBackgroundStill(2500)
-      carouselWatch(this.$store)
-      carouselLog(`touchstart at index ${this.activeIndex}`)
       const touch = e.touches[0]
       this.dragStartX = touch.clientX
       this.dragStartY = touch.clientY
@@ -780,7 +775,6 @@ export default {
       const cardWidth = this.$el ? this.$el.offsetWidth : 300
       const threshold = cardWidth * 0.30
 
-      carouselLog(`touchend offset ${Math.round(offset)}px of ${cardWidth}, velocity ${velocity.toFixed(2)} px/ms`)
       this.releaseOffsetPercent = (offset / cardWidth) * 100
       clearTimeout(this.releaseClearTimeout)
       this.releaseClearTimeout = setTimeout(() => {
@@ -815,7 +809,6 @@ export default {
     }
   },
   mounted() {
-    carouselLog(`carousel MOUNTED with ${this.slides.length} slides`)
     try {
       this.heroPaused = localStorage.getItem('nh-hero-paused') === '1'
     } catch (e) {
@@ -827,7 +820,6 @@ export default {
     this.publishActiveCover()
   },
   beforeDestroy() {
-    carouselLog('carousel DESTROYED')
     window.removeEventListener('resize', this.resetCardWidth)
     clearInterval(this.advanceInterval)
     clearTimeout(this.releaseClearTimeout)

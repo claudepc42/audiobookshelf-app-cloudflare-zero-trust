@@ -22,7 +22,6 @@
 </template>
 
 <script>
-import { carouselLog } from '@/components/nh/carouselDebug'
 import { CapacitorHttp } from '@capacitor/core'
 import { AbsLogger } from '@/plugins/capacitor'
 import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
@@ -666,7 +665,6 @@ export default {
       if (this.nhBgLayers[this.nhBgActiveIdx]?.url === url) return
       const nextIdx = this.nhBgActiveIdx === 0 ? 1 : 0
       this.$set(this.nhBgLayers, nextIdx, { url })
-      carouselLog(`cinematic background -> ${String(url).slice(-24)} (layer ${nextIdx})`)
       this.nhBgActiveIdx = nextIdx
     },
     // True if the cinematic background is either not attempting to show anything
