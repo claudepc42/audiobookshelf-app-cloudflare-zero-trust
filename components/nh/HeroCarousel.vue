@@ -1,21 +1,16 @@
 <template>
   <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full">
-  <div class="relative w-full overflow-hidden" style="min-height: 310px; isolation: isolate" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
-    <!-- Blurred cinematic background per slide. The slide that becomes active fades in ON TOP of the
-         others, and a slide that stops being active only switches off 1.4s later, once the new one is
-         fully opaque. Fading one out while the next fades in (the old way) left the card see-through in
-         the middle, and a quick run of swipes never let any of them finish, so the card went clear. -->
+  <div class="relative w-full overflow-hidden" style="min-height: 310px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+    <!-- Blurred cinematic background per slide -->
     <div
       v-for="(slide, i) in slides"
       :key="`bg-${slide.id}`"
-      class="nh-slide-bg absolute inset-0"
+      class="nh-slide-bg absolute inset-0 transition-opacity duration-700"
       :style="{
         backgroundImage: `url(${coverSrc(slide)})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         opacity: activeIndex === i ? 1 : 0,
-        zIndex: activeIndex === i ? 1 : 0,
-        transition: activeIndex === i ? 'opacity 0.7s' : 'opacity 0s linear 1.4s',
         pointerEvents: 'none'
       }"
     />
@@ -300,7 +295,7 @@ export default {
     },
     activeIndex(to, from) {
       carouselLog(`activeIndex ${from} -> ${to} (${this.isDragging ? 'during a drag' : 'after release or by code'})`)
-      this.publishActiveCover()
+      this.publishActiveCover(450)
     }
   },
   created() {
@@ -322,6 +317,7 @@ export default {
     this.velocitySamples = []
     this.rafId = null
     this.dragMovedClearTimeout = null
+    this.publishCoverTimeout = null
     // Plain (non-reactive) caches for work that doesn't change between renders
     this.descriptionCache = new Map()
     this.cachedCardWidth = 0
@@ -333,7 +329,15 @@ export default {
       if (!this.cachedCardWidth) this.cachedCardWidth = this.$el ? this.$el.offsetWidth : 0
       return this.cachedCardWidth || 300
     },
-    publishActiveCover() {
+    publishActiveCover(delayMs = 0) {
+      clearTimeout(this.publishCoverTimeout)
+      if (delayMs > 0) {
+        // While swiping through the slides the page background only follows once you stop: each change makes
+        // the layout build a new blurred full-screen layer, which stalled the frames of the swipe
+        // animation for about 80-170ms (seen in the carousel log)
+        this.publishCoverTimeout = setTimeout(() => this.publishActiveCover(), delayMs)
+        return
+      }
       const slide = this.slides[this.activeIndex]
       if (!slide) return
       const url = this.coverSrc(slide)
@@ -817,6 +821,7 @@ export default {
     clearInterval(this.advanceInterval)
     clearTimeout(this.releaseClearTimeout)
     clearTimeout(this.dragMovedClearTimeout)
+    clearTimeout(this.publishCoverTimeout)
     if (this.rafId !== null) cancelAnimationFrame(this.rafId)
   }
 }

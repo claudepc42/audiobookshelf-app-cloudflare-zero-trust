@@ -98,6 +98,7 @@ export default {
     },
     user(newVal, oldVal) {
       if (!newVal) lastShelves = { key: null, shelves: [] }
+      if ((newVal && !oldVal) || (!newVal && oldVal)) this.shelves = []
       if ((newVal && !oldVal) || (!newVal && oldVal)) {
         console.log(`[categories] user changed so fetching categories`)
         this.fetchCategories()
@@ -387,12 +388,17 @@ export default {
 
       this.isLoading = true
 
+      // Shelves already on screen while the server is reachable: leave them up and swap in the fresh ones
+      // when they arrive. Every refetch used to reset them to the local shelves first, which emptied the
+      // home carousel (its slides come from these shelves) for a moment: the whole carousel vanished, came
+      // back and jumped to the first slide. Network status changes trigger a refetch, so that happened at
+      // random times.
+      const keepShelvesShowing = this.shelves.length > 0 && isConnectedToServerWithInternet
+
       // Set local library items first
       this.localLibraryItems = await this.$db.getLocalLibraryItems()
       const localCategories = this.getLocalMediaItemCategories()
-      // Coming back to this page with last time's shelves already showing: leave them up and swap in
-      // the fresh ones when they arrive, rather than blanking the page first
-      if (!(this.refreshingInPlace && isConnectedToServerWithInternet)) this.shelves = localCategories
+      if (!keepShelvesShowing) this.shelves = localCategories
       console.log('[categories] Local shelves set', this.shelves.length, this.lastLocalFetch)
 
       // Show last time's personalized shelves (Continue Series, Recently Added,
@@ -403,7 +409,7 @@ export default {
       let cachedCategories = null
       if (hasServerSession) {
         cachedCategories = await this.$localStore.getPersonalizedShelvesCache(this.currentLibraryId)
-        if (cachedCategories?.length) {
+        if (cachedCategories?.length && !keepShelvesShowing) {
           this.shelves = cachedCategories.map((cat) => {
             if (cat.type == 'book' || cat.type == 'podcast' || cat.type == 'episode') {
               cat.entities = cat.entities.map((entity) => {
@@ -456,7 +462,7 @@ export default {
         // had for it instead of letting it disappear, until a future response
         // actually replaces it with something fresh.
         const freshKeys = new Set(freshShelves.map((s) => this.getShelfOrderKey(s)).filter(Boolean))
-        const carriedOverShelves = (cachedCategories || []).filter((s) => {
+        const carriedOverShelves = (cachedCategories || this.shelves).filter((s) => {
           const key = this.getShelfOrderKey(s)
           return key && !freshKeys.has(key)
         })
@@ -474,6 +480,8 @@ export default {
     },
     libraryChanged() {
       if (this.currentLibraryId) {
+        // Another library's shelves must not stay up while the new ones load
+        this.shelves = []
         console.log(`[categories] libraryChanged so fetching categories`)
         this.fetchCategories()
       }
