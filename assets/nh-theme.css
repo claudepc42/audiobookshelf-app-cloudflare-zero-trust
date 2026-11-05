@@ -152,6 +152,13 @@ html[data-theme='nanohive'] #nh-home-bg.nh-bg-visible .nh-bg-layer {
   will-change: opacity, transform;
   animation: nh-breathe 20s ease-in-out infinite alternate;
 }
+/* While the home carousel is being swiped (class set by HeroCarousel.vue) the slow zoom is held still. The
+   layers are big blurred pictures, and animating them forces the phone to redraw them every frame, which
+   starved the carousel of drawing time: parts of the screen (the darkening, the arrows) went missing for a
+   frame or two. With the cinematic background off, none of that happened. */
+html[data-theme='nanohive'].nh-swiping #nh-home-bg.nh-bg-visible .nh-bg-layer {
+  animation-play-state: paused;
+}
 @keyframes nh-breathe {
   0% { transform: scale(1.0); }
   100% { transform: scale(1.2); }

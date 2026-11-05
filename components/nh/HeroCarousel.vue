@@ -318,6 +318,7 @@ export default {
     this.rafId = null
     this.dragMovedClearTimeout = null
     this.publishCoverTimeout = null
+    this.swipingClearTimeout = null
     // Plain (non-reactive) caches for work that doesn't change between renders
     this.descriptionCache = new Map()
     this.cachedCardWidth = 0
@@ -621,7 +622,16 @@ export default {
       this.firstTouchTime = 0
       this.lastUserTouchTime = 0
     },
+    // Holds the page background's slow zoom still while swiping (see assets/nh-theme.css), and for a moment
+    // after the last touch
+    holdBackgroundStill(releaseMs) {
+      document.documentElement.classList.add('nh-swiping')
+      clearTimeout(this.swipingClearTimeout)
+      this.swipingClearTimeout = setTimeout(() => document.documentElement.classList.remove('nh-swiping'), releaseMs)
+    },
     onTouchStart(e) {
+      // The long timeout covers a gesture that never reaches touchend handling (a vertical scroll)
+      this.holdBackgroundStill(2500)
       carouselWatch(this.$store)
       carouselLog(`touchstart at index ${this.activeIndex}`)
       const touch = e.touches[0]
@@ -726,6 +736,7 @@ export default {
       })
     },
     onTouchEnd(e) {
+      this.holdBackgroundStill(1200)
       if (!this.isDragging) return
       this.isDragging = false
       if (this.rafId !== null) {
@@ -822,6 +833,8 @@ export default {
     clearTimeout(this.releaseClearTimeout)
     clearTimeout(this.dragMovedClearTimeout)
     clearTimeout(this.publishCoverTimeout)
+    clearTimeout(this.swipingClearTimeout)
+    document.documentElement.classList.remove('nh-swiping')
     if (this.rafId !== null) cancelAnimationFrame(this.rafId)
   }
 }

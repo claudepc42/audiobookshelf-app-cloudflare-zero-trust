@@ -98,7 +98,9 @@ export default {
     },
     user(newVal, oldVal) {
       if (!newVal) lastShelves = { key: null, shelves: [] }
-      if ((newVal && !oldVal) || (!newVal && oldVal)) this.shelves = []
+      // Logging out clears the shelves. Logging in must not: at startup the shelves shown from the stored copy
+      // were being wiped here, leaving the home page without a carousel for about 2 seconds.
+      if (!newVal && oldVal) this.shelves = []
       if ((newVal && !oldVal) || (!newVal && oldVal)) {
         console.log(`[categories] user changed so fetching categories`)
         this.fetchCategories()
@@ -393,7 +395,8 @@ export default {
       // home carousel (its slides come from these shelves) for a moment: the whole carousel vanished, came
       // back and jumped to the first slide. Network status changes trigger a refetch, so that happened at
       // random times.
-      const keepShelvesShowing = this.shelves.length > 0 && isConnectedToServerWithInternet
+      // Also while the connection is still being set up (no user or library yet, e.g. at startup)
+      const keepShelvesShowing = this.shelves.length > 0 && (isConnectedToServerWithInternet || !this.user || !this.currentLibraryId)
 
       // Set local library items first
       this.localLibraryItems = await this.$db.getLocalLibraryItems()
