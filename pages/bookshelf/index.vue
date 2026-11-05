@@ -101,6 +101,13 @@ export default {
       // Logging out clears the shelves. Logging in must not: at startup the shelves shown from the stored copy
       // were being wiped here, leaving the home page without a carousel for about 2 seconds.
       if (!newVal && oldVal) this.shelves = []
+      // The fetch below is skipped when one ran in the last 5 seconds. After the shelves were just emptied that
+      // left the page on "Bookshelf empty" until the next refresh (seen after opening and closing the app
+      // several times), so a change of user always gets a fresh fetch.
+      if ((newVal && !oldVal) || (!newVal && oldVal)) {
+        this.lastServerFetch = 0
+        this.lastLocalFetch = 0
+      }
       if ((newVal && !oldVal) || (!newVal && oldVal)) {
         console.log(`[categories] user changed so fetching categories`)
         this.fetchCategories()
@@ -396,12 +403,15 @@ export default {
       // back and jumped to the first slide. Network status changes trigger a refetch, so that happened at
       // random times.
       // Also while the connection is still being set up (no user or library yet, e.g. at startup)
-      const keepShelvesShowing = this.shelves.length > 0 && (isConnectedToServerWithInternet || !this.user || !this.currentLibraryId)
+      // Asked again after each await below, not once at the start: opening and closing the app starts several of
+      // these fetches at once, and a slower one used to overwrite the shelves a faster one had just filled in
+      // with an empty list, leaving the page on "Bookshelf empty" with no carousel
+      const keepShelvesShowing = () => this.shelves.length > 0 && (isConnectedToServerWithInternet || !this.user || !this.currentLibraryId)
 
       // Set local library items first
       this.localLibraryItems = await this.$db.getLocalLibraryItems()
       const localCategories = this.getLocalMediaItemCategories()
-      if (!keepShelvesShowing) this.shelves = localCategories
+      if (!keepShelvesShowing()) this.shelves = localCategories
       console.log('[categories] Local shelves set', this.shelves.length, this.lastLocalFetch)
 
       // Show last time's personalized shelves (Continue Series, Recently Added,
@@ -412,7 +422,7 @@ export default {
       let cachedCategories = null
       if (hasServerSession) {
         cachedCategories = await this.$localStore.getPersonalizedShelvesCache(this.currentLibraryId)
-        if (cachedCategories?.length && !keepShelvesShowing) {
+        if (cachedCategories?.length && !keepShelvesShowing()) {
           this.shelves = cachedCategories.map((cat) => {
             if (cat.type == 'book' || cat.type == 'podcast' || cat.type == 'episode') {
               cat.entities = cat.entities.map((entity) => {
