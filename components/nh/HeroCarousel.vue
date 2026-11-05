@@ -262,8 +262,6 @@ export default {
       // instead of always using the full-traversal duration. Cleared after
       // the settle animation finishes.
       releaseOffsetPercent: null,
-      // True when the release moved on to another slide (false when it snapped back to the same one)
-      releaseChangedSlide: false,
       releaseClearTimeout: null,
       // Auto-advance state
       firstTouchTime: 0,
@@ -292,7 +290,7 @@ export default {
       this.syncAdvanceTimer()
     },
     activeIndex() {
-      this.publishActiveCover(450)
+      this.publishActiveCover()
     }
   },
   created() {
@@ -314,28 +312,11 @@ export default {
     this.velocitySamples = []
     this.rafId = null
     this.dragMovedClearTimeout = null
-    this.publishCoverTimeout = null
-    this.swipingClearTimeout = null
-    // Plain (non-reactive) caches for work that doesn't change between renders
+    // Plain (non-reactive) cache for work that doesn't change between renders
     this.descriptionCache = new Map()
-    this.cachedCardWidth = 0
   },
   methods: {
-    // Width of the card, measured once (and again when the window resizes) instead of on every render
-    // of every slide, which forced a layout each time
-    cardWidth() {
-      if (!this.cachedCardWidth) this.cachedCardWidth = this.$el ? this.$el.offsetWidth : 0
-      return this.cachedCardWidth || 300
-    },
-    publishActiveCover(delayMs = 0) {
-      clearTimeout(this.publishCoverTimeout)
-      if (delayMs > 0) {
-        // While swiping through the slides the page background only follows once you stop: each change makes
-        // the layout build a new blurred full-screen layer, which stalled the frames of the swipe
-        // animation for about 80-170ms (seen in the carousel log)
-        this.publishCoverTimeout = setTimeout(() => this.publishActiveCover(), delayMs)
-        return
-      }
+    publishActiveCover() {
       const slide = this.slides[this.activeIndex]
       if (!slide) return
       const url = this.coverSrc(slide)
@@ -354,11 +335,7 @@ export default {
         // flick (velocity-triggered, not distance-triggered) doesn't have to
         // cover most of the card's width in the same fixed duration a
         // full-traversal animation uses.
-        // The slide that just became active has to travel from the far side to the middle, not by the
-        // distance the finger already dragged it: measured the other way, a quick flick (small drag)
-        // made it cross about 85% of the card in the 0.12s minimum while the slide leaving took 0.30s,
-        // so the two overlapped for a moment
-        const remainingFraction = diff === 0 && this.releaseChangedSlide ? 1 - Math.min(1, Math.abs(this.releaseOffsetPercent) / 100) : Math.min(1, Math.abs(diff * 100 - this.releaseOffsetPercent) / 100)
+        const remainingFraction = Math.min(1, Math.abs(diff * 100 - this.releaseOffsetPercent) / 100)
         const duration = Math.max(0.12, remainingFraction * 0.35).toFixed(2)
         transition = `transform ${duration}s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s`
       } else {
@@ -369,18 +346,11 @@ export default {
         return { opacity: 0, pointerEvents: 'none', transform: `translateX(${diff * 100}%)`, transition }
       }
 
-      // The slides share one z-index, so the one later in the list paints on top. Swiping forward the
-      // incoming slide is later than the one leaving (on top, fine); swiping back it is earlier, so the
-      // slide leaving was painted over it while both were still partly see-through. The active slide
-      // goes on top in both directions.
-      const zIndex = diff === 0 ? 21 : 20
-
-      const cardWidth = this.cardWidth()
+      const cardWidth = this.$el ? this.$el.offsetWidth : 300
       const adjacentOpacity = diff !== 0 ? Math.min(1, Math.abs(px) / cardWidth * 1.5) : 1
 
       return {
         opacity: diff === 0 ? 1 : adjacentOpacity,
-        zIndex,
         pointerEvents: diff === 0 ? 'auto' : 'none',
         transform: `translateX(calc(${diff * 100}% + ${px}px))`,
         transition
@@ -589,15 +559,12 @@ export default {
       this.firstTouchTime = 0
       this.lastUserTouchTime = 0
     },
-    resetCardWidth() {
-      this.cachedCardWidth = 0
-    },
     // The once-a-second check only needs to run while the carousel can advance by itself: more than
     // one slide, auto-advance on, and not paused
     syncAdvanceTimer() {
       const canAdvance = !this.heroPaused && this.advanceSeconds > 0 && this.slides.length > 1
       if (canAdvance && !this.advanceInterval) {
-        this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
+        this.syncAdvanceTimer()
       } else if (!canAdvance && this.advanceInterval) {
         clearInterval(this.advanceInterval)
         this.advanceInterval = null
@@ -619,16 +586,7 @@ export default {
       this.firstTouchTime = 0
       this.lastUserTouchTime = 0
     },
-    // Holds the page background's slow zoom still while swiping (see assets/nh-theme.css), and for a moment
-    // after the last touch
-    holdBackgroundStill(releaseMs) {
-      document.documentElement.classList.add('nh-swiping')
-      clearTimeout(this.swipingClearTimeout)
-      this.swipingClearTimeout = setTimeout(() => document.documentElement.classList.remove('nh-swiping'), releaseMs)
-    },
     onTouchStart(e) {
-      // The long timeout covers a gesture that never reaches touchend handling (a vertical scroll)
-      this.holdBackgroundStill(2500)
       const touch = e.touches[0]
       this.dragStartX = touch.clientX
       this.dragStartY = touch.clientY
@@ -731,7 +689,6 @@ export default {
       })
     },
     onTouchEnd(e) {
-      this.holdBackgroundStill(1200)
       if (!this.isDragging) return
       this.isDragging = false
       if (this.rafId !== null) {
@@ -781,12 +738,9 @@ export default {
         this.releaseOffsetPercent = null
       }, 400)
 
-      this.releaseChangedSlide = false
       if (offset < -threshold || velocity < -0.4) {
-        this.releaseChangedSlide = this.slides.length > 1
         this.next()
       } else if (offset > threshold || velocity > 0.4) {
-        this.releaseChangedSlide = this.slides.length > 1
         this.prev()
       }
 
@@ -815,18 +769,13 @@ export default {
       // localStorage unavailable — default to not paused
     }
     this.lastAdvanceTime = Date.now()
-    this.syncAdvanceTimer()
-    window.addEventListener('resize', this.resetCardWidth)
+    this.advanceInterval = setInterval(this.checkAutoAdvance, 1000)
     this.publishActiveCover()
   },
   beforeDestroy() {
-    window.removeEventListener('resize', this.resetCardWidth)
     clearInterval(this.advanceInterval)
     clearTimeout(this.releaseClearTimeout)
     clearTimeout(this.dragMovedClearTimeout)
-    clearTimeout(this.publishCoverTimeout)
-    clearTimeout(this.swipingClearTimeout)
-    document.documentElement.classList.remove('nh-swiping')
     if (this.rafId !== null) cancelAnimationFrame(this.rafId)
   }
 }
