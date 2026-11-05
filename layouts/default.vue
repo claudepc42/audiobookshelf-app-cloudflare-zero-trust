@@ -2,7 +2,7 @@
   <div class="w-full layout-wrapper bg-bg">
     <div v-if="nhThemeActive" id="nh-ambient-bg" :style="{ opacity: nhCinematicCoverUrl ? 0 : 1 }" />
     <div v-if="nhThemeActive" id="nh-home-bg" :class="{ 'nh-cinematic-item': nhCinematicMode === 'item', 'nh-bg-visible': !!nhCinematicCoverUrl }" :style="{ opacity: nhCinematicCoverUrl ? 1 : 0 }">
-      <div v-for="(layer, i) in nhBgLayers" :key="i" class="nh-bg-layer" :style="{ backgroundImage: layer.url ? `url(${layer.url})` : 'none', opacity: i === nhBgActiveIdx ? 1 : 0 }" />
+      <div v-for="(layer, i) in nhBgLayers" :key="layer.url" class="nh-bg-layer" :style="{ backgroundImage: layer.url ? `url(${layer.url})` : 'none', opacity: i === nhBgActiveIdx ? 1 : 0 }" />
     </div>
     <app-appbar />
     <div id="content" class="overflow-hidden relative" :class="isPlayerOpen ? 'playerOpen' : ''">
@@ -29,6 +29,10 @@ import { NH_BASE_THEMES, NH_GLASS_EFFECT_CONTROLS } from '@/store/index'
 import { Dialog } from '@capacitor/dialog'
 import { loadNhFont } from '@/utils/nhFont'
 
+// How long a cinematic background layer takes to fade out (the opacity transition on .nh-bg-layer in
+// assets/nh-theme.css is 2.8s)
+const NH_BG_FADE_MS = 2800
+
 export default {
   data() {
     return {
@@ -46,11 +50,14 @@ export default {
       updateLatestUrl: '',
       showNhCompatWarning: false,
       nhCompatCheckTimeouts: [],
-      // Cinematic background crossfade: two layers, ping-ponged so the incoming
-      // cover fades in over the outgoing one. Mirrors NH source's setHomeBg()
-      // (enhancements.js) rather than a single swapped background-image.
-      nhBgLayers: [{ url: null }, { url: null }],
-      nhBgActiveIdx: -1
+      // Cinematic background crossfade: one layer per cover, so the incoming cover fades in over the
+      // outgoing one. Mirrors NH source's setHomeBg() (enhancements.js) rather than a single swapped
+      // background-image. A layer's picture is never changed while it is on screen (the old two-layer
+      // ping-pong reused a layer that was still fading out, so swiping the carousel quickly made the
+      // background flash); covers that are no longer shown are removed once their fade has finished.
+      nhBgLayers: [],
+      nhBgActiveIdx: -1,
+      nhBgPruneTimeout: null
     }
   },
   watch: {
@@ -663,9 +670,30 @@ export default {
     setNhBg(url) {
       if (!url) return
       if (this.nhBgLayers[this.nhBgActiveIdx]?.url === url) return
-      const nextIdx = this.nhBgActiveIdx === 0 ? 1 : 0
-      this.$set(this.nhBgLayers, nextIdx, { url })
-      this.nhBgActiveIdx = nextIdx
+      const previous = this.nhBgLayers[this.nhBgActiveIdx]
+      if (previous) previous.inactiveAt = Date.now()
+      const existing = this.nhBgLayers.findIndex((l) => l.url === url)
+      if (existing !== -1) {
+        // Going back to a cover that is still fading out: just fade it back in
+        this.nhBgActiveIdx = existing
+      } else {
+        this.nhBgLayers.push({ url, inactiveAt: 0 })
+        this.nhBgActiveIdx = this.nhBgLayers.length - 1
+      }
+      clearTimeout(this.nhBgPruneTimeout)
+      this.nhBgPruneTimeout = setTimeout(this.pruneNhBgLayers, NH_BG_FADE_MS + 200)
+    },
+    // Drops covers that have finished fading out (the layers are blurred, animated and GPU-composited,
+    // so they should not pile up)
+    pruneNhBgLayers() {
+      const active = this.nhBgLayers[this.nhBgActiveIdx]
+      const now = Date.now()
+      const keep = this.nhBgLayers.filter((l) => l === active || now - l.inactiveAt < NH_BG_FADE_MS)
+      if (keep.length !== this.nhBgLayers.length) {
+        this.nhBgLayers = keep
+        this.nhBgActiveIdx = keep.indexOf(active)
+      }
+      if (keep.length > 1) this.nhBgPruneTimeout = setTimeout(this.pruneNhBgLayers, 500)
     },
     // True if the cinematic background is either not attempting to show anything
     // right now (nothing to check), or is actually rendering correctly. False
@@ -851,6 +879,7 @@ export default {
     this.$socket.off('user_media_progress_updated', this.userMediaProgressUpdated)
     if (this.cfSessionListener) this.cfSessionListener.remove()
     this.nhCompatCheckTimeouts.forEach(clearTimeout)
+    clearTimeout(this.nhBgPruneTimeout)
     this.flushNhHomeBg()
   }
 }
