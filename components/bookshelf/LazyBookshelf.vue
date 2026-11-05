@@ -18,6 +18,17 @@
 <script>
 import bookshelfCardsHelpers from '@/mixins/bookshelfCardsHelpers'
 
+// The first page of results for the lists opened most recently (key: server, user and request path), kept
+// in memory so that coming back to Library, Series and so on shows the list at once instead of a blank
+// page until the server answers. Always refreshed in the background (see refreshFirstPage).
+const FIRST_PAGE_CACHE_LIMIT = 30
+const firstPageCache = new Map()
+function rememberFirstPage(key, payload) {
+  firstPageCache.delete(key)
+  firstPageCache.set(key, payload)
+  if (firstPageCache.size > FIRST_PAGE_CACHE_LIMIT) firstPageCache.delete(firstPageCache.keys().next().value)
+}
+
 export default {
   props: {
     page: String,
@@ -174,6 +185,45 @@ export default {
         mobileFilterBy: 'all'
       })
     },
+    // Puts a fetched page of results into the entity list (and the cards already mounted for it)
+    applyPayload(payload, startIndex) {
+      if (!this.initialized) {
+        this.initialized = true
+        this.totalEntities = payload.total
+        this.totalShelves = Math.ceil(this.totalEntities / this.entitiesPerShelf)
+        this.entities = new Array(this.totalEntities)
+        this.$eventBus.$emit('bookshelf-total-entities', this.totalEntities)
+      }
+
+      for (let i = 0; i < payload.results.length; i++) {
+        const index = i + startIndex
+        this.entities[index] = payload.results[i]
+        if (this.entityComponentRefs[index]) {
+          this.entityComponentRefs[index].setEntity(this.entities[index])
+
+          if (this.isBookEntity) {
+            const localLibraryItem = this.localLibraryItems.find((lli) => lli.libraryItemId == this.entities[index].id)
+            if (localLibraryItem) {
+              this.entityComponentRefs[index].setLocalLibraryItem(localLibraryItem)
+            }
+          }
+        }
+      }
+    },
+    // The page was destroyed and rebuilt on this visit, so the first page of results from last time is
+    // shown straight away and this brings it up to date. A changed total means items were added or
+    // removed, so the whole list is rebuilt from the fresh data.
+    async refreshFirstPage(path, cacheKey) {
+      const payload = await this.$nativeHttp.get(path).catch(() => null)
+      if (!payload || !payload.results) return
+      rememberFirstPage(cacheKey, payload)
+      if (this._isDestroyed) return
+      if (payload.total !== this.totalEntities) {
+        this.resetEntities()
+        return
+      }
+      this.applyPayload(payload, 0)
+    },
     async fetchEntities(page) {
       const startIndex = page * this.booksPerFetch
 
@@ -187,7 +237,19 @@ export default {
       const sfQueryString = this.currentSFQueryString ? this.currentSFQueryString + '&' : ''
       const fullQueryString = `?${sfQueryString}limit=${this.booksPerFetch}&page=${page}&minified=1&include=rssfeed,numEpisodesIncomplete`
 
-      const payload = await this.$nativeHttp.get(`/api/libraries/${this.currentLibraryId}/${entityPath}${fullQueryString}`).catch((error) => {
+      const path = `/api/libraries/${this.currentLibraryId}/${entityPath}${fullQueryString}`
+
+      // Only the very first page is kept, and only for a list that isn't built yet
+      const cacheKey = page === 0 && this.user ? `${this.$store.getters['user/getServerConnectionConfigId']}:${this.user.id}:${path}` : null
+      const cachedPayload = cacheKey && !this.initialized ? firstPageCache.get(cacheKey) : null
+      if (cachedPayload) {
+        this.applyPayload(cachedPayload, startIndex)
+        this.isFetchingEntities = false
+        this.refreshFirstPage(path, cacheKey)
+        return
+      }
+
+      const payload = await this.$nativeHttp.get(path).catch((error) => {
         console.error('failed to fetch books', error)
         return null
       })
@@ -200,28 +262,8 @@ export default {
       }
       if (payload && payload.results) {
         console.log('Received payload', payload)
-        if (!this.initialized) {
-          this.initialized = true
-          this.totalEntities = payload.total
-          this.totalShelves = Math.ceil(this.totalEntities / this.entitiesPerShelf)
-          this.entities = new Array(this.totalEntities)
-          this.$eventBus.$emit('bookshelf-total-entities', this.totalEntities)
-        }
-
-        for (let i = 0; i < payload.results.length; i++) {
-          const index = i + startIndex
-          this.entities[index] = payload.results[i]
-          if (this.entityComponentRefs[index]) {
-            this.entityComponentRefs[index].setEntity(this.entities[index])
-
-            if (this.isBookEntity) {
-              const localLibraryItem = this.localLibraryItems.find((lli) => lli.libraryItemId == this.entities[index].id)
-              if (localLibraryItem) {
-                this.entityComponentRefs[index].setLocalLibraryItem(localLibraryItem)
-              }
-            }
-          }
-        }
+        if (cacheKey) rememberFirstPage(cacheKey, payload)
+        this.applyPayload(payload, startIndex)
       }
     },
     async loadPage(page) {

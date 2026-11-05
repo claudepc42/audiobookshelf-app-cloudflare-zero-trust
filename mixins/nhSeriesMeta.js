@@ -42,6 +42,9 @@ export default {
       if (sharedSeriesMetaPromise && sharedSeriesMetaEpoch === state.nhCacheEpoch) return
       // A failed fetch is retried after a minute, not stored as "loaded and empty" for the session
       if (Date.now() < state.nhSeriesMetaRetryAt) return
+      // Cards mounted by hand have no parent, so Nuxt's injected $nativeHttp is not there and every
+      // card threw a TypeError here. The shelves that mount normally do the fetch.
+      if (!this.$nativeHttp) return
       const store = this.nhStore
       const epoch = state.nhCacheEpoch
       const promise = this.$nativeHttp

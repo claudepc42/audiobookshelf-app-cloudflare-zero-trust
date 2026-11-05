@@ -39,6 +39,9 @@ export default {
       const stale = Date.now() - state.nhRatingsBulkAt > STALE_MS
       if (state.nhRatingsBulk && !stale) return
       if (sharedFetchPromise) return
+      // Cards mounted by hand (see nhStore above) have no parent, so Nuxt's injected $nativeHttp is not
+      // there either, and every card threw a TypeError here. The shelves that mount normally do the fetch.
+      if (!this.$nativeHttp) return
       sharedFetchPromise = this.$nativeHttp
         .get('/_nh/api/ratings')
         .then((res) => {

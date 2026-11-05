@@ -4,7 +4,7 @@
       <widgets-loading-spinner />
       <p class="pl-4">{{ $strings.MessageAttemptingServerConnection }}</p>
     </div>
-    <div v-if="shelves.length && isLoading" class="w-full pt-4 flex items-center justify-center">
+    <div v-if="shelves.length && isLoading && !refreshingInPlace" class="w-full pt-4 flex items-center justify-center">
       <widgets-loading-spinner />
       <p class="pl-4">{{ $strings.MessageLoadingServerData }}</p>
     </div>
@@ -48,11 +48,22 @@
 </template>
 
 <script>
+// The shelves from the last time this page was open, kept in memory. The page is destroyed and rebuilt
+// on every tab switch, and the stored copy is read asynchronously, so without this the page was blank
+// for most of a second each time you came back to Home. Keyed by server, user and library.
+let lastShelves = { key: null, shelves: [] }
+
 export default {
   props: {},
   data() {
+    // A method rather than a computed property: computed properties don't exist yet while data() runs
+    const key = this.getMemoryShelvesKey()
+    const shelves = key && lastShelves.key === key ? lastShelves.shelves : []
     return {
-      shelves: [],
+      shelves,
+      // Showing last time's shelves while the fresh ones load: skip the "loading" bar, which pushes
+      // everything down and back up again
+      refreshingInPlace: shelves.length > 0,
       isFirstNetworkConnection: true,
       lastServerFetch: 0,
       lastServerFetchLibraryId: null,
@@ -86,6 +97,7 @@ export default {
       }
     },
     user(newVal, oldVal) {
+      if (!newVal) lastShelves = { key: null, shelves: [] }
       if ((newVal && !oldVal) || (!newVal && oldVal)) {
         console.log(`[categories] user changed so fetching categories`)
         this.fetchCategories()
@@ -329,7 +341,20 @@ export default {
 
       return categories
     },
+    getMemoryShelvesKey() {
+      const userId = this.$store.state.user.user?.id
+      const libraryId = this.$store.state.libraries.currentLibraryId
+      if (!userId || !libraryId) return null
+      return `${this.$store.getters['user/getServerConnectionConfigId']}:${userId}:${libraryId}`
+    },
     async fetchCategories() {
+      try {
+        await this.loadCategories()
+      } finally {
+        this.refreshingInPlace = false
+      }
+    },
+    async loadCategories() {
       console.log(`[categories] fetchCategories networkConnected=${this.networkConnected}, lastServerFetch=${this.lastServerFetch}, lastLocalFetch=${this.lastLocalFetch}`)
 
       // TODO: Find a better way to keep the shelf up-to-date with local vs server library because this is a disaster
@@ -365,7 +390,9 @@ export default {
       // Set local library items first
       this.localLibraryItems = await this.$db.getLocalLibraryItems()
       const localCategories = this.getLocalMediaItemCategories()
-      this.shelves = localCategories
+      // Coming back to this page with last time's shelves already showing: leave them up and swap in
+      // the fresh ones when they arrive, rather than blanking the page first
+      if (!(this.refreshingInPlace && isConnectedToServerWithInternet)) this.shelves = localCategories
       console.log('[categories] Local shelves set', this.shelves.length, this.lastLocalFetch)
 
       // Show last time's personalized shelves (Continue Series, Recently Added,
@@ -439,6 +466,7 @@ export default {
         // Only add the local shelf with the same media type
         const localShelves = localCategories.filter((cat) => cat.type === this.currentLibraryMediaType && !cat.localOnly)
         this.shelves.push(...localShelves)
+        lastShelves = { key: this.getMemoryShelvesKey(), shelves: this.shelves }
         console.log('[categories] Server shelves set', this.shelves.length, this.lastServerFetch)
       }
 
