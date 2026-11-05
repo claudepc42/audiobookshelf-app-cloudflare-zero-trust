@@ -1,16 +1,21 @@
 <template>
   <div v-if="slides.length" id="nh-hero-carousel" class="relative w-full">
-  <div class="relative w-full overflow-hidden" style="min-height: 310px" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
-    <!-- Blurred cinematic background per slide -->
+  <div class="relative w-full overflow-hidden" style="min-height: 310px; isolation: isolate" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+    <!-- Blurred cinematic background per slide. The slide that becomes active fades in ON TOP of the
+         others, and a slide that stops being active only switches off 1.4s later, once the new one is
+         fully opaque. Fading one out while the next fades in (the old way) left the card see-through in
+         the middle, and a quick run of swipes never let any of them finish, so the card went clear. -->
     <div
       v-for="(slide, i) in slides"
       :key="`bg-${slide.id}`"
-      class="nh-slide-bg absolute inset-0 transition-opacity duration-700"
+      class="nh-slide-bg absolute inset-0"
       :style="{
         backgroundImage: `url(${coverSrc(slide)})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         opacity: activeIndex === i ? 1 : 0,
+        zIndex: activeIndex === i ? 1 : 0,
+        transition: activeIndex === i ? 'opacity 0.7s' : 'opacity 0s linear 1.4s',
         pointerEvents: 'none'
       }"
     />
@@ -229,6 +234,7 @@
 
 <script>
 import { Dialog } from '@capacitor/dialog'
+import { carouselLog, carouselWatch } from './carouselDebug'
 
 export default {
   props: {
@@ -279,7 +285,8 @@ export default {
     }
   },
   watch: {
-    slides(newVal) {
+    slides(newVal, oldVal) {
+      carouselLog(`slides changed: ${oldVal.length} -> ${newVal.length}, first ids ${newVal.slice(0, 5).map((x) => String(x.id).slice(0, 6)).join(',')}`)
       if (this.activeIndex >= newVal.length) this.activeIndex = 0
       this.restartTimer()
       this.publishActiveCover()
@@ -291,7 +298,8 @@ export default {
     heroPaused() {
       this.syncAdvanceTimer()
     },
-    activeIndex() {
+    activeIndex(to, from) {
+      carouselLog(`activeIndex ${from} -> ${to} (${this.isDragging ? 'during a drag' : 'after release or by code'})`)
       this.publishActiveCover()
     }
   },
@@ -610,6 +618,8 @@ export default {
       this.lastUserTouchTime = 0
     },
     onTouchStart(e) {
+      carouselWatch(this.$store)
+      carouselLog(`touchstart at index ${this.activeIndex}`)
       const touch = e.touches[0]
       this.dragStartX = touch.clientX
       this.dragStartY = touch.clientY
@@ -755,6 +765,7 @@ export default {
       const cardWidth = this.$el ? this.$el.offsetWidth : 300
       const threshold = cardWidth * 0.30
 
+      carouselLog(`touchend offset ${Math.round(offset)}px of ${cardWidth}, velocity ${velocity.toFixed(2)} px/ms`)
       this.releaseOffsetPercent = (offset / cardWidth) * 100
       clearTimeout(this.releaseClearTimeout)
       this.releaseClearTimeout = setTimeout(() => {
@@ -789,6 +800,7 @@ export default {
     }
   },
   mounted() {
+    carouselLog(`carousel MOUNTED with ${this.slides.length} slides`)
     try {
       this.heroPaused = localStorage.getItem('nh-hero-paused') === '1'
     } catch (e) {
@@ -800,6 +812,7 @@ export default {
     this.publishActiveCover()
   },
   beforeDestroy() {
+    carouselLog('carousel DESTROYED')
     window.removeEventListener('resize', this.resetCardWidth)
     clearInterval(this.advanceInterval)
     clearTimeout(this.releaseClearTimeout)

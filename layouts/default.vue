@@ -22,6 +22,7 @@
 </template>
 
 <script>
+import { carouselLog } from '@/components/nh/carouselDebug'
 import { CapacitorHttp } from '@capacitor/core'
 import { AbsLogger } from '@/plugins/capacitor'
 import { AbsCfZeroTrust } from '@/plugins/capacitor/AbsCfZeroTrust'
@@ -680,6 +681,7 @@ export default {
         this.nhBgLayers.push({ url, inactiveAt: 0 })
         this.nhBgActiveIdx = this.nhBgLayers.length - 1
       }
+      carouselLog(`cinematic background -> ${String(url).slice(-24)} (${existing !== -1 ? 'reused layer' : 'new layer'}, ${this.nhBgLayers.length} layers)`)
       clearTimeout(this.nhBgPruneTimeout)
       this.nhBgPruneTimeout = setTimeout(this.pruneNhBgLayers, NH_BG_FADE_MS + 200)
     },
@@ -690,6 +692,7 @@ export default {
       const now = Date.now()
       const keep = this.nhBgLayers.filter((l) => l === active || now - l.inactiveAt < NH_BG_FADE_MS)
       if (keep.length !== this.nhBgLayers.length) {
+        carouselLog(`cinematic background pruned ${this.nhBgLayers.length} -> ${keep.length} layers`)
         this.nhBgLayers = keep
         this.nhBgActiveIdx = keep.indexOf(active)
       }
