@@ -8,10 +8,11 @@
     <div class="w-full h-full overflow-hidden absolute top-0 left-0 flex items-center justify-center" @click="show = false">
       <div class="w-full rounded-lg bg-primary border border-border overflow-y-auto overflow-x-hidden relative mt-16" style="max-height: 80vh" @click.stop.prevent>
         <div class="w-full h-full">
-          <template v-for="session in sessions">
-            <modals-session-history-item :key="session.startTime" :session="session" :playback-rate="_playbackRate" @click="clickSession" />
-          </template>
-          <div v-if="!sessions.length" class="flex h-32 items-center justify-center px-6 text-center">
+          <div v-for="group in groupedEvents" :key="group.name" class="py-2">
+            <p class="px-4 my-2 text-fg-muted font-semibold">{{ group.name }}</p>
+            <modals-session-history-item v-for="(evt, index) in group.events" :key="evt.timestamp + '-' + index" :evt="evt" @click="clickEvent" />
+          </div>
+          <div v-if="!groupedEvents.length" class="flex h-32 items-center justify-center px-6 text-center">
             <p class="text-lg text-fg-muted">{{ $strings.MessageNoListeningHistory }}</p>
           </div>
         </div>
@@ -23,16 +24,15 @@
 <script>
 import { AbsAudioPlayer } from '@/plugins/capacitor'
 
+// Newest events kept in the list; the full history page has the rest
+const MAX_EVENTS = 200
+
 export default {
   props: {
     value: Boolean,
     mediaId: {
       type: String,
       default: null
-    },
-    playbackRate: {
-      type: Number,
-      default: 1
     }
   },
   data() {
@@ -46,61 +46,85 @@ export default {
       get() { return this.value },
       set(val) { this.$emit('input', val) }
     },
-    _playbackRate() {
-      if (!this.playbackRate || isNaN(this.playbackRate)) return 1
-      return this.playbackRate
-    },
-    // Pair Play events with the next Pause/Stop to form clean listening sessions.
-    // Events come in with no guaranteed sort order so sort ascending first.
-    // An open Play (no following Pause/Stop yet — currently in progress) is
-    // included with stopTime null so the current session shows immediately.
-    sessions() {
-      const playEvents = ['Play']
-      const stopEvents = ['Pause', 'Stop']
-
+    // Every event, newest first. A Pause or Stop also carries where its stretch of listening began
+    // (the Play before it) and how long it lasted. Events come in with no guaranteed sort order, so
+    // sort ascending first. A Play with no Pause after it (still playing, or the app was killed)
+    // simply has no length.
+    events() {
       const sorted = [...this.rawEvents].sort((a, b) => a.timestamp - b.timestamp)
-      const result = []
-
-      for (let i = 0; i < sorted.length; i++) {
-        const evt = sorted[i]
-        if (!playEvents.includes(evt.name)) continue
-
-        // Find the next pause/stop after this play
-        let stopEvt = null
-        let lastActivity = null
-        let interrupted = false
-        for (let j = i + 1; j < sorted.length; j++) {
-          if (stopEvents.includes(sorted[j].name)) {
-            stopEvt = sorted[j]
-            break
-          }
-          // Another play before a stop means the previous session was interrupted
-          if (playEvents.includes(sorted[j].name)) {
-            interrupted = true
-            break
-          }
-          if (sorted[j].name === 'Save' || sorted[j].name === 'Seek') lastActivity = sorted[j]
+      let openPlay = null
+      const annotated = sorted.map((evt) => {
+        const copy = { ...evt }
+        if (evt.name === 'Play') {
+          openPlay = evt
+        } else if ((evt.name === 'Pause' || evt.name === 'Stop') && openPlay) {
+          copy.listenedFrom = openPlay.currentTime
+          copy.listenedSeconds = (evt.timestamp - openPlay.timestamp) / 1000
+          openPlay = null
         }
-        // The app was killed or crashed mid-session, so no Pause was ever recorded. End that session
-        // at the last sign of life instead of showing it as still playing.
-        if (!stopEvt && interrupted && lastActivity) stopEvt = lastActivity
+        return copy
+      })
+      return annotated.reverse().slice(0, MAX_EVENTS)
+    },
+    // Same day headings and collapsing of repeated Save/Sync events as the full history page
+    groupedEvents() {
+      const groups = []
+      const today = this.$formatDate(new Date(), 'MMM dd, yyyy')
+      const yesterday = this.$formatDate(Date.now() - 1000 * 60 * 60 * 24, 'MMM dd, yyyy')
 
-        result.push({
-          startTime: evt.timestamp,
-          startPosition: evt.currentTime,
-          stopTime: stopEvt ? stopEvt.timestamp : null,
-          stopPosition: stopEvt ? stopEvt.currentTime : null
-        })
-      }
+      let numSaves = 0
+      let numSyncs = 0
+      let lastSaveName = null
 
-      // Most recent first, cap at 20
-      return result.reverse().slice(0, 20)
+      this.events.forEach((evt) => {
+        const date = this.$formatDate(evt.timestamp, 'MMM dd, yyyy')
+        const name = date === today ? 'Today' : date === yesterday ? 'Yesterday' : date
+
+        let group = groups[groups.length - 1]
+        const newGroup = !group || group.name !== name
+        if (newGroup) {
+          group = { name, events: [] }
+          groups.push(group)
+        }
+
+        let include = true
+
+        if (evt.name === 'Save') {
+          const saveName = evt.name + '-' + evt.serverSyncAttempted + '-' + evt.serverSyncSuccess
+          if (lastSaveName === saveName && numSaves > 0 && !newGroup) {
+            include = false
+            group.events[group.events.length - 1].num = numSaves
+            numSaves++
+          } else {
+            numSaves = 1
+          }
+          lastSaveName = saveName
+        } else {
+          numSaves = 0
+        }
+
+        if (evt.name === 'Sync') {
+          if (numSyncs > 0 && !newGroup) {
+            include = false
+            group.events[group.events.length - 1].num = numSyncs
+            numSyncs++
+          } else {
+            numSyncs = 1
+          }
+        } else {
+          numSyncs = 0
+        }
+
+        if (include) group.events.push(evt)
+      })
+
+      return groups
     }
   },
   methods: {
-    async clickSession(session) {
+    async clickEvent(evt) {
       await this.$hapticsImpact()
-      this.$emit('select', session)
+      this.$emit('select', { startPosition: evt.currentTime })
     },
     async loadHistory() {
       if (!this.mediaId) {
