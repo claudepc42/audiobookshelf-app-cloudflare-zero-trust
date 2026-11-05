@@ -262,6 +262,8 @@ export default {
       // instead of always using the full-traversal duration. Cleared after
       // the settle animation finishes.
       releaseOffsetPercent: null,
+      // True when the release moved on to another slide (false when it snapped back to the same one)
+      releaseChangedSlide: false,
       releaseClearTimeout: null,
       // Auto-advance state
       firstTouchTime: 0,
@@ -342,7 +344,11 @@ export default {
         // flick (velocity-triggered, not distance-triggered) doesn't have to
         // cover most of the card's width in the same fixed duration a
         // full-traversal animation uses.
-        const remainingFraction = Math.min(1, Math.abs(diff * 100 - this.releaseOffsetPercent) / 100)
+        // The slide that just became active has to travel from the far side to the middle, not by the
+        // distance the finger already dragged it: measured the other way, a quick flick (small drag)
+        // made it cross about 85% of the card in the 0.12s minimum while the slide leaving took 0.30s,
+        // so the two overlapped for a moment
+        const remainingFraction = diff === 0 && this.releaseChangedSlide ? 1 - Math.min(1, Math.abs(this.releaseOffsetPercent) / 100) : Math.min(1, Math.abs(diff * 100 - this.releaseOffsetPercent) / 100)
         const duration = Math.max(0.12, remainingFraction * 0.35).toFixed(2)
         transition = `transform ${duration}s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s`
       } else {
@@ -353,11 +359,18 @@ export default {
         return { opacity: 0, pointerEvents: 'none', transform: `translateX(${diff * 100}%)`, transition }
       }
 
+      // The slides share one z-index, so the one later in the list paints on top. Swiping forward the
+      // incoming slide is later than the one leaving (on top, fine); swiping back it is earlier, so the
+      // slide leaving was painted over it while both were still partly see-through. The active slide
+      // goes on top in both directions.
+      const zIndex = diff === 0 ? 21 : 20
+
       const cardWidth = this.cardWidth()
       const adjacentOpacity = diff !== 0 ? Math.min(1, Math.abs(px) / cardWidth * 1.5) : 1
 
       return {
         opacity: diff === 0 ? 1 : adjacentOpacity,
+        zIndex,
         pointerEvents: diff === 0 ? 'auto' : 'none',
         transform: `translateX(calc(${diff * 100}% + ${px}px))`,
         transition
@@ -748,9 +761,12 @@ export default {
         this.releaseOffsetPercent = null
       }, 400)
 
+      this.releaseChangedSlide = false
       if (offset < -threshold || velocity < -0.4) {
+        this.releaseChangedSlide = this.slides.length > 1
         this.next()
       } else if (offset > threshold || velocity > 0.4) {
+        this.releaseChangedSlide = this.slides.length > 1
         this.prev()
       }
 
