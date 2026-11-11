@@ -24,6 +24,7 @@ import com.audiobookshelf.app.plugins.AbsCfZeroTrust
 import com.audiobookshelf.app.plugins.AbsDatabase
 import com.audiobookshelf.app.plugins.AbsDownloader
 import com.audiobookshelf.app.plugins.AbsFileSystem
+import com.audiobookshelf.app.plugins.AbsLauncherIcon
 import com.audiobookshelf.app.plugins.AbsLogger
 import com.audiobookshelf.app.plugins.AbsWidgetUpdater
 import com.getcapacitor.BridgeActivity
@@ -54,6 +55,7 @@ class MainActivity : BridgeActivity() {
     registerPlugin(AbsDownloader::class.java)
     registerPlugin(AbsFileSystem::class.java)
     registerPlugin(AbsDatabase::class.java)
+    registerPlugin(AbsLauncherIcon::class.java)
     registerPlugin(AbsLogger::class.java)
     registerPlugin(AbsWidgetUpdater::class.java)
 

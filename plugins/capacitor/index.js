@@ -6,8 +6,9 @@ import { AbsFileSystem } from './AbsFileSystem'
 import { AbsDatabase } from './AbsDatabase'
 import { AbsLogger } from './AbsLogger'
 import { AbsWidgetUpdater } from './AbsWidgetUpdater'
+import { AbsLauncherIcon } from './AbsLauncherIcon'
 import { Capacitor } from '@capacitor/core'
 
 Vue.prototype.$platform = Capacitor.getPlatform()
 
-export { AbsAudioPlayer, AbsCfZeroTrust, AbsDownloader, AbsFileSystem, AbsLogger, AbsDatabase, AbsWidgetUpdater }
+export { AbsAudioPlayer, AbsCfZeroTrust, AbsDownloader, AbsFileSystem, AbsLogger, AbsDatabase, AbsWidgetUpdater, AbsLauncherIcon }

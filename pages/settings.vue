@@ -40,6 +40,13 @@
         <ui-text-input :value="themeOption" readonly append-icon="expand_more" style="max-width: 200px" />
       </div>
     </div>
+    <!-- Home-screen icon: Android only (the launcher entry is an activity-alias, see AbsLauncherIcon.kt) -->
+    <div v-if="isAndroid" class="py-3 flex items-center">
+      <p class="pr-4 w-36">{{ $strings.LabelAppIcon }}</p>
+      <div @click.stop="showLauncherIconOptions">
+        <ui-text-input :value="launcherIconOption" readonly append-icon="expand_more" style="max-width: 200px" />
+      </div>
+    </div>
 
     <!-- Playback settings -->
     <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderPlaybackSettings }}</p>
@@ -206,6 +213,7 @@
 <script>
 import { Dialog } from '@capacitor/dialog'
 import jumpLabelMixin from '@/mixins/jumpLabel'
+import { AbsLauncherIcon, LAUNCHER_ICONS } from '@/plugins/capacitor/AbsLauncherIcon'
 
 export default {
   mixins: [jumpLabelMixin],
@@ -214,6 +222,7 @@ export default {
       loading: false,
       deviceData: null,
       cfztUpdateChecksEnabled: true,
+      launcherIcon: 'default',
       showMoreMenuDialog: false,
       showSleepTimerLengthModal: false,
       showAutoSleepTimerRewindLengthModal: false,
@@ -373,6 +382,15 @@ export default {
     isiOS() {
       return this.$platform === 'ios'
     },
+    isAndroid() {
+      return this.$platform === 'android'
+    },
+    launcherIconItems() {
+      return LAUNCHER_ICONS.map((icon) => ({ text: this.$strings[icon.label], value: icon.id }))
+    },
+    launcherIconOption() {
+      return this.launcherIconItems.find((i) => i.value === this.launcherIcon)?.text || ''
+    },
     nhThemeActive() {
       return this.$store.state.nhThemeActive
     },
@@ -447,6 +465,7 @@ export default {
       else if (this.moreMenuSetting === 'hapticFeedback') return this.hapticFeedbackItems
       else if (this.moreMenuSetting === 'language') return this.languageOptionItems
       else if (this.moreMenuSetting === 'theme') return this.themeOptionItems
+      else if (this.moreMenuSetting === 'launcherIcon') return this.launcherIconItems
       else if (this.moreMenuSetting === 'downloadUsingCellular') return this.downloadUsingCellularItems
       else if (this.moreMenuSetting === 'streamingUsingCellular') return this.streamingUsingCellularItems
       else if (this.moreMenuSetting === 'androidAutoBrowseSeriesSequenceOrder') return this.androidAutoBrowseSeriesSequenceOrderItems
@@ -467,6 +486,7 @@ export default {
       if (this.moreMenuSetting === 'jumpBackwards') return this.settings.jumpBackwardsTime
       if (this.moreMenuSetting === 'language') return this.settings.languageCode
       if (this.moreMenuSetting === 'theme') return this.theme
+      if (this.moreMenuSetting === 'launcherIcon') return this.launcherIcon
       if (this.moreMenuSetting === 'downloadUsingCellular') return this.settings.downloadUsingCellular
       if (this.moreMenuSetting === 'streamingUsingCellular') return this.settings.streamingUsingCellular
       if (this.moreMenuSetting === 'androidAutoBrowseSeriesSequenceOrder') return this.settings.androidAutoBrowseSeriesSequenceOrder
@@ -506,6 +526,22 @@ export default {
       this.moreMenuSetting = 'theme'
       this.showMoreMenuDialog = true
     },
+    showLauncherIconOptions() {
+      this.moreMenuSetting = 'launcherIcon'
+      this.showMoreMenuDialog = true
+    },
+    async setLauncherIcon(id) {
+      const previous = this.launcherIcon
+      this.launcherIcon = id
+      try {
+        await AbsLauncherIcon.setIcon({ id })
+        this.$toast.success(this.$strings.ToastAppIconChanged)
+      } catch (error) {
+        console.error('[settings] setLauncherIcon failed', error)
+        this.launcherIcon = previous
+        this.$toast.error(this.$strings.ToastAppIconFailed)
+      }
+    },
     showJumpForwardOptions() {
       this.moreMenuSetting = 'jumpForward'
       this.showMoreMenuDialog = true
@@ -540,6 +576,8 @@ export default {
       } else if (this.moreMenuSetting === 'theme') {
         this.theme = action
         this.saveTheme(action)
+      } else if (this.moreMenuSetting === 'launcherIcon') {
+        this.setLauncherIcon(action)
       } else if (this.moreMenuSetting === 'downloadUsingCellular') {
         this.settings.downloadUsingCellular = action
         this.saveSettings()
@@ -701,6 +739,9 @@ export default {
     async init() {
       this.loading = true
       this.theme = (await this.$localStore.getTheme()) || 'dark'
+      if (this.isAndroid) {
+        this.launcherIcon = (await AbsLauncherIcon.getIcon().catch(() => null))?.id || 'default'
+      }
       this.deviceData = await this.$db.getDeviceData()
       this.$store.commit('setDeviceData', this.deviceData)
       this.setDeviceSettings()

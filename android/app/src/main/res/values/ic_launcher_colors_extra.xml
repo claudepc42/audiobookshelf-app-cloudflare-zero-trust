@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backgrounds for the extra launcher icons (the gold one reuses ic_launcher_background) -->
+    <color name="ic_launcher_dark_background">#181512</color>
+    <color name="ic_launcher_midnight_background">#101A2B</color>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- NanoHive theme canvas colour, behind the logo on the NanoHive launcher icon -->
+    <color name="ic_launcher_nanohive_background">#181512</color>
+</resources>
