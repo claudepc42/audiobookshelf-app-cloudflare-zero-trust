@@ -5,7 +5,7 @@
         <div class="absolute cover-bg" ref="coverBg" />
       </div>
 
-      <img v-if="fullCoverUrl" ref="cover" :src="fullCoverUrl" loading="lazy" @error="imageError" @load="imageLoaded" class="w-full h-full absolute top-0 left-0 z-10 duration-300 transition-opacity" :style="{ opacity: imageReady ? 1 : 0 }" :class="(showCoverBg && hasCover) || noBg ? 'object-contain' : 'object-fill'" />
+      <img v-if="fullCoverUrl" ref="cover" :src="imgSrc" loading="lazy" @error="imageError" @load="imageLoaded" class="w-full h-full absolute top-0 left-0 z-10 duration-300 transition-opacity" :style="{ opacity: imageReady ? 1 : 0 }" :class="(showCoverBg && hasCover) || noBg ? 'object-contain' : 'object-fill'" />
 
       <div v-show="loading && libraryItem" class="absolute top-0 left-0 h-full w-full flex items-center justify-center">
         <p class="text-center" :style="{ fontSize: 0.75 * sizeMultiplier + 'rem' }">{{ title }}</p>
@@ -34,6 +34,9 @@
 </template>
 
 <script>
+const MAX_RETRIES = 5
+const RETRY_BASE_MS = 2000
+
 import { Capacitor } from '@capacitor/core'
 
 export default {
@@ -56,12 +59,15 @@ export default {
       loading: true,
       imageFailed: false,
       showCoverBg: false,
-      imageReady: false
+      imageReady: false,
+      retryCount: 0,
+      retryTimer: null
     }
   },
   watch: {
     cover() {
       this.imageFailed = false
+      this.retryCount = 0
     }
   },
   computed: {
@@ -119,6 +125,11 @@ export default {
       var store = this.$store || this.$nuxt.$store
       return store.getters['globals/getLibraryItemCoverSrc'](this.libraryItem, this.placeholderUrl, this.raw)
     },
+    // Same URL plus a retry counter, so the browser makes a new request after a failed load
+    imgSrc() {
+      if (!this.retryCount || !this.fullCoverUrl) return this.fullCoverUrl
+      return `${this.fullCoverUrl}${this.fullCoverUrl.includes('?') ? '&' : '?'}retry=${this.retryCount}`
+    },
     cover() {
       return this.media.coverPath || this.placeholderUrl
     },
@@ -168,12 +179,34 @@ export default {
       this.$emit('imageLoaded', this.fullCoverUrl)
     },
     imageError(err) {
-      this.loading = false
       console.error('ImgError', err)
+      // Server covers can fail only because the connection dropped (dead zone), and a failed image is
+      // never re-requested on its own. Retry with a growing delay before showing the failed state.
+      if (!this.isLocal && !this.downloadCover && this.retryCount < MAX_RETRIES) {
+        clearTimeout(this.retryTimer)
+        this.retryTimer = setTimeout(() => {
+          this.retryCount++
+        }, RETRY_BASE_MS * Math.pow(2, this.retryCount))
+        return
+      }
+      this.loading = false
       this.imageFailed = true
+    },
+    // The connection came back: give a cover that ran out of retries a fresh start
+    onOnline() {
+      if (!this.imageFailed) return
+      this.imageFailed = false
+      this.loading = true
+      this.retryCount++
     }
   },
-  mounted() {}
+  mounted() {
+    window.addEventListener('online', this.onOnline)
+  },
+  beforeDestroy() {
+    clearTimeout(this.retryTimer)
+    window.removeEventListener('online', this.onOnline)
+  }
 }
 </script>
 

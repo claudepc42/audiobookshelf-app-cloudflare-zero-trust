@@ -169,11 +169,12 @@
       </LinearLayout>
     </LinearLayout>
 
-    <!-- Row 2 (weight 44): transport row. Icons are non-weighted
-         (natural width, derived from their own resolved height via
-         adjustViewBounds); the four empty-ImageView spacers ARE weighted
-         (1 each), so leftover horizontal room splits evenly around/between
-         them — space-around, not a fixed dp gap. -->
+    <!-- Row 2 (weight 38): transport row. The three icons are weighted (3 each) and the four
+         empty-ImageView spacers are weighted (1 each), so horizontal room splits evenly around
+         and between them. Each icon is fitCenter inside its own cell: as tall as the row when
+         there is room, shrunk to the cell when the widget is narrow. They used to be
+         wrap_content, and at a narrow widget the forward arrow was pushed past the right edge
+         and clipped. -->
     <LinearLayout
       android:id="@+id/widgetButtonContainer"
       android:layout_width="match_parent"
@@ -189,9 +190,9 @@
            triangle at the same bounding box, even at equal height. -->
       <ImageView
         android:id="@+id/widgetRewindButton"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:adjustViewBounds="true"
+        android:layout_weight="3"
         android:padding="4dp"
         android:scaleType="fitCenter"
         android:src="@drawable/exo_icon_rewind" />
@@ -200,9 +201,9 @@
 
       <ImageView
         android:id="@+id/widgetPlayPauseButton"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:adjustViewBounds="true"
+        android:layout_weight="3"
         android:scaleType="fitCenter"
         android:src="@drawable/nh_widget_icon_play" />
 
@@ -210,9 +211,9 @@
 
       <ImageView
         android:id="@+id/widgetFastForwardButton"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:adjustViewBounds="true"
+        android:layout_weight="3"
         android:padding="4dp"
         android:scaleType="fitCenter"
         android:src="@drawable/exo_icon_fastforward" />

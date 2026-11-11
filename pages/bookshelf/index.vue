@@ -69,7 +69,8 @@ export default {
       lastServerFetchLibraryId: null,
       lastLocalFetch: 0,
       localLibraryItems: [],
-      isLoading: false
+      isLoading: false,
+      offlineTimer: null
     }
   },
   watch: {
@@ -77,7 +78,29 @@ export default {
       // Update shelves when network connect status changes
       console.log(`[categories] Network changed to ${newVal} - fetch categories. ${this.lastServerFetch}/${this.lastLocalFetch}`)
 
+      if (!newVal) {
+        // Switching Wi-Fi to mobile data drops the connection for a moment. Wait before acting on it, so a brief
+        // drop does not swap the shelves to the offline view and back (the flicker).
+        clearTimeout(this.offlineTimer)
+        this.offlineTimer = setTimeout(() => {
+          this.offlineTimer = null
+          console.log(`[categories] networkConnected false so fetching categories`)
+          this.fetchCategories()
+        }, 3000)
+        return
+      }
+
       if (newVal) {
+        // Back within a few seconds of dropping: the shelves on screen are still current, so leave them alone
+        if (this.offlineTimer) {
+          clearTimeout(this.offlineTimer)
+          this.offlineTimer = null
+          if (this.lastServerFetch) {
+            console.log(`[categories] network dropped and came back within 3s so keeping the shelves as they are`)
+            return
+          }
+        }
+
         // Fetch right away the first time network connects
         if (this.isFirstNetworkConnection) {
           this.isFirstNetworkConnection = false
@@ -91,9 +114,6 @@ export default {
           console.log(`[categories] networkConnected true so fetching categories. lastServerFetch=${this.lastServerFetch}`)
           this.fetchCategories()
         }, 4000)
-      } else {
-        console.log(`[categories] networkConnected false so fetching categories`)
-        this.fetchCategories()
       }
     },
     user(newVal, oldVal) {
@@ -528,6 +548,7 @@ export default {
     this.fetchCategories()
   },
   beforeDestroy() {
+    clearTimeout(this.offlineTimer)
     this.removeListeners()
   }
 }
