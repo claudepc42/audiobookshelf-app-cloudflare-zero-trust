@@ -93,6 +93,15 @@ export default {
     progressConflicts(list) {
       if (list.length) this.askAboutProgressConflicts()
     },
+    // Back to Auto while the backend is unknown: find out now rather than at the next app start
+    '$store.state.nhSettings.nhServerMode'(mode) {
+      if (mode === 'auto' && this.$store.state.nhBackend === null && this.nhThemeActive) this.fetchNhServerConfig()
+    },
+    // The server may have gained a NanoHive backend since the last check, so look again from time to time
+    // while it is marked absent
+    $route() {
+      if (this.$store.state.nhBackend === 'absent' && this.nhThemeActive && Date.now() - (this._nhBackendCheckedAt || 0) > 60000) this.fetchNhServerConfig()
+    },
     nhServerKey(val, old) {
       const [oldServer, oldUser] = (old || '|').split('|')
       const [server, user] = (val || '|').split('|')
@@ -291,15 +300,20 @@ export default {
       if (!this.$store.state.user.serverConnectionConfig?.address) return
       this._fetchingNhServerConfig = true
       this._nhServerConfigEpoch = epoch
+      this._nhBackendCheckedAt = Date.now()
       this.$nativeHttp
         .get('/_nh/server-config.json')
         .then((cfg) => {
           if (this.$store.state.nhCacheEpoch !== epoch) return
           this.$store.commit('setNhServerConfig', cfg)
+          this.setNhBackend('present')
         })
         .catch((err) => {
           if (this.$store.state.nhCacheEpoch !== epoch) return
           this.$store.commit('setNhServerConfig', {})
+          // 404 means the server has no NanoHive backend. Any other failure (no signal, Cloudflare not
+          // ready, a server error) says nothing about that, so the answer stays unknown.
+          if (err?.status === 404) this.setNhBackend('absent', 'server-config.json answered 404')
           // A server with no NanoHive backend says 404 and that's final; anything else (no signal,
           // Cloudflare not ready yet) gets another try instead of sticking until the app restarts
           if (err?.status !== 404 && attempt < 3) {
@@ -309,6 +323,13 @@ export default {
         .then(() => {
           if (this._nhServerConfigEpoch === epoch) this._fetchingNhServerConfig = false
         })
+    },
+    // Records whether the server has a NanoHive backend. A change is written to the in-app logs, so a
+    // wrong "absent" (a proxy or Cloudflare rule can also answer 404) can be seen there.
+    setNhBackend(value, why = '') {
+      if (this.$store.state.nhBackend === value) return
+      this.$store.commit('setNhBackend', value)
+      AbsLogger.info({ tag: 'nanohive', message: `NanoHive server backend ${value}${why ? ` (${why})` : ''}` })
     },
     async checkForUpdates() {
       if (this.$platform !== 'android') return

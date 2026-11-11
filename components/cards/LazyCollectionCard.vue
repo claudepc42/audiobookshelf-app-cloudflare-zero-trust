@@ -64,7 +64,8 @@ export default {
     // NH source: nhColArt(id) || nhColMatch(name) (enhancements.js:8042) — admin
     // override wins, falls back to the automatic name-based match.
     emblemMatch() {
-      const art = this.store.state.nhCollectionArt
+      // The admin's art overrides live on the NanoHive server; the name-based match below is local
+      const art = this.store.getters.nhServerFeaturesOn ? this.store.state.nhCollectionArt : null
       const override = art && this.collection ? art[this.collection.id] : null
       if (override && override.icon) return { icon: override.icon, tint: override.tint || '#5c5048' }
       return nhColMatch(this.title)
@@ -85,6 +86,8 @@ export default {
     // across every card via the store cache; only the first mounted card fetches.
     ensureCollectionArt() {
       if (this.store.state.nhCollectionArt || this._fetchingArt) return
+      // This server has no NanoHive backend (or the user turned the server features off)
+      if (!this.store.getters.nhServerFeaturesOn) return
       // Cards mounted by hand have no parent, so Nuxt's injected $nativeHttp is not there and the
       // call below threw a TypeError for every card
       if (!this.$nativeHttp) return

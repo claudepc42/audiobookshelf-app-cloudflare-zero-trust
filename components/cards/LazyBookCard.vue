@@ -314,6 +314,7 @@ export default {
     // unless it's a podcast library".
     ratingsEnabledForLibrary() {
       const s = this.store.state.nhSettings
+      if (!this.store.getters.nhServerFeaturesOn) return false
       if (s.showRatings === false || s.showCardRatings === false) return false
       const libs = s.ratingLibs && typeof s.ratingLibs === 'object' ? s.ratingLibs : {}
       if (this.libraryId && Object.prototype.hasOwnProperty.call(libs, this.libraryId)) return libs[this.libraryId] !== false

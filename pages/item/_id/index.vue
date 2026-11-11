@@ -178,7 +178,7 @@
         <div v-if="nhThemeActive && !isPodcast && (startedAtDisplay || userProgressFinishedAt)" id="nh-bd-dates">
           <div v-if="startedAtDisplay" class="nh-bd-dt">
             <span class="nh-bd-dt-l">Started</span>
-            <span v-if="!datesBackendReady" class="nh-bd-dt-v">{{ $formatDate(startedAtDisplay) }}</span>
+            <span v-if="!datesBackendReady || !nhServerOn" class="nh-bd-dt-v">{{ $formatDate(startedAtDisplay) }}</span>
             <span v-else class="nh-date-wrap">
               <input type="date" class="nh-bd-dt-inp" :class="{ 'nh-bd-dt-saving': savingStartedAt }" :value="isoDate(startedAtDisplay)" @change="onStartedAtChange" />
               <span class="nh-date-ico" />
@@ -196,7 +196,7 @@
         <!-- NH source: nhReportLink() (book-details.js:886-913) — fallback standalone
              link form (NH's preferred form injects into the 3-dot menu; not attempted
              here since it targets ABS's own web-client menu markup, not this app's). -->
-        <button v-if="nhThemeActive && !isPodcast && serverLibraryItemId" id="nh-rp-link" type="button" @click="showReportModal = true">
+        <button v-if="nhThemeActive && nhServerOn && !isPodcast && serverLibraryItemId" id="nh-rp-link" type="button" @click="showReportModal = true">
           <span class="material-symbols">flag</span>
           {{ reportStrings.menu }}
         </button>
@@ -401,9 +401,14 @@ export default {
     // setting, same as every other ratings surface
     nhRatingsEnabledHere() {
       const s = this.$store.state.nhSettings
+      if (!this.$store.getters.nhServerFeaturesOn) return false
       if (s.showRatings === false) return false
       const library = this.$store.state.libraries.libraries.find((l) => l.id === this.libraryItem?.libraryId)
       return nhRatingsLibOn(s.ratingLibs, library)
+    },
+    // False when this server has no NanoHive backend, or the user turned the server features off
+    nhServerOn() {
+      return this.$store.getters.nhServerFeaturesOn
     },
     nhThemeActive() {
       return this.$store.state.nhThemeActive
@@ -639,7 +644,7 @@ export default {
     // doubles as the "is the NH backend even there" check that gates whether the
     // started-date field renders as an editable <input> at all.
     async fetchStartedDate() {
-      if (!this.nhThemeActive || this.isPodcast || !this.serverLibraryItemId) return
+      if (!this.nhThemeActive || !this.nhServerOn || this.isPodcast || !this.serverLibraryItemId) return
       try {
         const res = await this.$nativeHttp.get('/_nh/api/dates')
         this.datesBackendReady = true

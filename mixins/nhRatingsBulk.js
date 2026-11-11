@@ -34,6 +34,8 @@ export default {
       // No server yet (fresh install, or before login): the request would go out with a relative
       // URL and fail with "no protocol", which also counted toward the back-off below.
       if (!this.nhStore.getters['user/getServerAddress']) return
+      // This server has no NanoHive backend (or the user turned the server features off)
+      if (!this.nhStore.getters.nhServerFeaturesOn) return
       const state = this.nhStore.state
       if (state.nhRatingsDead && Date.now() < state.nhRatingsRetryAt) return
       const stale = Date.now() - state.nhRatingsBulkAt > STALE_MS

@@ -250,7 +250,7 @@ export default {
       this.$router.push(path)
     },
     searchRating(libraryItemId) {
-      if (!this.$store.state.nhThemeActive || this.$store.state.nhSettings.showRatings === false || this.$store.state.nhSettings.showCardRatings === false) return null
+      if (!this.$store.state.nhThemeActive || !this.$store.getters.nhServerFeaturesOn || this.$store.state.nhSettings.showRatings === false || this.$store.state.nhSettings.showCardRatings === false) return null
       return this.nhRatingAvgFor(libraryItemId)
     },
     setFocus() {
@@ -268,7 +268,7 @@ export default {
     } else {
       this.$nextTick(this.setFocus())
     }
-    if (this.$store.state.nhThemeActive && this.$store.state.nhSettings.showRatings !== false && this.$store.state.nhSettings.showCardRatings !== false) {
+    if (this.$store.state.nhThemeActive && this.$store.getters.nhServerFeaturesOn && this.$store.state.nhSettings.showRatings !== false && this.$store.state.nhSettings.showCardRatings !== false) {
       this.ensureNhRatingsBulk()
     }
   }

@@ -59,6 +59,7 @@ export default {
       } catch (e) {
         this.sending = false
         this.status = this.strings.fail
+        if (e?.status === 404) this.$nhNeedsServer()
       }
     }
   }

@@ -95,11 +95,15 @@ export default {
       return this.$store.state.nhSettings
     },
     dead() {
+      // Always show: stays on the page even when the server has no NanoHive backend, so the stars
+      // are there to tap (and say why they don't work)
+      if (this.nhSettings.nhServerMode === 'show') return this.ratingsOff
       return this.$store.state.nhRatingsDead || this.gone || this.ratingsOff
     },
     // Same gate as the card badges, search and the shelf: the user's switch, the admin's lock (which
     // forces showRatings off) and the library's own setting
     ratingsOff() {
+      if (!this.$store.getters.nhServerFeaturesOn) return true
       if (this.nhSettings.showRatings === false) return true
       // A series key (series:<id>) belongs to the current library; a book belongs to its own
       const library = this.$store.getters['libraries/getCurrentLibrary']
@@ -200,6 +204,7 @@ export default {
         // 404 means the server has no NanoHive backend (a stock server has no /_nh route): retrying
         // won't change that, so stop at once and let the rest of the app know
         if (e?.status === 404) {
+          if (this.nhSettings.nhServerMode === 'show') return
           this.gone = true
           this.$store.commit('setNhRatingsDead', true)
           return
@@ -267,6 +272,7 @@ export default {
         this.$store.commit('patchNhRatingsBulkItem', { itemKey: this.itemKey, ratings: this.ratings })
       } catch (e) {
         this.status = this.strings.err
+        if (e?.status === 404) this.$nhNeedsServer()
       }
     }
   }

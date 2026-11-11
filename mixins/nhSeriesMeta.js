@@ -22,6 +22,7 @@ export default {
     },
     nhSeriesCoverUrl() {
       return (seriesId) => {
+        if (!this.nhStore?.getters.nhServerFeaturesOn) return null
         const ext = this.nhStore?.state.nhSeriesCovers?.[seriesId]
         if (!ext) return null
         // Used directly as a CSS background-image url(), not routed through
@@ -37,6 +38,8 @@ export default {
     ensureNhSeriesMeta() {
       const state = this.nhStore?.state
       if (!state || state.nhSeriesCovers) return
+      // This server has no NanoHive backend (or the user turned the server features off)
+      if (!this.nhStore.getters.nhServerFeaturesOn) return
       // One in flight per cache epoch: a request left over from before a server switch must neither
       // block the new server's fetch nor fill its caches
       if (sharedSeriesMetaPromise && sharedSeriesMetaEpoch === state.nhCacheEpoch) return
@@ -67,12 +70,12 @@ export default {
     // safe to call while rendering; ensureNhSeriesDescText does the fetching.
     // NH source: nhSdText() (enhancements.js:4268-4279).
     nhSeriesDescText(seriesId) {
-      if (!seriesId || !this.nhStore?.state.nhSeriesDescs?.[seriesId]) return null
+      if (!seriesId || !this.nhStore?.getters.nhServerFeaturesOn || !this.nhStore.state.nhSeriesDescs?.[seriesId]) return null
       return this.nhStore.state.nhSeriesDescText[seriesId] || null
     },
     // Starts the fetch for a series' custom description (once per series)
     ensureNhSeriesDescText(seriesId) {
-      if (!seriesId || !this.nhStore?.state.nhSeriesDescs?.[seriesId]) return
+      if (!seriesId || !this.nhStore?.getters.nhServerFeaturesOn || !this.nhStore.state.nhSeriesDescs?.[seriesId]) return
       if (this.nhStore.state.nhSeriesDescText[seriesId] !== undefined) return
       const store = this.nhStore
       store.commit('setNhSeriesDescText', { seriesId, text: '' })
@@ -94,6 +97,7 @@ export default {
       const isMe = userId && userId === this.nhStore?.state.user?.user?.id
       if (isMe && localDataUrl) return localDataUrl
 
+      if (!this.nhStore?.getters.nhServerFeaturesOn) return null
       const ext = this.nhStore?.state.nhAvatars?.[userId]
       if (!ext) return null
       // Same reasoning as nhSeriesCoverUrl above — used directly as an <img>

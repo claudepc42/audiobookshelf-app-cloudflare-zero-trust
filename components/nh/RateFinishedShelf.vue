@@ -102,7 +102,7 @@ export default {
     // Everything showShelf needs except having rows: when any of this is false there is nothing to
     // fetch book info for
     shelfEnabled() {
-      return this.nhThemeActive && !this.$store.state.nhRatingsDead && this.nhSettings.showRateFinished !== false && nhRatingsLibOn(this.nhSettings.ratingLibs, this.currentLibrary)
+      return this.nhThemeActive && this.$store.getters.nhServerFeaturesOn && !this.$store.state.nhRatingsDead && this.nhSettings.showRateFinished !== false && nhRatingsLibOn(this.nhSettings.ratingLibs, this.currentLibrary)
     },
     unratedIds() {
       // Without the ratings cache every finished book looks unrated, which meant 20 requests per visit
@@ -183,7 +183,8 @@ export default {
         this.$store.commit('patchNhRatingsBulkItem', { itemKey: row.id, ratings })
         setTimeout(() => this.closeSheet(), 400)
       } catch (err) {
-        // Silent — the sheet just stays open so the user can try again.
+        // The sheet just stays open so the user can try again
+        if (err?.status === 404) this.$nhNeedsServer()
       }
     },
     openSheet(row) {

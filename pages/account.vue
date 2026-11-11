@@ -14,7 +14,7 @@
          reports submitted via the item-page "Report a problem" flow. Silently absent
          if there's no NanoHive backend to talk to (nhThemeActive gate + graceful fetch
          failure inside the modal). -->
-    <ui-btn v-if="isAdminOrUp && nhThemeActive" color="bg bg-opacity-50 flex items-center justify-between gap-2 ml-auto text-base mt-4" @click="showReportQueue = true">
+    <ui-btn v-if="isAdminOrUp && nhThemeActive && nhServerOn" color="bg bg-opacity-50 flex items-center justify-between gap-2 ml-auto text-base mt-4" @click="showReportQueue = true">
       Reported Problems<span class="material-symbols" style="font-size: 1.1rem">flag</span>
     </ui-btn>
 
@@ -95,6 +95,15 @@ export default {
       // Saved in server connection config after 0.9.81
       return this.serverConnectionConfig.version
     },
+    // False when this server has no NanoHive backend, or the user turned the server features off
+    nhServerOn() {
+      return this.$store.getters.nhServerFeaturesOn
+    },
+    // An admin's photo is uploaded to the server. Without a NanoHive server there is nowhere to upload it,
+    // so the photo stays on this device, as it does for everyone else.
+    usesServerAvatar() {
+      return this.isAdminOrUp && this.nhServerOn
+    },
     myAvatarUrl() {
       return this.user ? this.nhAvatarUrl(this.user.id) : null
     }
@@ -118,7 +127,7 @@ export default {
       }
       const reader = new FileReader()
       reader.onload = () => {
-        if (this.isAdminOrUp) {
+        if (this.usesServerAvatar) {
           const base64 = reader.result.split(',')[1]
           this.saveAvatar(base64)
         } else {
@@ -158,7 +167,8 @@ export default {
           })
         }
       } catch (e) {
-        this.$toast.error('Failed to save photo')
+        if (e?.status === 404) this.$nhNeedsServer()
+        else this.$toast.error('Failed to save photo')
       }
       try {
         await Filesystem.deleteFile({ path: tempPath, directory: Directory.Cache })
@@ -166,7 +176,7 @@ export default {
       this.avatarSaving = false
     },
     async clearAvatar() {
-      if (!this.isAdminOrUp) {
+      if (!this.usesServerAvatar) {
         await this.saveLocalAvatar(null)
         return
       }

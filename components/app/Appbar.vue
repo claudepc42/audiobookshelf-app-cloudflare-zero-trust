@@ -63,7 +63,7 @@ export default {
       return this.$store.state.nhSettings
     },
     nhLogoSrc() {
-      if (this.nhSettings.useServerLogo) {
+      if (this.nhSettings.useServerLogo && this.$store.getters.nhServerFeaturesOn) {
         const serverLogoUrl = this.$store.state.nhServerConfig?.logoUrl
         if (serverLogoUrl) return serverLogoUrl
       }

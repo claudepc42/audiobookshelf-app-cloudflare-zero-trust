@@ -180,7 +180,7 @@ export default {
         this.coverUrl = this.$store.getters['globals/getLibraryItemCoverSrcById'](best.id)
       }
       const s = this.$store.state.nhSettings
-      if (s.showRatings !== false && s.showCardRatings !== false) this.ensureNhRatingsBulk()
+      if (s.showRatings !== false && s.showCardRatings !== false && this.$store.getters.nhServerFeaturesOn) this.ensureNhRatingsBulk()
       this.$nextTick(this.measureDescClamp)
     },
     measureDescClamp() {

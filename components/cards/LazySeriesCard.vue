@@ -140,6 +140,7 @@ export default {
     },
     ratingsEnabledForLibrary() {
       const s = this.store.state.nhSettings
+      if (!this.store.getters.nhServerFeaturesOn) return false
       if (s.showRatings === false || s.showCardRatings === false) return false
       const libs = s.ratingLibs && typeof s.ratingLibs === 'object' ? s.ratingLibs : {}
       if (this.currentLibraryId && Object.prototype.hasOwnProperty.call(libs, this.currentLibraryId)) return libs[this.currentLibraryId] !== false

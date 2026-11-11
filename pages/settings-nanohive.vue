@@ -25,6 +25,29 @@
     </div>
     <p v-if="panelSearch && noSectionsMatch" class="text-xs mb-4" style="color: var(--nh-muted-2, #8a8075)">{{ noMatchText }}</p>
 
+    <div id="nh-server-features" data-section>
+      <!-- NanoHive server features: whether the features that need a NanoHive server on the other end are shown -->
+      <p class="uppercase text-xs font-semibold mb-1" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">{{ $strings.HeaderNhServerFeatures }}</p>
+      <p class="text-xs mb-3" style="color: var(--nh-muted-2, #8a8075)">{{ $strings.LabelNhServerFeaturesHelp }}</p>
+      <div class="flex flex-wrap gap-2 mb-2">
+        <button
+          v-for="opt in serverModeOptions"
+          :key="opt.value"
+          type="button"
+          class="px-3 py-1.5 rounded-lg text-sm"
+          :style="{
+            color: settings.nhServerMode === opt.value ? 'var(--nh-amber, #e0c27a)' : 'var(--nh-muted, #9a9085)',
+            background: settings.nhServerMode === opt.value ? 'rgba(224,194,122,0.12)' : 'transparent',
+            border: settings.nhServerMode === opt.value ? '1px solid var(--nh-amber, #e0c27a)' : '1px solid rgba(255,255,255,0.10)'
+          }"
+          @click="updateSetting('nhServerMode', opt.value)"
+        >
+          {{ opt.text }}
+        </button>
+      </div>
+      <p class="text-xs mb-6" style="color: var(--nh-muted, #9a9085)">{{ serverStatusText }}</p>
+    </div>
+
     <div data-section>
       <!-- Branding & Style -->
       <p class="uppercase text-xs font-semibold mb-3" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">{{ $strings.HeaderNhBrandingStyle }}</p>
@@ -117,7 +140,7 @@
         <input ref="logoInput" type="file" accept="image/*" class="hidden" @change="onLogoPicked" />
       </div>
 
-      <div class="flex items-center py-2">
+      <div v-if="nhServerOn" class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('useServerLogo', !settings.useServerLogo)">
           <ui-toggle-switch :value="settings.useServerLogo" @input="updateSetting('useServerLogo', $event)" />
         </div>
@@ -216,7 +239,7 @@
         <p class="pl-4" style="color: var(--nh-text-2, #d8cfc2)">{{ $strings.LabelNhFinishedBookTools }}</p>
       </div>
 
-      <div class="flex items-center py-2">
+      <div v-if="nhServerOn" class="flex items-center py-2">
         <div class="w-10 flex justify-center" @click="updateSetting('showRateFinished', !settings.showRateFinished)">
           <ui-toggle-switch :value="settings.showRateFinished" @input="updateSetting('showRateFinished', $event)" />
         </div>
@@ -300,7 +323,7 @@
       </div>
     </div>
 
-    <div data-section>
+    <div v-if="nhServerOn" data-section>
       <!-- Community Ratings -->
       <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">{{ $strings.HeaderNhCommunityRatings }}</p>
       <p class="text-xs mb-3" style="color: var(--nh-muted-2, #8a8075)">{{ $strings.LabelNhCommunityRatingsHelp }}</p>
@@ -409,7 +432,7 @@
          out of the searchable/filterable section list — an admin-only block
          showing zero rows when a search term doesn't match it would read as a
          bug ("where did Server Defaults go?"), not filtering working correctly. -->
-    <template v-if="isAdminOrUp && nhThemeActive">
+    <template v-if="isAdminOrUp && nhThemeActive && nhServerOn">
       <p class="uppercase text-xs font-semibold mb-1 mt-8" style="color: var(--nh-amber, #e0c27a); letter-spacing: 0.08em">{{ $strings.HeaderNhServerDefaults }}</p>
       <p class="text-xs mb-3" style="color: var(--nh-muted-2, #8a8075)">{{ $strings.LabelNhServerDefaultsHelp }}</p>
       <div class="flex gap-2 mb-2">
@@ -496,6 +519,23 @@ export default {
     isAdminOrUp() {
       return this.$store.getters['user/getIsAdminOrUp']
     },
+    // False when this server has no NanoHive backend, or the server features are set to Always hide
+    nhServerOn() {
+      return this.$store.getters.nhServerFeaturesOn
+    },
+    serverModeOptions() {
+      return [
+        { value: 'auto', text: this.$strings.LabelNhServerModeAuto },
+        { value: 'show', text: this.$strings.LabelNhServerModeShow },
+        { value: 'hide', text: this.$strings.LabelNhServerModeHide }
+      ]
+    },
+    serverStatusText() {
+      const backend = this.$store.state.nhBackend
+      if (backend === 'present') return this.$strings.LabelNhServerStatusFound
+      if (backend === 'absent') return this.$strings.LabelNhServerStatusNotFound
+      return this.$strings.LabelNhServerStatusUnknown
+    },
     nhThemeActive() {
       return this.$store.state.nhThemeActive
     },
@@ -573,7 +613,7 @@ export default {
         // Never leak per-device/session-only or personal state into the shared server default:
         // the glass tuner, this app's own on/off flag and text size, the local profile photo, the
         // "use the server's logo" opt-in, and the shared-ranking opt-in
-        ;['themeVersion', 'nhGlassEffect', 'nhGlassEffectSlots', 'active', 'drawerFontScale', 'localAvatarDataUrl', 'useServerLogo', 'familyStats'].forEach((k) => delete pushed[k])
+        ;['themeVersion', 'nhGlassEffect', 'nhGlassEffectSlots', 'active', 'drawerFontScale', 'localAvatarDataUrl', 'useServerLogo', 'familyStats', 'nhServerMode'].forEach((k) => delete pushed[k])
         // NanoHive web applies the page switches (the cinematic background) to every user, so keep
         // the server's own value rather than this phone's
         if (Object.prototype.hasOwnProperty.call(existing, 'cinematicBg')) pushed.cinematicBg = existing.cinematicBg
@@ -657,7 +697,7 @@ export default {
       }
       const reader = new FileReader()
       reader.onload = () => {
-        if (this.isAdminOrUp) {
+        if (this.isAdminOrUp && this.nhServerOn) {
           const base64 = reader.result.split(',')[1]
           this.saveLogo(base64, ext)
         } else {
@@ -715,8 +755,18 @@ export default {
   beforeDestroy() {
     Object.values(this.numberSettingTimers).forEach(clearTimeout)
   },
+  watch: {
+    // The toast button opens this page again while it is already showing
+    '$route.query.section'(section) {
+      if (section === 'server') this.$nextTick(() => this.$el.querySelector('#nh-server-features')?.scrollIntoView())
+    }
+  },
   mounted() {
     this.preloadFontPreviews()
+    // Opened from the "needs a NanoHive server" toast
+    if (this.$route.query.section === 'server') {
+      this.$nextTick(() => this.$el.querySelector('#nh-server-features')?.scrollIntoView())
+    }
   }
 }
 </script>

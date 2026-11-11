@@ -1,5 +1,5 @@
 <template>
-  <div v-if="nhThemeActive" class="w-full px-4 py-4">
+  <div v-if="nhThemeActive && (nhServerOn || isAdminOrUp)" class="w-full px-4 py-4">
     <div class="flex items-center mb-3">
       <h1 class="text-2xl flex-grow">{{ $strings.HeaderServerRanking }}</h1>
       <div v-if="rows.length" class="flex gap-1">
@@ -69,6 +69,11 @@ export default {
     }
   },
   computed: {
+    // False when this server has no NanoHive backend, or the user turned the server features off. An admin's
+    // ranking is built from ABS's own user stats, so it still shows; only the shared-stats call is skipped.
+    nhServerOn() {
+      return this.$store.getters.nhServerFeaturesOn
+    },
     nhThemeActive() {
       return this.$store.state.nhThemeActive
     },
@@ -138,12 +143,12 @@ export default {
       return sum
     },
     async load() {
-      if (!this.nhThemeActive) return
+      if (!this.nhThemeActive || (!this.nhServerOn && !this.isAdminOrUp)) return
       this.ensureNhSeriesMeta()
       this.loading = true
       try {
         if (this.isAdminOrUp) {
-          const [usersRes, statsRes] = await Promise.all([this.$nativeHttp.get('/api/users').catch(() => null), this.$nativeHttp.get('/_nh/api/stats').catch(() => null)])
+          const [usersRes, statsRes] = await Promise.all([this.$nativeHttp.get('/api/users').catch(() => null), this.nhServerOn ? this.$nativeHttp.get('/_nh/api/stats').catch(() => null) : null])
           const shared = statsRes?.users || {}
           const optedOut = {}
           Object.keys(shared).forEach((id) => {
@@ -197,7 +202,8 @@ export default {
         await this.$store.dispatch('saveNhSettings')
         this.load()
       } catch (e) {
-        this.$toast.error(this.$strings.ToastShareStatsFailed)
+        if (e?.status === 404) this.$nhNeedsServer()
+        else this.$toast.error(this.$strings.ToastShareStatsFailed)
       }
       this.joining = false
     },

@@ -112,7 +112,11 @@ export const NH_SETTINGS_DEFAULTS = {
   // Full kill-switch for the cinematic blurred-cover background (layouts/default.vue's
   // nhCinematicMode/#nh-home-bg) — does not affect the separate always-on ambient
   // gradient wash (#nh-ambient-bg), which NH's own source doesn't gate on this setting.
-  cinematicBg: true
+  cinematicBg: true,
+  // Whether the features that need a NanoHive server (ratings, reports, family stats, avatar uploads, server
+  // art and logo) are shown. 'auto' hides them when the server turns out to have no NanoHive backend, 'show'
+  // always shows them, 'hide' always hides them. Local theming never depends on this.
+  nhServerMode: 'auto'
 }
 
 // NH source: enhancements.js baseThemes (lines 67-80)
@@ -450,6 +454,9 @@ export const state = () => ({
   // of whatever the user has locally, not persisted into their own saved
   // settings, so a lock lifting later restores their original preference.
   nhServerConfig: null,
+  // Whether the current server has a NanoHive backend: null = not known yet, 'present' or 'absent'.
+  // Set from the answer to GET /_nh/server-config.json (a 404 means absent); anything else leaves it unknown.
+  nhBackend: null,
   nhServerLocks: {},
   // The user's own value for every setting an admin lock is currently forcing off. The forced
   // false lives only in nhSettings; saving writes these instead, so lifting the lock restores
@@ -467,6 +474,14 @@ export const state = () => ({
 })
 
 export const getters = {
+  // Whether features that need a NanoHive server should be shown. Unknown counts as on, so a slow or
+  // offline start never hides anything; only a definite "no backend" answer does.
+  nhServerFeaturesOn: (state) => {
+    const mode = state.nhSettings.nhServerMode
+    if (mode === 'show') return true
+    if (mode === 'hide') return false
+    return state.nhBackend !== 'absent'
+  },
   getCurrentPlaybackSessionId: (state) => {
     return state.currentPlaybackSession?.id || null
   },
@@ -735,6 +750,7 @@ export const mutations = {
     state.nhSeriesMetaRetryAt = 0
     state.nhCacheEpoch++
     state.nhServerConfig = null
+    state.nhBackend = null
     state.nhServerLocks = {}
     // No locks any more: give the user's own values back
     state.nhSettings = { ...state.nhSettings, ...state.nhLockedOriginals }
@@ -774,6 +790,9 @@ export const mutations = {
     if (text === undefined) delete next[seriesId]
     else next[seriesId] = text
     state.nhSeriesDescText = next
+  },
+  setNhBackend(state, val) {
+    state.nhBackend = val
   },
   setNhServerConfig(state, cfg) {
     state.nhServerConfig = cfg || {}
