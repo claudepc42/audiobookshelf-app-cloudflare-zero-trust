@@ -949,10 +949,26 @@ export default {
 
         if (this.$refs.track) {
           this.trackWidth = this.$refs.track.clientWidth
+          this.observeTrackWidth()
         } else {
           console.error('Track not loaded', this.$refs)
         }
       })
+    },
+    // The progress bar is a different width in the mini player than in the full screen player, and its
+    // width was only measured when playback started (in the mini player). Opening the full screen player
+    // left the fill scaled to the narrower bar, so it stopped short of the end. Measure again whenever
+    // the bar changes size.
+    observeTrackWidth() {
+      if (this.trackResizeObserver || !this.$refs.track || typeof ResizeObserver === 'undefined') return
+      this.trackResizeObserver = new ResizeObserver(() => {
+        const width = this.$refs.track?.clientWidth
+        if (!width || width === this.trackWidth) return
+        this.trackWidth = width
+        this.updateTrack()
+        this.updateReadyTrack()
+      })
+      this.trackResizeObserver.observe(this.$refs.track)
     },
     onPlaybackClosed() {
       this.endPlayback()
@@ -1060,6 +1076,7 @@ export default {
       document.removeEventListener('orientationchange', this.screenOrientationChange)
     }
     window.removeEventListener('resize', this.screenOrientationChange)
+    if (this.trackResizeObserver) this.trackResizeObserver.disconnect()
 
     if (this.playbackSession) {
       console.log('[AudioPlayer] Before destroy closing playback')

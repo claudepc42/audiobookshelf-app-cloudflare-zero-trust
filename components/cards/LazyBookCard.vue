@@ -29,7 +29,7 @@
         <p :style="{ fontSize: sizeMultiplier * 0.8 + 'rem' }" class="text-fg-muted text-center">{{ title }}</p>
       </div>
 
-      <img v-show="libraryItem" ref="cover" :src="bookCoverSrc" class="w-full h-full transition-opacity duration-300" :class="showCoverBg ? 'object-contain' : 'object-fill'" @load="imageLoaded" :style="{ opacity: imageReady ? 1 : 0 }" />
+      <img v-show="libraryItem" ref="cover" :src="bookCoverSrc" class="w-full h-full transition-opacity duration-300" :class="showCoverBg ? 'object-contain' : 'object-fill'" @load="imageLoaded" @error="coverFailed" :style="{ opacity: imageReady ? 1 : 0 }" />
 
       <!-- Placeholder Cover Title & Author -->
       <div v-if="!hasCover" class="absolute top-0 left-0 right-0 bottom-0 w-full h-full flex items-center justify-center" :style="{ padding: placeholderCoverPadding + 'rem' }">
@@ -115,6 +115,7 @@
 <script>
 import { Capacitor } from '@capacitor/core'
 import nhRatingsBulk from '@/mixins/nhRatingsBulk'
+import { retryImageLoad } from '@/plugins/imageRetry'
 
 export default {
   mixins: [nhRatingsBulk],
@@ -405,6 +406,10 @@ export default {
     },
   },
   methods: {
+    // A cover that failed to load (no signal) is requested again a few times
+    coverFailed(e) {
+      retryImageLoad(e.target)
+    },
     setSelectionMode(val) {
       this.isSelectionMode = val
       if (!val) this.selected = false

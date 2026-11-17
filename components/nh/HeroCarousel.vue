@@ -152,6 +152,7 @@
           style="width: 128px; height: 205px; border-radius: 14px; box-shadow: 0 14px 44px rgba(0,0,0,0.72); align-self: flex-start; margin-top: 7px"
           :alt="itemTitle(slide)"
           loading="lazy"
+          @error="coverFailed"
         />
       </div>
 
@@ -229,6 +230,7 @@
 
 <script>
 import { Dialog } from '@capacitor/dialog'
+import { retryImageLoad } from '@/plugins/imageRetry'
 
 export default {
   props: {
@@ -316,6 +318,10 @@ export default {
     this.descriptionCache = new Map()
   },
   methods: {
+    // A cover that failed to load (no signal) is requested again a few times
+    coverFailed(e) {
+      retryImageLoad(e.target)
+    },
     publishActiveCover() {
       const slide = this.slides[this.activeIndex]
       if (!slide) return

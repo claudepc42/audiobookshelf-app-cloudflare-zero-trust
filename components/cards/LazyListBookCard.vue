@@ -8,7 +8,7 @@
         </div>
 
         <div class="w-full h-full absolute top-0 left-0">
-          <img v-show="libraryItem" ref="cover" :src="bookCoverSrc" class="w-full h-full transition-opacity duration-300" :class="showCoverBg ? 'object-contain' : 'object-fill'" @load="imageLoaded" :style="{ opacity: imageReady ? 1 : 0 }" />
+          <img v-show="libraryItem" ref="cover" :src="bookCoverSrc" class="w-full h-full transition-opacity duration-300" :class="showCoverBg ? 'object-contain' : 'object-fill'" @load="imageLoaded" @error="coverFailed" :style="{ opacity: imageReady ? 1 : 0 }" />
         </div>
 
         <!-- No progress shown for collapsed series or podcasts in library -->
@@ -49,6 +49,7 @@
 
 <script>
 import { Capacitor } from '@capacitor/core'
+import { retryImageLoad } from '@/plugins/imageRetry'
 
 export default {
   props: {
@@ -244,6 +245,9 @@ export default {
     }
   },
   methods: {
+    coverFailed(e) {
+      retryImageLoad(e.target)
+    },
     setSelectionMode(val) {
       this.isSelectionMode = val
       if (!val) this.selected = false
