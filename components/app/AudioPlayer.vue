@@ -183,6 +183,10 @@ export default {
     }
   },
   watch: {
+    // Every way playback can start (play button, remote controls, programmatic play) flips isPlaying
+    isPlaying(val, oldVal) {
+      if (val && !oldVal) this.$emit('playStarted', this.currentTime)
+    },
     showFullscreen(val) {
       this.updateScreenSize()
       this.$store.commit('setPlayerFullscreen', !!val)

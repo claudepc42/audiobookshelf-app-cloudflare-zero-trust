@@ -1,10 +1,11 @@
 <template>
   <div>
-    <app-audio-player ref="audioPlayer" :bookmarks="bookmarks" :sleep-timer-running="isSleepTimerRunning" :sleep-time-remaining="sleepTimeRemaining" :serverLibraryItemId="serverLibraryItemId" @selectPlaybackSpeed="showPlaybackSpeedModal = true" @updateTime="(t) => (currentTime = t)" @showSleepTimer="showSleepTimer" @showBookmarks="showBookmarks" @showSessionHistory="showSessionHistory" />
+    <app-audio-player ref="audioPlayer" :bookmarks="bookmarks" :sleep-timer-running="isSleepTimerRunning" :sleep-time-remaining="sleepTimeRemaining" :serverLibraryItemId="serverLibraryItemId" @selectPlaybackSpeed="showPlaybackSpeedModal = true" @updateTime="(t) => (currentTime = t)" @showSleepTimer="showSleepTimer" @showBookmarks="showBookmarks" @showSessionHistory="showSessionHistory" @playStarted="onPlayStarted" />
 
     <modals-playback-speed-modal v-model="showPlaybackSpeedModal" :playback-rate.sync="playbackSpeed" @update:playbackRate="updatePlaybackSpeed" @change="changePlaybackSpeed" />
     <modals-sleep-timer-modal v-model="showSleepTimerModal" :current-time="sleepTimeRemaining" :sleep-timer-running="isSleepTimerRunning" :current-end-of-chapter-time="currentEndOfChapterTime" :is-auto="isAutoSleepTimer" @change="selectSleepTimeout" @cancel="cancelSleepTimer" @increase="increaseSleepTimer" @decrease="decreaseSleepTimer" />
     <modals-bookmarks-modal v-model="showBookmarksModal" :bookmarks="bookmarks" :current-time="currentTime" :library-item-id="serverLibraryItemId" :playback-rate="playbackSpeed" @select="selectBookmark" />
+    <modals-server-position-modal v-model="showServerPositionModal" :server-time="serverPositionPrompt.serverTime" :start-time="serverPositionPrompt.startTime" @use-server="useServerPosition" @keep-mine="keepMyPosition" />
     <modals-session-history-modal v-model="showSessionHistoryModal" :media-id="currentMediaId" @select="selectSession" />
   </div>
 </template>
@@ -17,6 +18,11 @@ import CellularPermissionHelpers from '@/mixins/cellularPermissionHelpers'
 export default {
   data() {
     return {
+      checkingServerProgressQuietly: false,
+      showServerPositionModal: false,
+      serverPositionPrompt: { serverTime: 0, startTime: 0, mediaProgress: null },
+      // Session id whose server position was already compared this time the app was in front
+      serverPositionCheckedFor: null,
       isReady: false,
       settingsLoaded: false,
       audioPlayerReady: false,
@@ -357,24 +363,82 @@ export default {
       const episodeId = this.currentPlaybackSession?.episodeId
       if (!libraryItemId) return null
 
-      if (this.$refs.audioPlayer?.isCheckingServerProgress) {
+      // Downloaded book: nothing to wait for. The check still runs quietly in the background (it never seeks
+      // while playing) but never shows the spinner or blocks the play button.
+      const isLocalPlay = this.currentPlaybackSession?.playMethod === this.$constants.PlayMethod.LOCAL
+
+      if (this.$refs.audioPlayer?.isCheckingServerProgress || this.checkingServerProgressQuietly) {
         console.log('[AudioPlayerContainer] getServerMediaProgressForCurrentSession: already checking server progress')
         return null
       }
 
       const url = episodeId ? `/api/me/progress/${libraryItemId}/${episodeId}` : `/api/me/progress/${libraryItemId}`
 
-      this.$refs.audioPlayer?.setIsCheckingServerProgress(true)
+      if (isLocalPlay) this.checkingServerProgressQuietly = true
+      else this.$refs.audioPlayer?.setIsCheckingServerProgress(true)
       try {
-        const data = await this.$nativeHttp.get(url, { connectTimeout: 7000, readTimeout: 7000 })
+        // The native timeouts only cover the request itself. The Cloudflare session check and token refresh
+        // that run before it have no cap, so in a dead zone the play button could spin for a long time.
+        // Cap the whole thing so the player is never held up for more than 7 seconds.
+        let timer = null
+        const timeout = new Promise((resolve) => {
+          timer = setTimeout(() => resolve('timeout'), 7000)
+        })
+        const data = await Promise.race([this.$nativeHttp.get(url, { connectTimeout: 7000, readTimeout: 7000 }), timeout]).finally(() => clearTimeout(timer))
+        if (data === 'timeout') {
+          console.warn('[AudioPlayerContainer] Server progress check timed out')
+          return null
+        }
         if (!data || data.libraryItemId !== libraryItemId) return null
         return data
       } catch (error) {
         console.error('[AudioPlayerContainer] Failed to get server media progress', error)
         return null
       } finally {
+        this.checkingServerProgressQuietly = false
         this.$refs.audioPlayer?.setIsCheckingServerProgress(false)
       }
+    },
+    /**
+     * A downloaded book can be played the moment the app opens, without waiting for the server. Once playback
+     * has started, quietly ask the server where this book is. If another device moved it by more than 10 seconds
+     * since this phone last updated, pause and let the user choose which position to keep.
+     * Runs once per session each time the app comes to the front.
+     */
+    async onPlayStarted(startPosition) {
+      const session = this.currentPlaybackSession
+      if (!session || session.playMethod !== this.$constants.PlayMethod.LOCAL) return
+      if (this.serverPositionCheckedFor === session.id) return
+      this.serverPositionCheckedFor = session.id
+
+      // Snapshot before playback autosaves bump the local last-update time
+      const localProgress = this.getLocalMediaProgressForCurrentSession()
+      const localLastUpdate = localProgress?.lastUpdate || 0
+
+      const serverProgress = await this.getServerMediaProgressForCurrentSession()
+      if (!serverProgress || this.currentPlaybackSession?.id !== session.id) return
+
+      const difference = (serverProgress.currentTime || 0) - startPosition
+      if (Math.abs(difference) <= 10) return
+      // A server that is simply behind (this phone has the newer listening) is not a conflict
+      if ((serverProgress.lastUpdate || 0) <= localLastUpdate) return
+
+      console.log('[AudioPlayerContainer] server position differs from start position', serverProgress.currentTime, 'vs', startPosition)
+      this.$refs.audioPlayer?.pause()
+      this.serverPositionPrompt = { serverTime: serverProgress.currentTime || 0, startTime: startPosition, mediaProgress: serverProgress }
+      this.showServerPositionModal = true
+    },
+    async useServerPosition() {
+      this.showServerPositionModal = false
+      const { serverTime, mediaProgress } = this.serverPositionPrompt
+      const localProgress = this.getLocalMediaProgressForCurrentSession()
+      this.$refs.audioPlayer?.seek(serverTime)
+      this.$refs.audioPlayer?.play()
+      if (localProgress && mediaProgress) await this.syncServerMediaProgressWithLocalMediaProgress(localProgress.id, mediaProgress)
+    },
+    keepMyPosition() {
+      this.showServerPositionModal = false
+      this.$refs.audioPlayer?.play()
     },
     getLocalMediaProgressForCurrentSession() {
       if (!this.currentPlaybackSession) return null
@@ -449,6 +513,7 @@ export default {
      * if local item is open then fetch the server media progress and update if more recent
      */
     async deviceFocused(hasFocus) {
+      if (hasFocus) this.serverPositionCheckedFor = null
       if (!this.currentPlaybackSession || !hasFocus) return
       // dont update timestamps if player is playing
       if (this.$refs.audioPlayer?.isPlaying) return
