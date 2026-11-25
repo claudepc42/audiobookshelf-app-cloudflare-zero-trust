@@ -115,7 +115,7 @@
 <script>
 import { Capacitor } from '@capacitor/core'
 import nhRatingsBulk from '@/mixins/nhRatingsBulk'
-import { retryImageLoad } from '@/plugins/imageRetry'
+import { retryImageLoad, rememberCover } from '@/plugins/imageRetry'
 
 export default {
   mixins: [nhRatingsBulk],
@@ -514,6 +514,7 @@ export default {
     },
     imageLoaded() {
       this.imageReady = true
+      rememberCover(this.$refs.cover)
 
       if (this.$refs.cover && this.bookCoverSrc !== this.placeholderUrl) {
         const { naturalWidth, naturalHeight } = this.$refs.cover

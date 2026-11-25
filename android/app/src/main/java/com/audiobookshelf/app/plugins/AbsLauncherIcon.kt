@@ -17,7 +17,8 @@ import com.getcapacitor.annotation.CapacitorPlugin
  *     foreground PNGs and a background color).
  *  2. Add an <activity-alias> for it in AndroidManifest.xml, android:enabled="false", like the others.
  *  3. Add its id and alias name to [aliases] below.
- *  4. Add the same id to LAUNCHER_ICONS in plugins/capacitor/AbsLauncherIcon.js, with its label string.
+ *  4. Add the same id to LAUNCHER_ICONS in plugins/capacitor/AbsLauncherIcon.js, with its label string,
+ *     and a 192px preview picture named <id>.png in static/launcher-icons/ (the settings page shows it).
  */
 object LauncherIcons {
   // id (what the JS side uses) to the alias's full class name. The first entry is the default: the alias

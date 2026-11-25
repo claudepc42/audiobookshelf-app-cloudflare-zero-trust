@@ -61,13 +61,16 @@ export default {
       showCoverBg: false,
       imageReady: false,
       retryCount: 0,
-      retryTimer: null
+      retryTimer: null,
+      // Object URL of the saved copy, shown when the server cover could not be loaded
+      cachedSrc: null
     }
   },
   watch: {
     cover() {
       this.imageFailed = false
       this.retryCount = 0
+      this.cachedSrc = null
     }
   },
   computed: {
@@ -127,6 +130,7 @@ export default {
     },
     // Same URL plus a retry counter, so the browser makes a new request after a failed load
     imgSrc() {
+      if (this.cachedSrc) return this.cachedSrc
       if (!this.retryCount || !this.fullCoverUrl) return this.fullCoverUrl
       return `${this.fullCoverUrl}${this.fullCoverUrl.includes('?') ? '&' : '?'}retry=${this.retryCount}`
     },
@@ -154,7 +158,7 @@ export default {
   methods: {
     setCoverBg() {
       if (this.$refs.coverBg) {
-        this.$refs.coverBg.style.backgroundImage = `url("${this.fullCoverUrl}")`
+        this.$refs.coverBg.style.backgroundImage = `url("${this.cachedSrc || this.fullCoverUrl}")`
       }
     },
     imageLoaded() {
@@ -176,10 +180,25 @@ export default {
         }
       }
 
+      // Keep a copy of the server cover so it can still be shown when a later load fails
+      if (!this.cachedSrc && !this.isLocal && !this.downloadCover) this.$coverCache?.remember(this.fullCoverUrl)
+
       this.$emit('imageLoaded', this.fullCoverUrl)
     },
-    imageError(err) {
+    async imageError(err) {
       console.error('ImgError', err)
+      // First choice for a server cover that failed: the saved copy of it, if there is one
+      if (!this.isLocal && !this.downloadCover) {
+        if (!this.cachedSrc) {
+          const saved = await this.$coverCache?.fallbackUrl(this.fullCoverUrl)
+          if (saved) {
+            this.cachedSrc = saved
+            return
+          }
+        } else {
+          this.cachedSrc = null // the saved copy itself would not load
+        }
+      }
       // Server covers can fail only because the connection dropped (dead zone), and a failed image is
       // never re-requested on its own. Retry with a growing delay before showing the failed state.
       if (!this.isLocal && !this.downloadCover && this.retryCount < MAX_RETRIES) {
@@ -194,6 +213,12 @@ export default {
     },
     // The connection came back: give a cover that ran out of retries a fresh start
     onOnline() {
+      // Showing a saved copy: go back to the live cover now that the connection is back
+      if (this.cachedSrc) {
+        this.cachedSrc = null
+        this.retryCount++
+        return
+      }
       if (!this.imageFailed) return
       this.imageFailed = false
       this.loading = true

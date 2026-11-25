@@ -41,10 +41,13 @@
       </div>
     </div>
     <!-- Home-screen icon: Android only (the launcher entry is an activity-alias, see AbsLauncherIcon.kt) -->
-    <div v-if="isAndroid" class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelAppIcon }}</p>
-      <div @click.stop="showLauncherIconOptions">
-        <ui-text-input :value="launcherIconOption" readonly append-icon="expand_more" style="max-width: 200px" />
+    <div v-if="isAndroid" class="py-3">
+      <p class="mb-2">{{ $strings.LabelAppIcon }}</p>
+      <div class="grid grid-cols-5 gap-1">
+        <button v-for="icon in launcherIconItems" :key="icon.value" type="button" class="flex flex-col items-center rounded-lg py-2 px-0.5 border-2 min-w-0" :class="launcherIcon === icon.value ? 'border-yellow-400 bg-bg-hover/50' : 'border-transparent'" :aria-pressed="launcherIcon === icon.value" @click.stop="setLauncherIcon(icon.value)">
+          <img :src="`/launcher-icons/${icon.value}.png`" :alt="icon.text" class="w-11 h-11 rounded-full" />
+          <span class="text-xs mt-1 text-center leading-tight" :class="launcherIcon === icon.value ? 'text-fg' : 'text-fg-muted'">{{ icon.text }}</span>
+        </button>
       </div>
     </div>
 
@@ -388,9 +391,6 @@ export default {
     launcherIconItems() {
       return LAUNCHER_ICONS.map((icon) => ({ text: this.$strings[icon.label], value: icon.id }))
     },
-    launcherIconOption() {
-      return this.launcherIconItems.find((i) => i.value === this.launcherIcon)?.text || ''
-    },
     nhThemeActive() {
       return this.$store.state.nhThemeActive
     },
@@ -465,7 +465,6 @@ export default {
       else if (this.moreMenuSetting === 'hapticFeedback') return this.hapticFeedbackItems
       else if (this.moreMenuSetting === 'language') return this.languageOptionItems
       else if (this.moreMenuSetting === 'theme') return this.themeOptionItems
-      else if (this.moreMenuSetting === 'launcherIcon') return this.launcherIconItems
       else if (this.moreMenuSetting === 'downloadUsingCellular') return this.downloadUsingCellularItems
       else if (this.moreMenuSetting === 'streamingUsingCellular') return this.streamingUsingCellularItems
       else if (this.moreMenuSetting === 'androidAutoBrowseSeriesSequenceOrder') return this.androidAutoBrowseSeriesSequenceOrderItems
@@ -486,7 +485,6 @@ export default {
       if (this.moreMenuSetting === 'jumpBackwards') return this.settings.jumpBackwardsTime
       if (this.moreMenuSetting === 'language') return this.settings.languageCode
       if (this.moreMenuSetting === 'theme') return this.theme
-      if (this.moreMenuSetting === 'launcherIcon') return this.launcherIcon
       if (this.moreMenuSetting === 'downloadUsingCellular') return this.settings.downloadUsingCellular
       if (this.moreMenuSetting === 'streamingUsingCellular') return this.settings.streamingUsingCellular
       if (this.moreMenuSetting === 'androidAutoBrowseSeriesSequenceOrder') return this.settings.androidAutoBrowseSeriesSequenceOrder
@@ -526,11 +524,8 @@ export default {
       this.moreMenuSetting = 'theme'
       this.showMoreMenuDialog = true
     },
-    showLauncherIconOptions() {
-      this.moreMenuSetting = 'launcherIcon'
-      this.showMoreMenuDialog = true
-    },
     async setLauncherIcon(id) {
+      if (id === this.launcherIcon) return
       const previous = this.launcherIcon
       this.launcherIcon = id
       try {
@@ -576,8 +571,6 @@ export default {
       } else if (this.moreMenuSetting === 'theme') {
         this.theme = action
         this.saveTheme(action)
-      } else if (this.moreMenuSetting === 'launcherIcon') {
-        this.setLauncherIcon(action)
       } else if (this.moreMenuSetting === 'downloadUsingCellular') {
         this.settings.downloadUsingCellular = action
         this.saveSettings()

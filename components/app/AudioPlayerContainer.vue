@@ -5,7 +5,7 @@
     <modals-playback-speed-modal v-model="showPlaybackSpeedModal" :playback-rate.sync="playbackSpeed" @update:playbackRate="updatePlaybackSpeed" @change="changePlaybackSpeed" />
     <modals-sleep-timer-modal v-model="showSleepTimerModal" :current-time="sleepTimeRemaining" :sleep-timer-running="isSleepTimerRunning" :current-end-of-chapter-time="currentEndOfChapterTime" :is-auto="isAutoSleepTimer" @change="selectSleepTimeout" @cancel="cancelSleepTimer" @increase="increaseSleepTimer" @decrease="decreaseSleepTimer" />
     <modals-bookmarks-modal v-model="showBookmarksModal" :bookmarks="bookmarks" :current-time="currentTime" :library-item-id="serverLibraryItemId" :playback-rate="playbackSpeed" @select="selectBookmark" />
-    <modals-server-position-modal v-model="showServerPositionModal" :server-time="serverPositionPrompt.serverTime" :start-time="serverPositionPrompt.startTime" @use-server="useServerPosition" @keep-mine="keepMyPosition" />
+    <modals-server-position-modal v-model="showServerPositionModal" :server-time="serverPositionPrompt.serverTime" :start-time="serverPositionPrompt.startTime" :server-updated-at="serverPositionPrompt.serverUpdatedAt" @use-server="useServerPosition" @keep-mine="keepMyPosition" />
     <modals-session-history-modal v-model="showSessionHistoryModal" :media-id="currentMediaId" @select="selectSession" />
   </div>
 </template>
@@ -20,7 +20,7 @@ export default {
     return {
       checkingServerProgressQuietly: false,
       showServerPositionModal: false,
-      serverPositionPrompt: { serverTime: 0, startTime: 0, mediaProgress: null },
+      serverPositionPrompt: { serverTime: 0, startTime: 0, serverUpdatedAt: 0, mediaProgress: null },
       // Session id whose server position was already compared this time the app was in front
       serverPositionCheckedFor: null,
       isReady: false,
@@ -424,8 +424,13 @@ export default {
       if ((serverProgress.lastUpdate || 0) <= localLastUpdate) return
 
       console.log('[AudioPlayerContainer] server position differs from start position', serverProgress.currentTime, 'vs', startPosition)
+      // Both timestamps go to the in-app logs, so an unexpected prompt can be traced to what was stale
+      AbsLogger.info({
+        tag: 'serverposition',
+        message: `Position prompt shown: phone ${Math.round(startPosition)}s, server ${Math.round(serverProgress.currentTime || 0)}s (phone is ${Math.round(startPosition - (serverProgress.currentTime || 0))}s from the server). Server progress last updated ${new Date(serverProgress.lastUpdate).toISOString()}, this phone's saved progress last updated ${localLastUpdate ? new Date(localLastUpdate).toISOString() : 'never'} (item ${session.libraryItemId})`
+      })
       this.$refs.audioPlayer?.pause()
-      this.serverPositionPrompt = { serverTime: serverProgress.currentTime || 0, startTime: startPosition, mediaProgress: serverProgress }
+      this.serverPositionPrompt = { serverTime: serverProgress.currentTime || 0, startTime: startPosition, serverUpdatedAt: serverProgress.lastUpdate || 0, mediaProgress: serverProgress }
       this.showServerPositionModal = true
     },
     async useServerPosition() {

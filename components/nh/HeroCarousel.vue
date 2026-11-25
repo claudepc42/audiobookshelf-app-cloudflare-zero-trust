@@ -153,6 +153,7 @@
           :alt="itemTitle(slide)"
           loading="lazy"
           @error="coverFailed"
+          @load="coverLoaded"
         />
       </div>
 
@@ -230,7 +231,7 @@
 
 <script>
 import { Dialog } from '@capacitor/dialog'
-import { retryImageLoad } from '@/plugins/imageRetry'
+import { retryImageLoad, rememberCover } from '@/plugins/imageRetry'
 
 export default {
   props: {
@@ -318,7 +319,11 @@ export default {
     this.descriptionCache = new Map()
   },
   methods: {
-    // A cover that failed to load (no signal) is requested again a few times
+    // Keep a saved copy of each cover that loads
+    coverLoaded(e) {
+      rememberCover(e.target)
+    },
+    // A cover that failed to load (no signal) shows its saved copy, or is requested again a few times
     coverFailed(e) {
       retryImageLoad(e.target)
     },
